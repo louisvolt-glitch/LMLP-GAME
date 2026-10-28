@@ -24893,26 +24893,38 @@ function removeOneBot() {
     }
 }
 
-        function updateLobbyUI() {
-            document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
-            document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
-            document.getElementById('player-count').innerText = state.players.length;
-	    document.getElementById('players-list').innerHTML = state.players.map(p => `
-    		<div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-        		<span class="font-semibold flex items-center gap-2.5">
-            			<i class="fa-solid ${p.avatar.icon} ${p.avatar.color} text-base"></i>${p.name}
-        		</span>
-        		<span class="text-slate-400 font-mono">
-            			${p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur')}
-        		</span>
-    		</div>
-	    `).join('');
+function updateLobbyUI() {
+    if (!state || !state.players) return;
 
-            document.getElementById('host-settings-quiz').style.display = (state.selectedMode === 'quiz') ? 'block' : 'none';
-            document.getElementById('host-settings-geo').style.display = (state.selectedMode === 'geoguessr') ? 'block' : 'none';
-            document.getElementById('host-settings-anomaly').style.display = (state.selectedMode === 'anomaly') ? 'block' : 'none';
-            document.getElementById('host-settings-petitsbac').style.display = (state.selectedMode === 'petitsbac') ? 'block' : 'none';
-        }
+    document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
+    document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
+    document.getElementById('player-count').innerText = state.players.length;
+
+    const playersListEl = document.getElementById('players-list');
+    playersListEl.innerHTML = state.players.map(p => {
+        const icon = p.avatar && p.avatar.icon ? p.avatar.icon : 'fa-user';
+        const color = p.avatar && p.avatar.color ? p.avatar.color : 'text-indigo-400';
+        const roleText = p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur');
+
+        return `
+            <div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                <span class="font-semibold flex items-center gap-2.5">
+                    <i class="fa-solid ${icon} ${color} text-base"></i> ${p.name || 'Anonyme'}
+                </span>
+                <span class="text-slate-400 font-mono">
+                    ${roleText}
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    // Gestion de l'affichage des paramètres selon le mode sélectionné
+    const mode = state.selectedMode;
+    document.getElementById('host-settings-quiz').style.display = (mode === 'quiz') ? 'block' : 'none';
+    document.getElementById('host-settings-geo').style.display = (mode === 'geoguessr') ? 'block' : 'none';
+    document.getElementById('host-settings-anomaly').style.display = (mode === 'anomaly') ? 'block' : 'none';
+    document.getElementById('host-settings-petitsbac').style.display = (mode === 'petitsbac') ? 'block' : 'none';
+}
 
 	const GAME_DESCRIPTIONS = {
     		quiz: {
