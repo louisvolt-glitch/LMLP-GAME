@@ -24897,7 +24897,7 @@ function removeOneBot() {
             document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
             document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
             document.getElementById('player-count').innerText = state.players.length;
-	    document.getElementById('players-list').innerHTML = state.players.p => `
+	    document.getElementById('players-list').innerHTML = state.players.map(p => `
     		<div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
         		<span class="font-semibold flex items-center gap-2.5">
             			<i class="fa-solid ${p.avatar.icon} ${p.avatar.color} text-base"></i>${p.name}
@@ -24906,7 +24906,7 @@ function removeOneBot() {
             			${p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur')}
         		</span>
     		</div>
-	    `.join('');
+	    `).join('');
 
             document.getElementById('host-settings-quiz').style.display = (state.selectedMode === 'quiz') ? 'block' : 'none';
             document.getElementById('host-settings-geo').style.display = (state.selectedMode === 'geoguessr') ? 'block' : 'none';
