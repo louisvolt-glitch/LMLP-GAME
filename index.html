@@ -24760,6 +24760,8 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
             return code;
         }
 
+let estHote = false;
+
 function createRoom() {
     const nameInput = document.getElementById('input-username').value.trim();
     const codeSalon = document.getElementById('input-room').value.trim().toUpperCase();
@@ -24895,12 +24897,16 @@ function removeOneBot() {
             document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
             document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
             document.getElementById('player-count').innerText = state.players.length;
-            document.getElementById('players-list').innerHTML = state.players.map(p => `
-                <div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                    <span class="font-semibold flex items-center gap-2.5"><i class="fa-solid ${p.avatar.icon} ${p.avatar.color} text-base"></i>${p.name}</span>
-                    <span class="text-slate-400 font-mono">${p.isBot ? 'IA' : 'Hôte'}</span>
-                </div>
-            `).join('');
+	    document.getElementById('players-list').innerHTML = state.players.p => `
+    		<div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+        		<span class="font-semibold flex items-center gap-2.5">
+            			<i class="fa-solid ${p.avatar.icon} ${p.avatar.color} text-base"></i>${p.name}
+        		</span>
+        		<span class="text-slate-400 font-mono">
+            			${p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur')}
+        		</span>
+    		</div>
+	    `.join('');
 
             document.getElementById('host-settings-quiz').style.display = (state.selectedMode === 'quiz') ? 'block' : 'none';
             document.getElementById('host-settings-geo').style.display = (state.selectedMode === 'geoguessr') ? 'block' : 'none';
