@@ -24763,38 +24763,32 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
 let estHote = false;
 
 function createRoom() {
-    const nameInput = document.getElementById('input-username').value.trim();
-    const codeSalon = document.getElementById('input-room').value.trim().toUpperCase();
+    const username = document.getElementById('input-username').value.trim();
+    const roomCode = document.getElementById('input-room').value.trim().toUpperCase();
 
-    if (!nameInput) {
-        alert("Veuillez entrer un pseudo !");
-        return;
-    }
-    if (!codeSalon) {
-        alert("Veuillez entrer un code de salon !");
+    if (!username || !roomCode) {
+        alert("Veuillez entrer un pseudo et un code de salon.");
         return;
     }
 
-    if (nameInput) state.username = nameInput;
-    updatePlayerProfile();
+    // Définir explicitement que cet utilisateur est l'hôte
+    const hostData = {
+        host: username,
+        players: {
+            [username]: { avatar: selectedAvatar, score: 0 }
+        },
+        settings: { ... } // vos paramètres par défaut
+    };
+
+    window.creerSalonFirebase(roomCode, hostData);
     
-    state.roomCode = codeSalon;
-    // Vos joueurs initiaux (l'hôte + les bots)
-    state.players = [{ id: 'p1', name: state.username, avatar: state.avatar, isBot: false, score: 0, maxStage: 0 }];
-    addOneBot(); 
-    addOneBot();
-
-    // 🚀 ENVOI SUR FIREBASE DE L'ÉTAT INITIAL DU SALON
-    if (window.creerSalonFirebase) {
-        window.creerSalonFirebase(codeSalon, {
-            players: state.players,
-            gameMode: 'quiz',
-            host: state.username
-        });
-    }
-
+    // Activer l'interface Hôte sur votre écran
+    isHost = true;
+    currentUsername = username;
+    currentRoom = roomCode;
+    
     showScreen('screen-lobby');
-    selectGameMode('quiz');
+    ecouterSalonFirebase(roomCode);
 }
 
 function joinRoom() {
@@ -24896,12 +24890,21 @@ function removeOneBot() {
 function updateLobbyUI() {
     if (!state || !state.players) return;
 
+    // Mettre à jour les informations du salon
     document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
     document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
-    document.getElementById('player-count').innerText = state.players.length;
+    
+    // Gérer state.players qu'il soit un tableau ou un objet
+    const playersArray = Array.isArray(state.players) 
+        ? state.players 
+        : Object.values(state.players);
+
+    document.getElementById('player-count').innerText = playersArray.length;
 
     const playersListEl = document.getElementById('players-list');
-    playersListEl.innerHTML = state.players.map(p => {
+    
+    // Générer proprement le HTML pour chaque joueur avec .map().join('')
+    playersListEl.innerHTML = playersArray.map(p => {
         const icon = p.avatar && p.avatar.icon ? p.avatar.icon : 'fa-user';
         const color = p.avatar && p.avatar.color ? p.avatar.color : 'text-indigo-400';
         const roleText = p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur');
@@ -24920,10 +24923,15 @@ function updateLobbyUI() {
 
     // Gestion de l'affichage des paramètres selon le mode sélectionné
     const mode = state.selectedMode;
-    document.getElementById('host-settings-quiz').style.display = (mode === 'quiz') ? 'block' : 'none';
-    document.getElementById('host-settings-geo').style.display = (mode === 'geoguessr') ? 'block' : 'none';
-    document.getElementById('host-settings-anomaly').style.display = (mode === 'anomaly') ? 'block' : 'none';
-    document.getElementById('host-settings-petitsbac').style.display = (mode === 'petitsbac') ? 'block' : 'none';
+    const setDisplay = (id, show) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? 'block' : 'none';
+    };
+
+    setDisplay('host-settings-quiz', mode === 'quiz');
+    setDisplay('host-settings-geo', mode === 'geoguessr');
+    setDisplay('host-settings-anomaly', mode === 'anomaly');
+    setDisplay('host-settings-petitsbac', mode === 'petitsbac');
 }
 
 	const GAME_DESCRIPTIONS = {
