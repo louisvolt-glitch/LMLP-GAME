@@ -24812,37 +24812,7 @@ function joinRoom() {
     updatePlayerProfile();
     state.roomCode = roomInput;
 
-    // 🚀 UTILISATION DE LA FONCTION GLOBALE SÉCURISÉE
-    if (window.rejoindreSalonFirebaseGet) {
-        window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
-            let players = dataSalon.players || [];
-            
-            // Éviter les doublons si on rejoint plusieurs fois
-            if (!players.some(p => p.name === state.username)) {
-                players.push({
-                    id: 'p-' + Date.now(),
-                    name: state.username,
-                    avatar: state.avatar,
-                    isBot: false,
-                    score: 0,
-                    maxStage: 0
-                });
-                
-                // Mettre à jour Firebase avec la nouvelle liste de joueurs
-                if (window.mettreAJourSalonFirebase) {
-                    window.mettreAJourSalonFirebase(roomInput, { players: players });
-                }
-            }
-            
-            showScreen('screen-lobby');
-            selectGameMode('quiz');
-
-        }, () => {
-            alert("Ce salon n'existe pas !");
-        });
-    }
-
-    // 🚀 ÉCOUTE EN TEMPS RÉEL DES CHANGEMENTS DU SALON
+    // 🚀 1. ACTIVER L'ÉCOUTE EN TEMPS RÉEL EN PREMIER
     if (window.rejoindreSalonFirebase) {
         window.rejoindreSalonFirebase(roomInput, (dataSalon) => {
             if (dataSalon && dataSalon.players) {
@@ -24853,6 +24823,37 @@ function joinRoom() {
                     updateLobbyUI();
                 }
             }
+        });
+    }
+
+    // 🚀 2. RÉCUPÉRER LE SALON, AJOUTER LE JOUEUR (NON-HÔTE) ET METTRE À JOUR FIREBASE
+    if (window.rejoindreSalonFirebaseGet) {
+        window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
+            let players = dataSalon.players || [];
+            
+            // Éviter les doublons si on clique plusieurs fois
+            if (!players.some(p => p.name === state.username)) {
+                players.push({
+                    id: 'p-' + Date.now(),
+                    name: state.username,
+                    avatar: state.avatar,
+                    isBot: false,
+                    isHost: false, // <-- S'assure qu'il n'est PAS l'hôte
+                    score: 0,
+                    maxStage: 0
+                });
+                
+                // Mettre à jour Firebase avec la liste actualisée
+                if (window.mettreAJourSalonFirebase) {
+                    window.mettreAJourSalonFirebase(roomInput, { players: players });
+                }
+            }
+            
+            showScreen('screen-lobby');
+            selectGameMode('quiz');
+
+        }, () => {
+            alert("Ce salon n'existe pas !");
         });
     }
 }
