@@ -121,6 +121,19 @@
     });
   };
 
+window.rejoindreSalonFirebaseGet = function(codeSalon, callbackSucces, callbackErreur) {
+    const salonRef = ref(db, 'salons/' + codeSalon);
+    get(salonRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        callbackSucces(snapshot.val());
+      } else {
+        if (callbackErreur) callbackErreur();
+      }
+    }).catch((error) => {
+      console.error("Erreur de récupération :", error);
+    });
+  };
+
 window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     update(ref(db, 'salons/' + codeSalon), donnees)
       .then(() => console.log("Salon mis à jour sur Firebase !"))
@@ -24799,11 +24812,9 @@ function joinRoom() {
     updatePlayerProfile();
     state.roomCode = roomInput;
 
-    // 🚀 RÉCUPÉRATION ET AJOUT DU JOUEUR SUR FIREBASE
-    const salonRef = ref(db, 'salons/' + roomInput);
-    get(salonRef).then((snapshot) => {
-        const dataSalon = snapshot.val();
-        if (dataSalon) {
+    // 🚀 UTILISATION DE LA FONCTION GLOBALE SÉCURISÉE
+    if (window.rejoindreSalonFirebaseGet) {
+        window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
             let players = dataSalon.players || [];
             
             // Éviter les doublons si on rejoint plusieurs fois
@@ -24822,11 +24833,14 @@ function joinRoom() {
                     window.mettreAJourSalonFirebase(roomInput, { players: players });
                 }
             }
-        } else {
+            
+            showScreen('screen-lobby');
+            selectGameMode('quiz');
+
+        }, () => {
             alert("Ce salon n'existe pas !");
-            return;
-        }
-    });
+        });
+    }
 
     // 🚀 ÉCOUTE EN TEMPS RÉEL DES CHANGEMENTS DU SALON
     if (window.rejoindreSalonFirebase) {
@@ -24835,13 +24849,12 @@ function joinRoom() {
                 state.players = dataSalon.players;
                 if (typeof updatePlayersList === 'function') {
                     updatePlayersList();
+                } else if (typeof updateLobbyUI === 'function') {
+                    updateLobbyUI();
                 }
             }
         });
     }
-
-    showScreen('screen-lobby');
-    selectGameMode('quiz');
 }
 
 function addOneBot() {
