@@ -120,6 +120,13 @@
       }
     });
   };
+
+window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
+    update(ref(db, 'salons/' + codeSalon), donnees)
+      .then(() => console.log("Salon mis à jour sur Firebase !"))
+      .catch((error) => console.error("Erreur de mise à jour :", error));
+  };
+
 </script>
 
 </head>
@@ -24792,14 +24799,40 @@ function joinRoom() {
     updatePlayerProfile();
     state.roomCode = roomInput;
 
-    // 🚀 ÉCOUTE ET MISE À JOUR DEPUIS FIREBASE
+    // 🚀 RÉCUPÉRATION ET AJOUT DU JOUEUR SUR FIREBASE
+    const salonRef = ref(db, 'salons/' + roomInput);
+    get(salonRef).then((snapshot) => {
+        const dataSalon = snapshot.val();
+        if (dataSalon) {
+            let players = dataSalon.players || [];
+            
+            // Éviter les doublons si on rejoint plusieurs fois
+            if (!players.some(p => p.name === state.username)) {
+                players.push({
+                    id: 'p-' + Date.now(),
+                    name: state.username,
+                    avatar: state.avatar,
+                    isBot: false,
+                    score: 0,
+                    maxStage: 0
+                });
+                
+                // Mettre à jour Firebase avec la nouvelle liste de joueurs
+                if (window.mettreAJourSalonFirebase) {
+                    window.mettreAJourSalonFirebase(roomInput, { players: players });
+                }
+            }
+        } else {
+            alert("Ce salon n'existe pas !");
+            return;
+        }
+    });
+
+    // 🚀 ÉCOUTE EN TEMPS RÉEL DES CHANGEMENTS DU SALON
     if (window.rejoindreSalonFirebase) {
         window.rejoindreSalonFirebase(roomInput, (dataSalon) => {
             if (dataSalon && dataSalon.players) {
-                // Synchroniser la liste des joueurs avec le cloud
                 state.players = dataSalon.players;
-                
-                // Mettre à jour l'affichage de la liste des joueurs dans le lobby si la fonction existe
                 if (typeof updatePlayersList === 'function') {
                     updatePlayersList();
                 }
@@ -24811,17 +24844,38 @@ function joinRoom() {
     selectGameMode('quiz');
 }
 
-        function addOneBot() {
-            if (state.players.length >= 8) return;
-            const bName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + state.players.length;
-            state.players.push({ id: `bot-${Date.now()}`, name: bName, avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)], isBot: true, score: 0, maxStage: 0 });
-            updateLobbyUI();
-        }
+function addOneBot() {
+    if (state.players.length >= 8) return;
+    const bName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + state.players.length;
+    state.players.push({ 
+        id: `bot-${Date.now()}`, 
+        name: bName, 
+        avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)], 
+        isBot: true, 
+        score: 0, 
+        maxStage: 0 
+    });
+    
+    updateLobbyUI();
 
-        function removeOneBot() {
-            const idx = state.players.findLastIndex(p => p.isBot);
-            if (idx !== -1) { state.players.splice(idx, 1); updateLobbyUI(); }
+    // 🚀 Synchroniser la liste mise à jour sur Firebase
+    if (window.mettreAJourSalonFirebase && state.roomCode) {
+        window.mettreAJourSalonFirebase(state.roomCode, { players: state.players });
+    }
+}
+
+function removeOneBot() {
+    const idx = state.players.findLastIndex(p => p.isBot);
+    if (idx !== -1) { 
+        state.players.splice(idx, 1); 
+        updateLobbyUI(); 
+
+        // 🚀 Synchroniser la liste mise à jour sur Firebase
+        if (window.mettreAJourSalonFirebase && state.roomCode) {
+            window.mettreAJourSalonFirebase(state.roomCode, { players: state.players });
         }
+    }
+}
 
         function updateLobbyUI() {
             document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
