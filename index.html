@@ -164,6 +164,36 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         const data = snapshot.val();
         if (data) {
 
+	    window.currentRoom = data;
+            window.currentCodeSalon = codeSalon;
+
+	    // --- 1. SYNCHRONISATION DU STATE GLOBAL DU JEU ---
+            if (typeof window.state === 'undefined') window.state = {};
+            if (!window.state.quizGame) window.state.quizGame = {};
+            if (!window.state.quizSettings) window.state.quizSettings = {};
+
+            // Synchroniser les paramètres envoyés par l'hôte dans Firebase
+            if (data.settings) {
+    		window.state.quizSettings.timer = data.settings.timer || 20;
+    		window.state.quizSettings.questionsCount = data.settings.questionsCount || 10;
+    
+    		// Modification ici :
+    		if (data.categoriesSequence) {
+        		window.state.quizGame.categoriesSequence = data.categoriesSequence;
+    		} else if (data.settings.categories) {
+        		window.state.quizGame.categoriesSequence = data.settings.categories;
+    		}
+    		window.state.quizGame.totalQuestions = data.settings.questionsCount || 10;
+	    }
+
+            if (data.difficulty) {
+                window.state.quizGame.pendingDifficulty = data.difficulty;
+            }
+
+            if (data.currentQuestionObj) {
+                window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
+            }
+
 	    const nonHostFolder = document.getElementById('non-host-mission-folder');
             const hostContainer = document.getElementById('host-settings-container');
             
@@ -176,28 +206,61 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             }
 
             if (!window.isHost) {
-                if (data.selectedMode) {
-                    document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
-                }
-                if (data.settings && data.settings.timer) {
-                    const timerVal = data.settings.timer;
-                    document.getElementById('non-host-timer-display').innerText = timerVal + "s / secteur";
-                    const badge = document.getElementById('non-host-timer-badge');
-                    if (badge) badge.innerText = timerVal + "s";
-                }
-                if (data.settings && data.settings.categoriesText) {
-                    const modDisp = document.getElementById('non-host-modules-display');
-                    if (modDisp) modDisp.innerText = data.settings.categoriesText;
-                }
-                if (data.gameStarted) {
-                    // Lancer la partie automatiquement si l'hôte a lancé
-                    showScreen('screen-quiz');
+    if (data.selectedMode) {
+        document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
+    }
+    if (data.settings) {
+        const timerVal = data.settings.timer || 20;
+        const nbQ = data.settings.questionsCount || 10;
+        const cats = data.settings.categories || [];
+
+        // Temps & Nombre de questions
+        document.getElementById('non-host-timer-display').innerText = `${timerVal}s / question (${nbQ} questions)`;
+        const badge = document.getElementById('non-host-timer-badge');
+        if (badge) badge.innerText = timerVal + "s";
+
+        // Affichage du nombre de catégories sélectionnées
+        const modDisp = document.getElementById('non-host-modules-display');
+        if (modDisp) {
+            modDisp.innerText = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length)
+                ? "Toutes les catégories" 
+                : `${cats.length} catégorie(s) sélectionnée(s)`;
+        }
+    }
+}
+
+if (data.status === 'IN_GAME') {
+                const lobbyScreen = document.getElementById('screen-lobby');
+                if (lobbyScreen) lobbyScreen.classList.add('hidden');
+
+                const selectedMode = data.selectedMode || 'quiz';
+
+                if (selectedMode === 'quiz') {
+                    const diffScreen = document.getElementById('screen-quiz-difficulty');
+                    if (diffScreen) diffScreen.classList.remove('hidden');
+                } else if (selectedMode === 'impostor') {
+    			const imposScreen = document.getElementById('screen-impostor');
+    			if (imposScreen) imposScreen.classList.remove('hidden');
+
+    			// Appel de la fonction de rendu à chaque mise à jour Firebase
+    			if (typeof renderImpostorScreen === 'function') {
+        			renderImpostorScreen(data);
+    			}
+		} else if (selectedMode === 'geoguessr') {
+                    const geoScreen = document.getElementById('screen-game-geoguessr');
+                    if (geoScreen) geoScreen.classList.remove('hidden');
+                } else if (selectedMode === 'anomaly') {
+                    const anoScreen = document.getElementById('screen-generic-game');
+                    if (anoScreen) anoScreen.classList.remove('hidden');
+                } else if (selectedMode === 'petitsbac') {
+                    const bacScreen = document.getElementById('screen-petitsbac');
+                    if (bacScreen) bacScreen.classList.remove('hidden');
                 }
             }
 
 	    // === AJOUT DE LA GESTION DU CHAT ICI ===
-            if (data.chatMessages) {
-                const box = document.getElementById('chat-messages-box');
+if (data.chatMessages) {
+    const box = document.getElementById('chat-messages');
                 if (box) {
                     const msgs = data.chatMessages;
                     const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
@@ -217,13 +280,19 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		// 1. Liste des bots à exclure (basée sur votre constante)
                 const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
 
-                const playersList = Object.values(data.players).filter(p => 
-        	p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo)
+                // Conversion sécurisée Objet -> Tableau
+    		const playersArray = Array.isArray(data.players) ? data.players : Object.values(data.players);
+    
+    		const playersList = playersArray.filter(p => 
+        		p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo)
     		);
                 
                 // 1. Correction du compteur d'opérateurs
                 const countEl = document.getElementById('player-count');
                 if (countEl) countEl.innerText = playersList.length;
+
+		window.state.players = data.players; // Mettre à jour le state global
+		updateLobbyUI();
 
                 // 2. Génération dynamique de la grille
                 const grid = document.getElementById('operators-grid');
@@ -241,14 +310,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         const statusText = isReady ? 'PRÊT AU COMBAT' : 'EN ATTENTE DE BRIEFING';
                         const dotColor = isReady ? 'bg-command-green glow-green' : 'bg-yellow-500';
                         
-                        const init = p.name ? p.name.substring(0, 2).toUpperCase() : '??';
+const avatarIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
+const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
 
-                        grid.innerHTML += `
-                            <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 rounded ${avatarBg} border flex items-center justify-center font-mono font-bold">
-                                        ${init}
-                                    </div>
+grid.innerHTML += `
+    <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded ${avatarBg} border flex items-center justify-center font-mono font-bold ${avatarColor}">
+                <i class="fa-solid ${avatarIcon}"></i>
+            </div>
                                     <div>
                                         <div class="font-bold text-sm text-gray-100">${p.name} ${isHostBadge}</div>
                                         <div class="text-xs font-mono ${statusColor}">${statusText}</div>
@@ -321,8 +391,8 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         <!-- Code de Session -->
         <div class="flex items-center gap-2 bg-command-dark px-3 py-1.5 rounded border border-command-border">
             <span class="text-xs text-gray-400 font-mono uppercase">Session:</span>
-            <span id="session-code" class="font-mono text-command-cyan text-glow-cyan font-bold tracking-wider cursor-pointer" title="Cliquer pour copier" onclick="navigator.clipboard.writeText(document.getElementById('session-code-top').innerText)"></span>
-            <svg class="w-4 h-4 text-command-cyan cursor-pointer hover:opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" onclick="navigator.clipboard.writeText(document.getElementById('session-code-top').innerText)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+<span id="session-code" class="font-mono text-command-cyan text-glow-cyan font-bold tracking-wider cursor-pointer" title="Cliquer pour copier" onclick="navigator.clipboard.writeText(document.getElementById('session-code').innerText)"></span>
+<svg class="w-4 h-4 text-command-cyan cursor-pointer hover:opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" onclick="navigator.clipboard.writeText(document.getElementById('session-code').innerText)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
         </div>
 </header>
 
@@ -364,56 +434,182 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     <!-- Corps Principal -->
     <main id="screen-lobby" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- 2. Panneau Central : Le Dossier de Mission (Paramètres en Lecture Seule) -->
-        <section class="lg:col-span-1 bg-command-card/90 border border-command-border rounded-xl p-5 flex flex-col justify-between shadow-xl backdrop-blur-sm">
-            <div>
-                <div class="flex items-center justify-between border-b border-command-border pb-3 mb-5">
-                    <h2 class="text-lg font-bold tracking-wider text-command-cyan flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        DOSSIER DE MISSION
-                    </h2>
-                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-command-dark text-command-cyan border border-command-cyan/30">VERROUILLÉ</span>
+        <!-- 2. Panneau Central : Le Dossier de Mission -->
+<section class="lg:col-span-1 bg-command-card/90 border border-command-border rounded-xl p-5 flex flex-col justify-between shadow-xl backdrop-blur-sm">
+    
+    <!-- VUE NON-HÔTE (INVITÉ : LECTURE SEULE) -->
+    <div id="non-host-mission-folder" class="hidden flex flex-col justify-between h-full">
+        <div>
+            <div class="flex items-center justify-between border-b border-command-border pb-3 mb-5">
+                <h2 class="text-lg font-bold tracking-wider text-command-cyan flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    DOSSIER DE MISSION
+                </h2>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-command-dark text-command-cyan border border-command-cyan/30">VERROUILLÉ</span>
+            </div>
+
+            <div class="space-y-5">
+                <!-- Mode de jeu -->
+                <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border">
+                    <div class="text-xs text-gray-400 uppercase font-mono mb-1 flex items-center gap-1.5">
+                        <span>🎯</span> Paramètre Cible (Mode)
+                    </div>
+                    <div id="non-host-target-mode" class="text-base font-bold text-gray-100 tracking-wide">Quiz Culture G</div>
                 </div>
 
-                <div class="space-y-5">
-                    <!-- Paramètre Cible -->
-                    <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border">
+                <!-- Timer -->
+                <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border flex items-center justify-between">
+                    <div>
                         <div class="text-xs text-gray-400 uppercase font-mono mb-1 flex items-center gap-1.5">
-                            <span>🎯</span> Paramètre Cible (Mode)
+                            <span>⏱️</span> Filtre Temporel
                         </div>
-                        <div class="text-base font-bold text-gray-100 tracking-wide">Mode Survie - Trivia Rapide</div>
+                        <div id="non-host-timer-display" class="text-base font-bold text-gray-100 tracking-wide">20s / secteur</div>
                     </div>
-
-                    <!-- Filtre Temporel -->
-                    <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border flex items-center justify-between">
-                        <div>
-                            <div class="text-xs text-gray-400 uppercase font-mono mb-1 flex items-center gap-1.5">
-                                <span>⏱️</span> Filtre Temporel
-                            </div>
-                            <div class="text-base font-bold text-gray-100 tracking-wide">15 sec / secteur</div>
-                        </div>
-                        <div class="w-10 h-10 rounded-full border-2 border-command-cyan flex items-center justify-center font-mono text-xs text-command-cyan glow-cyan animate-pulse-slow">
-                            15s
-                        </div>
+                    <div id="non-host-timer-badge" class="w-10 h-10 rounded-full border-2 border-command-cyan flex items-center justify-center font-mono text-xs text-command-cyan glow-cyan animate-pulse-slow">
+                        20s
                     </div>
+                </div>
 
-                    <!-- Ravitaillement -->
-                    <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border">
-                        <div class="text-xs text-gray-400 uppercase font-mono mb-2 flex items-center gap-1.5">
-                            <span>📦</span> Ravitaillement (Modules)
-                        </div>
-                        <div class="text-sm font-mono text-command-cyan mb-1.5">[████████--] 80%</div>
-                        <div class="text-xs text-gray-300 font-sans bg-command-card px-2.5 py-1 rounded border border-command-border inline-block">
-                            Culture Générale & Tech
-                        </div>
+                <!-- Modules / Catégories -->
+                <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border">
+                    <div class="text-xs text-gray-400 uppercase font-mono mb-2 flex items-center gap-1.5">
+                        <span>📦</span> Ravitaillement (Modules)
+                    </div>
+                    <div id="non-host-modules-display" class="text-xs text-gray-300 font-sans bg-command-card px-2.5 py-1 rounded border border-command-border inline-block">
+                        Culture Générale & Tech
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="mt-6 pt-4 border-t border-command-border text-center">
-                <span class="text-xs text-gray-400 font-mono">PARAMÈTRAGE GÉRÉ PAR L'HÔTE DU QG</span>
+        <div class="mt-6 pt-4 border-t border-command-border text-center">
+            <span class="text-xs text-gray-400 font-mono">PARAMÈTRAGE GÉRÉ PAR L'HÔTE DU QG</span>
+        </div>
+    </div>
+
+<!-- VUE HÔTE (CONFIGURATION INTERACTIVE) -->
+    <div id="host-settings-container" class="flex flex-col justify-between h-full space-y-4">
+        <div>
+            <div class="flex items-center justify-between border-b border-command-border pb-3 mb-5">
+                <h2 class="text-lg font-bold tracking-wider text-command-cyan flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    CONFIGURATION HÔTE
+                </h2>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-command-green/20 text-command-green border border-command-green/40">SESSIONS EN DIRECT</span>
             </div>
-        </section>
+
+            <div class="space-y-4">
+                <!-- Choix du Mode -->
+                <div class="bg-command-dark p-3 rounded-lg border border-command-border">
+                    <label class="block text-xs font-mono text-gray-400 uppercase mb-1">🎯 Sélectionner le Mode</label>
+                    <select id="select-game-mode" onchange="selectGameMode(this.value)" class="w-full bg-command-card border border-command-border text-gray-100 font-mono text-sm rounded p-2 focus:outline-none focus:border-command-cyan">
+                        <option value="quiz">Quiz Culture G</option>
+                        <option value="impostor">Jeu de l'Imposteur</option>
+                        <option value="geoguessr">GeoGuessr</option>
+                        <option value="anomaly">Anomalies 3D</option>
+                        <option value="petitsbac">Petit Bac</option>
+                    </select>
+                </div>
+
+                <!-- Réglage du Chrono -->
+                <div class="bg-command-dark p-3 rounded-lg border border-command-border">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-mono text-gray-400 uppercase">⏱️ Temps par manche (sec)</label>
+                        <span id="host-timer-val" class="font-mono text-command-cyan text-sm">20s</span>
+                    </div>
+                    <input type="range" id="input-host-timer" min="5" max="60" step="5" value="20" oninput="document.getElementById('host-timer-val').innerText = this.value + 's'; updateHostSettings();" class="w-full accent-command-cyan cursor-pointer">
+                </div>
+
+                <!-- Options spécifiques du Quiz -->
+                <div id="host-settings-quiz" class="bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+                    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options du Quiz</div>
+                    
+                    <!-- Nombre de questions -->
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">❓ Nombre de questions</label>
+                        <input type="number" id="input-quiz-questions-count" min="3" max="30" value="10" 
+                               onchange="updateHostSettings()" 
+                               class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+
+                    <!-- Choix des Catégories -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-mono text-gray-400 uppercase">📚 Catégories actives</label>
+                            <button type="button" onclick="toggleAllQuizCategories(); updateHostSettings();" class="text-[10px] text-command-cyan underline hover:opacity-80">
+                                Tout (dé)sélectionner
+                            </button>
+                        </div>
+                        <div id="quiz-categories-checklist" class="max-h-36 overflow-y-auto bg-command-card p-2 rounded border border-command-border space-y-1 text-xs text-gray-300 font-mono">
+                            <!-- Rempli dynamiquement en JS -->
+                        </div>
+                    </div>
+                </div>
+
+<!-- Options spécifiques GeoGuessr -->
+                <div id="host-settings-geo" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+                    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options GeoGuessr</div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">🔄 Nombre de manches</label>
+                        <input type="number" id="setting-rounds" min="1" max="10" value="5" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps par manche (sec)</label>
+                        <input type="number" id="setting-timer" min="10" max="120" value="45" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                </div>
+
+                <!-- Options spécifiques Anomalies 3D -->
+                <div id="host-settings-anomaly" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+                    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Anomalies 3D</div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">👁️ Nombre d'anomalies cibles</label>
+                        <input type="number" id="setting-anomaly-stages" min="1" max="20" value="8" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps maximum (sec)</label>
+                        <input type="number" id="setting-anomaly-timer" min="60" max="600" value="300" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                </div>
+
+                <!-- Options spécifiques Petit Bac -->
+                <div id="host-settings-petitsbac" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+                    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Petit Bac</div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">📝 Nombre de catégories</label>
+                        <input type="number" id="setting-petitsbac-categories" min="3" max="10" value="5" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">🔄 Nombre de manches</label>
+                        <input type="number" id="setting-petitsbac-rounds" min="1" max="10" value="3" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps par manche (sec)</label>
+                        <input type="number" id="setting-petitsbac-timer" min="30" max="120" value="60" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+                    </div>
+                </div>
+
+                <!-- Options spécifiques Imposteur -->
+		<div id="host-settings-impostor" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+    			<div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Imposteur</div>
+    			<div>
+        			<label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps pour écrire son mot (sec)</label>
+        			<input type="number" id="setting-impostor-timer" min="10" max="60" value="20" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    			</div>
+    			<div>
+        			<label class="block text-xs font-mono text-gray-400 uppercase mb-1">🔄 Nombre de tours d'écriture</label>
+        			<input type="number" id="setting-impostor-rounds" min="1" max="5" value="2" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    			</div>
+		</div>
+
+        <div class="pt-4 border-t border-command-border text-center">
+            <button onclick="launchGame()" class="w-full bg-command-cyan text-command-dark font-bold py-2.5 rounded-lg font-mono text-sm hover:bg-opacity-90 transition glow-cyan">
+                LANCER LA MISSION
+            </button>
+        </div>
+    </div>
+
+</section>
 
         <!-- 3. Section des Opérateurs (Salle d'Attente) & 4. Console de Communication -->
         <div class="lg:col-span-2 flex flex-col gap-6">
@@ -476,11 +672,6 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
         </div>
     </main>
-
-    <!-- Pied de page -->
-    <footer class="w-full max-w-7xl mx-auto text-center text-xs text-gray-500 font-mono">
-        SYSTÈME DE COMMANDEMENT v4.2.0 — PROTOCOLE SÉCURISÉ ACTIF
-    </footer>
 
         <!-- ECRAN CHOIX DIFFICULTE QUIZ -->
         <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
@@ -710,6 +901,11 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     </div>
 </main>
 
+    <!-- Pied de page -->
+    <footer class="w-full max-w-7xl mx-auto text-center text-xs text-gray-500 font-mono">
+        SYSTÈME DE COMMANDEMENT v4.2.0 — PROTOCOLE SÉCURISÉ ACTIF
+    </footer>
+
     </div>
 
     <!-- SCRIPT COMPLET COMBINÉ -->
@@ -720,6 +916,9 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
 	let bacCurrentVoteIndex = 0;   // Optionnel selon votre implémentation
 	let currentRoundVotes = {};     // { "joueur_mot": { yes: 2, no: 1 } }
+
+// Générer la liste au chargement de la page
+document.addEventListener('DOMContentLoaded', initQuizCategoriesChecklist);
 
     	function toggleAllQuizCategories() {
         	const container = document.getElementById('quiz-categories-checklist');
@@ -928,6 +1127,19 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             { key: 'languages', name: '🗣️ Langues & Linguistique' },
             { key: 'pets', name: '🐾 Animaux de Compagnie' }
         ];
+
+	
+function initQuizCategoriesChecklist() {
+    const container = document.getElementById('quiz-categories-checklist');
+    if (!container || typeof categoriesMeta === 'undefined') return;
+    
+    container.innerHTML = categoriesMeta.map(cat => `
+        <label class="flex items-center gap-2 cursor-pointer hover:text-white select-none">
+            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onchange="updateHostSettings()">
+            <span>${cat.name}</span>
+        </label>
+    `).join('');
+}
 
         // Générateur intelligent de 100 questions par difficulté sans numéro dans l'énoncé et avec de vraies options variées         
             const pools = {
@@ -24846,7 +25058,7 @@ function sendChatMessage() {
 function listenToChat(codeSalon) {
     onValue(ref(db, `salons/${codeSalon}/chatMessages`), (snapshot) => {
         const msgs = snapshot.val();
-        const box = document.getElementById('chat-messages-box');
+        const box = document.getElementById('chat-messages');
         if (!box || !msgs) return;
         const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
         box.innerHTML = arr.map(m => `<div><span class="text-slate-500">[${m.time}]</span> <strong class="text-indigo-400">${m.sender}:</strong> ${m.text}</div>`).join('');
@@ -24916,11 +25128,29 @@ function onHostChangeTimer(newTimer) {
     });
 }
 
-// Mise à jour générale des réglages hôte
 function updateHostSettings() {
-    if (!window.isHost || !window.mettreAJourSalonFirebase) return;
-    // Récupération des catégories cochées si nécessaire
+    if (!window.isHost || !window.mettreAJourSalonFirebase || !state.roomCode) return;
+
+    const selectedMode = document.getElementById('select-game-mode')?.value || 'quiz';
+    const timerVal = document.getElementById('input-host-timer').value;
+    const questionsCount = document.getElementById('input-quiz-questions-count').value;
+    
+    // Nouveaux paramètres Imposteur
+    const impostorTimer = document.getElementById('setting-impostor-timer')?.value || 20;
+    const impostorRounds = document.getElementById('setting-impostor-rounds')?.value || 2;
+
+    const checkedCategories = Array.from(document.querySelectorAll('.quiz-cat-checkbox:checked'))
+                                  .map(cb => cb.value);
+
     window.mettreAJourSalonFirebase(state.roomCode, {
+        selectedMode: selectedMode,
+        settings: {
+            timer: timerVal,
+            questionsCount: questionsCount,
+            categories: checkedCategories,
+            impostorTimer: parseInt(impostorTimer, 10),
+            impostorRounds: parseInt(impostorRounds, 10)
+        },
         updatedAt: Date.now()
     });
 }
@@ -24975,6 +25205,8 @@ function createRoom() {
     const username = document.getElementById('input-username').value.trim();
     const roomCode = document.getElementById('input-room').value.trim().toUpperCase();
 
+    window.myPlayerKey = username;
+
     if (!username || !roomCode) {
         alert("Veuillez entrer un pseudo et un code de salon.");
         return;
@@ -24982,46 +25214,60 @@ function createRoom() {
 
     window.isHost = true;
 
-    state = {
+// Récupérer les valeurs dynamiques du formulaire hôte
+    const timerVal = parseInt(document.getElementById('input-host-timer')?.value || 20);
+    const questionsCount = parseInt(document.getElementById('input-quiz-questions-count')?.value || 10);
+
+    const checkedCategories = Array.from(document.querySelectorAll('.quiz-cat-checkbox:checked'))
+        .map(cb => cb.value);
+
+state = {
         username: username,
         roomCode: roomCode,
         selectedMode: 'quiz',
+        quizGame: {
+            categoriesSequence: checkedCategories.length > 0 ? checkedCategories : ['geo', 'history', 'science', 'cinema', 'tech'],
+        },
+        quizSettings: {
+            timer: timerVal,
+            questionsCount: questionsCount,
+        },
         avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
         players: {
             [username]: {
                 name: username,
                 avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
-                score: 0,
                 isHost: true,
-                isBot: false
+                isBot: false,
+                score: 0
             }
         }
     };
 
-    const hostData = {
+const hostData = {
         host: username,
         players: state.players,
-        settings: { timer: 20 }
+        selectedMode: 'quiz',
+        settings: {
+            timer: timerVal,
+            questionsCount: questionsCount,
+            categories: state.quizGame.categoriesSequence
+        }
     };
 
     window.creerSalonFirebase(roomCode, hostData);
-    
     updatePlayerProfile();
     showScreen('screen-lobby');
     setupLobbyViewForUser();
-    
-    window.rejoindreSalonFirebase(roomCode, (dataSalon) => {
-        if (dataSalon && dataSalon.players) {
-            state.players = dataSalon.players;
-            updateLobbyUI();
-        }
-    });
-
+    window.rejoindreSalonFirebase(roomCode);
     updateLobbyUI();
 
 }
 
 function joinRoom() {
+
+    window.myPlayerKey = state.username;
+
     const nameInput = document.getElementById('input-username').value.trim();
     const roomInput = document.getElementById('input-room').value.trim().toUpperCase();
 
@@ -25040,18 +25286,9 @@ function joinRoom() {
     updatePlayerProfile();
     state.roomCode = roomInput;
 
-    if (window.rejoindreSalonFirebase) {
-        window.rejoindreSalonFirebase(roomInput, (dataSalon) => {
-            if (dataSalon && dataSalon.players) {
-                state.players = dataSalon.players;
-                if (typeof updatePlayersList === 'function') {
-                    updatePlayersList();
-                } else if (typeof updateLobbyUI === 'function') {
-                    updateLobbyUI();
-                }
-            }
-        });
-    }
+window.rejoindreSalonFirebase(roomInput);
+
+updateLobbyUI();
 
     if (window.rejoindreSalonFirebaseGet) {
     	window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
@@ -25121,87 +25358,168 @@ function removeOneBot() {
 }
 
 // Fonction de l'hôte : Lancer la mission pour l'ensemble des joueurs connectés
-function launchGame() {
-    const roomCode = document.getElementById('session-code-top').innerText;
-    if (!roomCode) return;
+window.launchGame = function() {
+    try {
+        const codeElement = document.getElementById('session-code');
+        const rawRoomCode = window.currentRoomCode || (codeElement ? codeElement.innerText : '');
+        const roomCode = (rawRoomCode || '').trim();
 
-    // Met à jour Firebase pour basculer tous les clients sur l'écran du quiz
-    window.mettreAJourSalonFirebase(roomCode, {
-        gameStarted: true
-    });
-}
+        if (!roomCode) {
+            alert("Erreur : Impossible de récupérer le code de session.");
+            return;
+        }
+
+        const modeSelect = document.getElementById('select-game-mode');
+        const selectedMode = document.getElementById('select-game-mode')?.value || 'quiz';
+        
+        const timerInput = document.getElementById('input-host-timer');
+        const timerValue = parseInt(timerInput ? timerInput.value : 20, 10);
+        
+        const questionsInput = document.getElementById('input-quiz-questions-count');
+        const questionsCount = parseInt(questionsInput ? questionsInput.value : 10, 10);
+
+        let activeCategories = [];
+        let seq = [];
+
+        if (selectedMode === 'quiz') {
+            const checkboxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
+            activeCategories = Array.from(checkboxes).map(cb => (cb.value || '').trim()).filter(val => val.length > 0);
+
+            if (activeCategories.length === 0) {
+                alert("Veuillez sélectionner au moins une catégorie pour démarrer le Quiz.");
+                return;
+            }
+
+            // Génération de la séquence exacte correspondant au nombre de questions
+            for (let i = 0; i < questionsCount; i++) {
+                seq.push(activeCategories[i % activeCategories.length]);
+            }
+            seq = seq.sort(() => Math.random() - 0.5);
+
+            state.quizGame.currentIndex = 0;
+            state.quizGame.answersLog = [];
+            state.quizGame.categoriesSequence = seq;
+            state.quizGame.totalQuestions = questionsCount;
+        }
+
+	if (selectedMode === 'impostor') {
+        if (typeof startImpostorGame === 'function') {
+            startImpostorGame();
+        }
+        return;
+        }
+
+        const updatePayload = {
+            status: 'IN_GAME',
+            selectedMode: selectedMode,
+            settings: {
+                timer: timerValue,
+                questionsCount: questionsCount,
+                categories: activeCategories
+            },
+            categoriesSequence: seq, // Synchronise la liste des thèmes avec tous les joueurs
+            quizGame: { currentIndex: 0, answersLog: [] },
+            startedAt: Date.now()
+        };
+
+        if (typeof window.mettreAJourSalonFirebase === 'function') {
+            window.mettreAJourSalonFirebase(roomCode, updatePayload);
+        }
+    } catch (error) {
+        console.error("Erreur lors du lancement de la mission :", error);
+    }
+};
 
 // Fonction pour les joueurs : Basculer le statut "Prêt"
-        let isReady = false;
-        function toggleReady() {
-            isReady = !isReady;
-            const btn = document.getElementById('deploy-btn');
-            const statusLabel = document.getElementById('my-status-label');
-            const statusDot = document.getElementById('my-status-dot');
-            const statusText = document.getElementById('ready-status-text');
+let isReady = false;
 
-            if (isReady) {
-                btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-green border-2 border-command-green text-command-dark glow-green";
-                btn.innerText = "ANNULER LE DÉPLOIEMENT";
-                statusLabel.innerText = "PRÊT AU COMBAT";
-                statusLabel.className = "text-xs font-mono text-command-green";
-                statusDot.className = "w-2.5 h-2.5 rounded-full bg-command-green glow-green";
-                statusText.innerText = "STATUT : CONFIRMÉ (EN ATTENTE DE L'HÔTE)";
-                statusText.className = "text-center font-mono text-xs text-command-green";
-                
-                addSystemMessage("Vous avez basculé votre statut sur PRÊT AU COMBAT.");
-            } else {
-                btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-dark border-2 border-command-cyan text-command-cyan glow-cyan hover:bg-command-cyan hover:text-command-dark";
-                btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
-                statusLabel.innerText = "EN ATTENTE DE BRIEFING";
-                statusLabel.className = "text-xs font-mono text-yellow-500";
-                statusDot.className = "w-2.5 h-2.5 rounded-full bg-yellow-500";
-                statusText.innerText = "STATUT : NON CONFIRMÉ";
-                statusText.className = "text-center font-mono text-xs text-yellow-500";
+function toggleReady() {
+    isReady = !isReady;
 
-                addSystemMessage("Vous êtes repassé en mode attente.");
-            }
+    const btn = document.getElementById('deploy-btn');
+    const statusText = document.getElementById('ready-status-text');
+    const currentRoomCode = state.roomCode || (document.getElementById('session-code') ? document.getElementById('session-code').innerText.trim() : null);
+
+    if (isReady) {
+        if (btn) {
+            btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-green border-2 border-command-green text-command-dark glow-green";
+            btn.innerText = "ANNULER LE DÉPLOIEMENT";
         }
+        if (statusText) {
+            statusText.innerText = "STATUT : CONFIRMÉ (EN ATTENTE DE L'HÔTE)";
+            statusText.className = "text-center font-mono text-xs text-command-green mt-2";
+        }
+    } else {
+        if (btn) {
+            btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-dark border-2 border-command-cyan text-command-cyan glow-cyan hover:bg-command-cyan hover:text-command-dark";
+            btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
+        }
+        if (statusText) {
+            statusText.innerText = "STATUT : NON CONFIRMÉ";
+            statusText.className = "text-center font-mono text-xs text-yellow-500 mt-2";
+        }
+    }
+
+    // Synchronisation Firebase
+    if (currentRoomCode && window.myPlayerKey) {
+        window.update(window.ref(window.db, `salons/${currentRoomCode}/players/${window.myPlayerKey}`), {
+            isReady: isReady
+        });
+    }
+
+    if (typeof addSystemMessage === 'function') {
+        addSystemMessage(isReady ? "Vous avez basculé votre statut sur PRÊT AU COMBAT." : "Vous êtes repassé en mode attente.");
+    }
+}
 
 function updateLobbyUI() {
     if (!state || !state.players) return;
 
     if (state.roomCode) {
-        const topCode = document.getElementById('session-code-top');
+        const topCode = document.getElementById('session-code');
         if (topCode) topCode.innerText = state.roomCode;
         const badgeCode = document.getElementById('room-code-badge');
         if (badgeCode) badgeCode.innerText = `CODE: ${state.roomCode}`;
     }
-    
-    const playersArray = Array.isArray(state.players) 
-        ? state.players 
+
+    const playersArray = Array.isArray(state.players)
+        ? state.players
         : Object.values(state.players);
 
-    document.getElementById('player-count').innerText = playersArray.length;
+    const playerCountEl = document.getElementById('player-count');
+    if (playerCountEl) playerCountEl.innerText = playersArray.length;
 
-    const playersListEl = document.getElementById('players-list');
-    
+    // Cibler operators-grid présent dans le HTML
+    const playersListEl = document.getElementById('operators-grid') || document.getElementById('players-list');
+    if (!playersListEl) return;
+
     playersListEl.innerHTML = playersArray.map(p => {
-        const icon = p.avatar && p.avatar.icon ? p.avatar.icon : 'fa-user';
-        const color = p.avatar && p.avatar.color ? p.avatar.color : 'text-indigo-400';
-        const roleText = p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur');
-	const statusBadge = p.isReady 
-            ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30">PRÊT AU COMBAT</span>' 
-            : '<span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-500/30">EN ATTENTE DE BRIEFING</span>';
+        const isReady = p.isReady;
+        const statusText = isReady ? 'PRÊT AU COMBAT' : 'EN ATTENTE DE BRIEFING';
+        const statusColor = isReady ? 'text-command-green' : 'text-yellow-500';
+        const borderClass = isReady ? 'border-command-cyan/40 glow-cyan' : 'border-command-border';
+        const dotColor = isReady ? 'bg-command-green glow-green' : 'bg-yellow-500';
+        const avatarIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
+const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
+const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
 
-        return `
-            <div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                <span class="font-semibold flex items-center gap-2.5">
-                    <i class="fa-solid ${icon} ${color} text-base"></i> ${p.name || 'Anonyme'}
-                </span>
-                <span class="text-slate-400 font-mono">
-                    ${roleText}
-                </span>
+return `
+    <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded bg-gray-800 border flex items-center justify-center font-mono font-bold ${avatarColor}">
+                <i class="fa-solid ${avatarIcon}"></i>
+            </div>
+                    <div>
+                        <div class="font-bold text-sm text-gray-100">${p.name || p.pseudo || 'Anonyme'} ${isHostBadge}</div>
+                        <div class="text-xs font-mono ${statusColor}">${statusText}</div>
+                    </div>
+                </div>
+                <span class="w-2.5 h-2.5 rounded-full ${dotColor}"></span>
             </div>
         `;
     }).join('');
 
-    // Gestion de l'affichage des paramètres selon le mode sélectionné
+    // Gestion de l'affichage des paramètres selon le mode
     const mode = state.selectedMode;
     const setDisplay = (id, show) => {
         const el = document.getElementById(id);
@@ -25212,9 +25530,11 @@ function updateLobbyUI() {
     setDisplay('host-settings-geo', mode === 'geoguessr');
     setDisplay('host-settings-anomaly', mode === 'anomaly');
     setDisplay('host-settings-petitsbac', mode === 'petitsbac');
+    setDisplay('host-settings-impostor', mode === 'impostor');
 
-    setupLobbyViewForUser();
-
+    if (typeof setupLobbyViewForUser === 'function') {
+        setupLobbyViewForUser();
+    }
 }
 
 	const GAME_DESCRIPTIONS = {
@@ -25266,7 +25586,7 @@ function updateLobbyUI() {
     			document.getElementById('game-info-desc').innerText = 'Trouvez un mot par catégorie commençant par la lettre imposée avant la fin du temps. Les mots uniques rapportent plus de points !';
 		}
 
-		['quiz', 'geoguessr', 'anomaly', 'petitsbac'].forEach(m => {
+		['quiz', 'impostor', 'geoguessr', 'anomaly', 'petitsbac'].forEach(m => {
     			// Adapter l'ID si le bloc s'appelle 'host-settings-geo' pour geoguessr
     			const settingId = m === 'geoguessr' ? 'host-settings-geo' : `host-settings-${m}`;
     			const settingsEl = document.getElementById(settingId);
@@ -25281,13 +25601,14 @@ function updateLobbyUI() {
 		});
 
     		updateLobbyUI();
+		updateHostSettings();
 	}
 
         function startGame() {
             state.players.forEach(p => { p.score = 0; p.maxStage = 0; });
             if (state.selectedMode === 'quiz') {
-                state.quizSettings.questionsCount = parseInt(document.getElementById('setting-quiz-questions').value);
-                state.quizSettings.timer = parseInt(document.getElementById('setting-quiz-timer').value);
+		state.quizSettings.questionsCount = parseInt(document.getElementById('input-quiz-questions-count').value) || 10;
+		state.quizSettings.timer = parseInt(document.getElementById('input-host-timer').value) || 20;
                 let checked = [];
                 document.querySelectorAll('.quiz-cat-checkbox:checked').forEach(cb => checked.push(cb.value));
                 state.quizSettings.categories = checked.length ? checked : ['geo'];
@@ -25315,17 +25636,28 @@ function updateLobbyUI() {
             }
         }
 
-        function startQuizMode() {
-            let seq = [];
-            let cats = state.quizSettings.categories;
-            for (let i = 0; i < state.quizSettings.questionsCount; i++) seq.push(cats[i % cats.length]);
-            state.quizGame.categoriesSequence = seq.sort(() => Math.random() - 0.5);
-            state.quizGame.currentIndex = 0;
-            state.quizGame.answersLog = [];
-            prepareNextQuizQuestion();
-        }
+function startQuizMode() {
+    let seq = [];
+    let checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
+    let cats = checkedBoxes.length > 0 ? Array.from(checkedBoxes).map(cb => cb.value) : (state.quizSettings.categories || ['geo']);
+    
+    const totalQ = parseInt(state.quizSettings.questionsCount, 10) || 10;
 
-        function prepareNextQuizQuestion() {
+    state.quizGame.totalQuestions = totalQ;
+    state.quizGame.categoriesSequence = [];
+
+    for (let i = 0; i < totalQ; i++) {
+        seq.push(cats[i % cats.length]);
+    }
+    
+    state.quizGame.categoriesSequence = seq.sort(() => Math.random() - 0.5);
+    state.quizGame.currentIndex = 0;
+    state.quizGame.answersLog = [];
+    
+    prepareNextQuizQuestion();
+}
+
+function prepareNextQuizQuestion() {
             if (state.quizGame.currentIndex >= state.quizGame.categoriesSequence.length) {
                 showQuizFinalRecap();
                 return;
@@ -25337,109 +25669,222 @@ function updateLobbyUI() {
             showScreen('screen-quiz-difficulty');
         }
 
-        function chooseQuizDifficulty(diff) {
-            state.quizGame.pendingDifficulty = diff;
-            let pool = QUIZ_CATEGORIES_DATA[state.quizGame.pendingCategoryKey][diff];
-            let qObj = pool[Math.floor(Math.random() * pool.length)];
-            state.quizGame.currentQuestionObj = { ...qObj, categoryName: state.quizGame.pendingCategoryName, difficulty: diff };
-            startQuizQuestionScreen();
-        }
-
-        function startQuizQuestionScreen() {
-            showScreen('screen-quiz');
-            clearInterval(state.quizGame.timerInterval);
-            let qObj = state.quizGame.currentQuestionObj;
-            document.getElementById('quiz-progress').innerText = `Question ${state.quizGame.currentIndex + 1} / ${state.quizGame.categoriesSequence.length}`;
-            document.getElementById('quiz-chosen-diff-badge').innerText = `Difficulté : ${qObj.difficulty.toUpperCase()}`;
-            document.getElementById('quiz-question-text').innerText = qObj.q;
-            document.getElementById('quiz-category-badge').innerText = qObj.categoryName;
-
-            let grid = document.getElementById('quiz-options-grid');
-            grid.innerHTML = qObj.opts.map((opt, idx) => `
-                <button onclick="answerQuizQuestion(${idx})" class="p-4 bg-slate-900 border border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 rounded-2xl font-bold transition text-sm text-white shadow-lg active:scale-95">${opt}</button>
-            `).join('');
-
-            state.quizGame.timeLeft = state.quizSettings.timer;
-            document.getElementById('quiz-timer').innerText = `${state.quizGame.timeLeft}s`;
-            state.quizGame.timerInterval = setInterval(() => {
-                state.quizGame.timeLeft--;
-                document.getElementById('quiz-timer').innerText = `${state.quizGame.timeLeft}s`;
-                if (state.quizGame.timeLeft <= 0) { clearInterval(state.quizGame.timerInterval); answerQuizQuestion(-1); }
-            }, 1000);
-        }
-
-        function answerQuizQuestion(selIdx) {
-            clearInterval(state.quizGame.timerInterval);
-            let qObj = state.quizGame.currentQuestionObj;
-            let mult = qObj.difficulty === 'hard' ? 3.5 : (qObj.difficulty === 'medium' ? 2.0 : 1.0);
-            let earned = selIdx === qObj.correct ? Math.round((1000 + state.quizGame.timeLeft * 20) * mult) : 0;
-            
-            state.quizGame.currentRoundAnswers = { 0: { choice: selIdx, isCorrect: selIdx === qObj.correct, pointsEarned: earned } };
-            if (selIdx === qObj.correct) state.players[0].score += earned;
-
-            state.players.forEach((p, idx) => {
-                if (idx > 0 && p.isBot) {
-                    let correct = Math.random() < 0.7;
-                    let bChoice = correct ? qObj.correct : (qObj.correct + 1) % 4;
-                    let bEarned = correct ? Math.round(1000 * mult) : 0;
-                    p.score += bEarned;
-                    state.quizGame.currentRoundAnswers[idx] = { choice: bChoice, isCorrect: correct, pointsEarned: bEarned };
-                }
-            });
-
-            state.quizGame.answersLog.push({ ...qObj, playerAnswers: { ...state.quizGame.currentRoundAnswers } });
-            showQuizSummaryScreen(selIdx, qObj);
-        }
-
-	function showQuizSummaryScreen(selIdx, qObj) {
-    		showScreen('screen-quiz-summary');
+function chooseQuizDifficulty(diff) {
+    if (typeof window.state === 'undefined') window.state = {};
+    if (!window.state.quizGame) window.state.quizGame = {};
     
-    		// Sécurité : si qObj est absent, on arrête l'exécution pour éviter les bugs en cascade
-    		if (!qObj) {
-        	console.error("Erreur : qObj est introuvable lors de l'affichage du sommaire.");
-        	return;
-    		}
+    if (!window.state.quizGame.categoriesSequence || window.state.quizGame.categoriesSequence.length === 0) {
+        const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
+        if (checkedBoxes.length > 0) {
+            window.state.quizGame.categoriesSequence = Array.from(checkedBoxes).map(cb => cb.value);
+        } else {
+            window.state.quizGame.categoriesSequence = ['geo'];
+        }
+    }
 
-    		// Affichage sécurisé des points de la manche
-    		const firstAnswer = state.quizGame.currentRoundAnswers && state.quizGame.currentRoundAnswers[0];
-    		const roundPointsEl = document.getElementById('quiz-round-points');
-    		if (roundPointsEl) {
-        		roundPointsEl.innerText = firstAnswer ? `+${firstAnswer.pointsEarned || 0} pts` : "+0 pts";
-    		}
+    state.quizGame.pendingDifficulty = diff;
 
-    		// Titre de la question et explication
-    		const titleEl = document.getElementById('summary-question-title');
-    		if (titleEl) titleEl.innerText = qObj.q || "Question sans titre";
+    if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+            difficulty: diff
+        });
+    }
 
-    		const expEl = document.getElementById('summary-explanation');
-    		if (expEl) expEl.innerText = qObj.exp || "Aucune explication fournie.";
+    const currentIndex = state.quizGame.currentIndex || 0;
+    const categoryKey = state.quizGame.categoriesSequence[currentIndex % state.quizGame.categoriesSequence.length] || 'geo';
+    const categoryMetaObj = categoriesMeta.find(c => c.key === categoryKey) || { name: 'Culture Générale' };
+    const categoryName = categoryMetaObj.name;
 
-    		// Bonne réponse (gère les deux variantes d'ID possibles dans votre HTML)
-    		const correctText = (qObj.correct !== undefined && qObj.opts && qObj.opts[qObj.correct]) 
-        				? qObj.opts[qObj.correct] 
-        				: (qObj.answer || "Non spécifiée");
+    if (!QUIZ_CATEGORIES_DATA[categoryKey] || !QUIZ_CATEGORIES_DATA[categoryKey][diff]) {
+        console.error(`Catégorie "${categoryKey}" ou difficulté "${diff}" introuvable.`);
+        return;
+    }
+
+    let pool = QUIZ_CATEGORIES_DATA[categoryKey][diff];
+    let qObj = pool[Math.floor(Math.random() * pool.length)];
+
+    state.quizGame.currentQuestionObj = { 
+        ...qObj, 
+        categoryName: categoryName, 
+        difficulty: diff 
+    };
+
+    startQuizScreen();
+}
+
+function startQuizScreen() {
+    showScreen('screen-quiz');
+    clearInterval(state.quizGame.timerInterval);
+
+    if (typeof state.quizGame.currentIndex === 'undefined') {
+        state.quizGame.currentIndex = 0;
+    }
+    // Correction du nombre total de questions (récupération sécurisée)
+    const totalQ = state.quizGame.totalQuestions || state.quizSettings?.questionsCount || (window.currentRoom?.settings?.questionsCount) || 10;
+    
+// Priorité à la valeur Firebase envoyée par l'hôte
+    const timerSetting = (window.currentRoom && window.currentRoom.settings && window.currentRoom.settings.timer) ? window.currentRoom.settings.timer : (state.quizSettings?.timer || 20);
+    state.quizGame.timeleft = parseInt(timerSetting, 10);
+    
+    // Nettoyage des réponses du tour précédent
+    state.quizGame.currentRoundAnswers = {};
+
+    let qobj = state.quizGame.currentQuestionObj;
+    if (!qobj) return;
+
+    // Affichage correct de la progression (ex: Question 1 / 10)
+    document.getElementById('quiz-progress').innerText = `Question ${state.quizGame.currentIndex + 1} / ${totalQ}`;
+    document.getElementById('quiz-chosen-diff-badge').innerText = `Difficulté : ${(qobj.difficulty || 'easy').toUpperCase()}`;
+    document.getElementById('quiz-question-text').innerText = qobj.q;
+    
+    // Affichage correct de la catégorie choisie
+    document.getElementById('quiz-category-badge').innerText = qobj.categoryName || 'Culture Générale';
+
+    let grid = document.getElementById('quiz-options-grid');
+    grid.innerHTML = qobj.opts.map((opt, idx) => `
+        <button onclick="answerQuizQuestion(${idx})" class="p-4 bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-2xl transition text-white font-bold text-sm">
+            ${opt}
+        </button>
+    `).join('');
+
+    // Gestion du timer
+    document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
+    state.quizGame.timerInterval = setInterval(() => {
+        state.quizGame.timeleft--;
+        document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
         
-    		const correctEl = document.getElementById('summary-correct-answer') || document.getElementById('summary-correctect-answer');
-    		if (correctEl) correctEl.innerText = correctText;
+if (state.quizGame.timeleft <= 0) {
+            clearInterval(state.quizGame.timerInterval);
+            
+            // On s'assure de marquer une réponse vide (0 pt) pour ceux qui n'ont pas cliqué
+            let myKey = window.myPlayerKey || state.username;
+            if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
+            if (!state.quizGame.currentRoundAnswers[myKey]) {
+                state.quizGame.currentRoundAnswers[myKey] = { choice: -1, isCorrect: false, pointEarned: 0 };
+            }
+            
+            showQuizSummaryScreen(-1, qobj);
+        }
+    }, 1000);
+}
 
-    		// Affichage des joueurs et de leurs réponses respectives
-    		const container = document.getElementById('summary-players-answers');
-    		if (container && state.players) {
-       			 // S'assure que currentRoundAnswers existe pour éviter un plantage si vide
-        		 const roundAnswers = state.quizGame.currentRoundAnswers || [];
+function answerQuizQuestion(selIdx) {
+    clearInterval(state.quizGame.timerInterval);
+    let qobj = state.quizGame.currentQuestionObj;
 
-        	container.innerHTML = state.players.map((p, idx) => {
-            	let ans = roundAnswers[idx] || { choice: -1, isCorrect: false, pointsEarned: 0 };
-            	let chosenText = (ans.choice >= 0 && qObj.opts && qObj.opts[ans.choice]) ? qObj.opts[ans.choice] : "Temps écoulé";
+    const optionButtons = document.querySelectorAll('#quiz-options-grid button');
+    optionButtons.forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === qobj.correct) {
+            btn.classList.add('bg-emerald-500/20', 'border-emerald-500', 'text-emerald-300');
+        } else if (idx === selIdx && selIdx !== qobj.correct) {
+            btn.classList.add('bg-red-500/20', 'border-red-500', 'text-red-300');
+        } else {
+            btn.classList.add('opacity-50');
+        }
+    });
 
-           	 return `
-              	  <div class="p-3 rounded-xl border ${ans.isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'} flex flex-col justify-between text-xs space-y-1">
+    let mult = qobj.difficulty === 'hard' ? 3.5 : (qobj.difficulty === 'medium' ? 2.0 : 1.0);
+    let timeLeftVal = typeof state.quizGame.timeleft === 'number' ? state.quizGame.timeleft : 0;
+    let earned = selIdx === qobj.correct ? Math.round((1000 + timeLeftVal * 20) * mult) : 0;
+
+    // Utilisation de la clé d'identification exacte
+    let myKey = window.myPlayerKey || state.username;
+    if (!state.players) state.players = {};
+    if (!state.players[myKey]) state.players[myKey] = { name: myKey, score: 0 };
+    if (typeof state.players[myKey].score !== 'number') state.players[myKey].score = 0;
+
+    if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
+    state.quizGame.currentRoundAnswers[myKey] = { choice: selIdx, isCorrect: selIdx === qobj.correct, pointEarned: earned };
+
+    if (selIdx === qobj.correct) {
+        state.players[myKey].score += earned;
+    }
+
+    const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
+    playersArr.forEach((p) => {
+        if (p.isBot) {
+            let correct = Math.random() < 0.7;
+            let bchoice = correct ? qobj.correct : (qobj.correct + 1) % 4;
+            let bearned = correct ? Math.round(1000 * mult) : 0;
+            p.score += bearned;
+            state.quizGame.currentRoundAnswers[p.name] = { choice: bchoice, isCorrect: correct, pointEarned: bearned };
+        }
+    });
+
+    if (!state.quizGame.answersLog) {
+        state.quizGame.answersLog = [];
+    }
+    state.quizGame.answersLog.push({
+        q: qobj.q,
+        options: qobj.opts,
+        correct: qobj.correct,
+        chosen: selIdx,
+        isCorrect: selIdx === qobj.correct
+    });
+
+    if (typeof window.mettreAJourSalonFirebase === 'function' && window.currentCodeSalon) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+            players: state.players,
+            quizGame: state.quizGame
+        });
+    }
+
+    showQuizSummaryScreen(selIdx, qobj);
+}
+
+function showQuizSummaryScreen(selIdx, qObj) {
+    showScreen('screen-quiz-summary');
+    
+    if (!qObj) return;
+
+    const roundPointsEl = document.getElementById('quiz-round-points');
+    let myKey = window.myPlayerKey || state.username;
+    let myAnswer = (state.quizGame.currentRoundAnswers && state.quizGame.currentRoundAnswers[myKey]) ? state.quizGame.currentRoundAnswers[myKey] : { pointEarned: 0 };
+    
+    if (roundPointsEl) {
+        roundPointsEl.innerText = `+${myAnswer.pointEarned} pts`;
+        // Couleur verte si points gagnés, sinon gris
+        roundPointsEl.className = myAnswer.pointEarned > 0 ? "font-mono text-sm text-emerald-400 font-bold" : "font-mono text-sm text-slate-400 font-bold";
+    }
+
+    // 1. Remplir le titre, la bonne réponse et l'explication manquants
+    const titleEl = document.getElementById('summary-question-title');
+    if (titleEl) titleEl.innerText = qObj.q;
+
+    const correctEl = document.getElementById('summary-correct-answer');
+    if (correctEl) correctEl.innerText = qObj.opts[qObj.correct] || 'Réponse';
+
+    const explEl = document.getElementById('summary-explanation');
+    if (explEl) explEl.innerText = qObj.exp || "Aucune explication disponible pour cette question.";
+
+    // 2. Gestion propre des joueurs (filtrage des bots et doublons)
+    const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
+    let playersRaw = state.players || {};
+    let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
+    
+    // Ne garder que les vrais joueurs uniques
+    playersArr = playersArr.filter(p => p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo));
+
+    const container = document.getElementById('summary-players-answers');
+    if (container) {
+        const roundAnswers = state.quizGame.currentRoundAnswers || {};
+        
+        container.innerHTML = playersArr.map((p, idx) => {
+            const ans = roundAnswers[p.name] || roundAnswers[p.pseudo] || { choice: -1, isCorrect: false, pointEarned: 0 };
+            const chosenText = (ans.choice >= 0 && qObj.opts && qObj.opts[ans.choice]) ? qObj.opts[ans.choice] : "Temps écoulé";
+            const pName = p.name || p.pseudo || `Opérateur ${idx + 1}`;
+            const pIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
+            const isHostBadge = p.isHost ? '<span class="text-command-cyan font-mono">(Hôte)</span>' : '';
+            
+            return `
+                <div class="p-3 rounded-xl border ${ans.isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'} flex flex-col justify-between text-xs space-y-1">
                     <div class="flex justify-between items-center font-bold">
-                        <span><i class="fa-solid ${p.avatar?.icon || 'fa-user'} ${p.avatar?.color || ''}"></i> ${p.name}</span>
-                        <span class="font-mono">${ans.isCorrect ? '+' + ans.pointsEarned + ' pts' : '0 pt'}</span>
+                        <span><i class="fa-solid ${pIcon}"></i> ${pName} ${isHostBadge}</span>
+                        <span class="font-mono">${ans.isCorrect ? '+' + ans.pointEarned + ' pts' : '0 pt'}</span>
                     </div>
-                    <div class="text-[11px] text-slate-300 opacity-90 truncate">
-                        Réponse : <span class="font-semibold italic">${chosenText}</span>
+                    <div class="text-[11px] text-slate-300 truncate">
+                        Réponse : <span class="font-semibold italic">"${chosenText}"</span>
                     </div>
                 </div>
             `;
@@ -25447,27 +25892,38 @@ function updateLobbyUI() {
     }
 }
 
-        function nextQuizQuestionOrFinish() {
+function nextQuizQuestionOrFinish() {
             state.quizGame.currentIndex++;
             prepareNextQuizQuestion();
         }
 
-        function showQuizFinalRecap() {
-            showScreen('screen-quiz-recap');
-            let sorted = [...state.players].sort((a, b) => b.score - a.score);
-            document.getElementById('quiz-final-leaderboard').innerHTML = sorted.map((p, i) => `
-                <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
-                    <span class="font-bold">#${i + 1} - ${p.name}</span>
-                    <span class="font-mono text-emerald-400 font-bold text-sm">${p.score} pts</span>
-                </div>
-            `).join('');
-            document.getElementById('quiz-history-table').innerHTML = state.quizGame.answersLog.map((item, idx) => `
-                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs space-y-1">
-                    <div class="font-bold text-white">Q${idx + 1}. ${item.q}</div>
-                    <div class="text-emerald-400">Bonne réponse : ${item.options[item.correct]}</div>
-                </div>
-            `).join('');
-        }
+function showQuizFinalRecap() {
+    showScreen('screen-quiz-recap');
+    
+    // Conversion sécurisée de l'objet Firebase en tableau avant le tri
+    let playersArray = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
+    let sorted = playersArray.sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    const lbContainer = document.getElementById('quiz-final-leaderboard');
+    if (lbContainer) {
+        lbContainer.innerHTML = sorted.map((p, i) => `
+            <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
+                <span class="font-bold">#${i + 1} - ${p.name || p.pseudo}</span>
+                <span class="font-mono text-emerald-400 font-bold text-sm">${p.score} pts</span>
+            </div>
+        `).join('');
+    }
+
+    const historyContainer = document.getElementById('quiz-history-table');
+    if (historyContainer && state.quizGame.answersLog) {
+        historyContainer.innerHTML = state.quizGame.answersLog.map((item, idx) => `
+            <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs space-y-1">
+                <div class="font-bold text-white">Q${idx + 1}. ${item.q}</div>
+                <div class="text-emerald-400">Bonne réponse : ${item.options[item.correct]}</div>
+            </div>
+        `).join('');
+    }
+}
 
         function startNextRound() {
             if (state.currentRound >= state.settings.rounds) { showFinalResults(); return; }
@@ -25543,54 +25999,110 @@ function updateLobbyUI() {
         // --- JEU DE L'IMPOSTEUR ---
         let impostorGameState = { pair: null, impostorId: null, revealed: false };
 
-        function startImpostorGame() {
-            let pair = IMPOSTOR_PAIRS[Math.floor(Math.random() * IMPOSTOR_PAIRS.length)];
-            let impostorPlayer = state.players[Math.floor(Math.random() * state.players.length)];
-            impostorGameState = { pair: pair, impostorId: impostorPlayer.id, revealed: false };
-            showScreen('screen-impostor');
-            renderImpostorScreen();
-        }
+function startImpostorGame() {
+    // 1. Récupérer la liste des joueurs connectés
+    const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
+    if (playersArr.length < 3) {
+        alert("Il faut au moins 3 joueurs pour lancer le Jeu de l'Imposteur !");
+        return;
+    }
 
-        function renderImpostorScreen() {
-            let area = document.getElementById('impostor-main-area');
-            if (!impostorGameState.revealed) {
-                area.innerHTML = `
-                    <div class="space-y-6 max-w-md mx-auto py-8">
-                        <div class="w-16 h-16 bg-red-500/20 text-red-400 rounded-3xl mx-auto flex items-center justify-center text-3xl border border-red-500/30 shadow-lg">
-                            <i class="fa-solid fa-user-secret"></i>
-                        </div>
-                        <div class="space-y-2">
-                            <h3 class="text-2xl font-bold text-white">Distribution des Rôles</h3>
-                            <p class="text-xs text-slate-400">Passez l'appareil au joueur <b class="text-indigo-300">${state.players[0].name}</b> et découvrez votre mot secret en secret.</p>
-                        </div>
-                        <button onclick="revealImpostorWord()" class="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-red-500/20 transition transform active:scale-95">
-                            Révéler mon Mot Secret
-                        </button>
-                    </div>
-                `;
-            } else {
-                let isPlayerImpostor = (state.players[0].id === impostorGameState.impostorId);
-                area.innerHTML = `
-                    <div class="space-y-6 max-w-md mx-auto py-6">
-                        <div class="p-6 rounded-3xl border ${isPlayerImpostor ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} space-y-4">
-                            <span class="text-xs font-bold uppercase tracking-wider ${isPlayerImpostor ? 'text-red-400' : 'text-emerald-400'}">
-                                ${isPlayerImpostor ? '🚨 Vous êtes l\'Imposteur !' : '🛡️ Vous êtes Citoyen'}
-                            </span>
-                            <h4 class="text-3xl font-black text-white">
-                                ${isPlayerImpostor ? impostorGameState.pair.impostor : impostorGameState.pair.citizen}
-                            </h4>
-                            <p class="text-xs text-slate-300">
-                                ${isPlayerImpostor ? 'Glissez-vous dans la conversation et devinez le mot des citoyens sans vous faire repérer.' : 'Discutez entre citoyens pour démasquer l\'imposteur sans donner trop d\'indices.'}
-                            </p>
-                        </div>
-                        <button onclick="showImpostorResults()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-2xl shadow-lg transition">
-                            Voir le Résultat & l'Imposteur
-                        </button>
-                    </div>
-                `;
-            }
-        }
+    // 2. Choisir une paire aléatoire de mots (Citoyen / Imposteur)
+    const randomPair = IMPOSTOR_PAIRS[Math.floor(Math.random() * IMPOSTOR_PAIRS.length)];
+    
+    // 3. Choisir un imposteur au hasard parmi les joueurs
+    const impostorIndex = Math.floor(Math.random() * playersArr.length);
 
+    // 4. Assigner les rôles et mots à chaque joueur
+    let impostorStateData = {};
+    playersArr.forEach((p, idx) => {
+        const playerName = p.name || p.pseudo;
+        const isImpostor = (idx === impostorIndex);
+        impostorStateData[playerName] = {
+            role: isImpostor ? 'impostor' : 'citizen',
+            word: isImpostor ? randomPair.impostor : randomPair.citizen, // Ou mot caché pour l'imposteur
+            hasVoted: false
+        };
+    });
+
+    // 5. Mettre à jour l'état global et synchroniser sur Firebase
+    state.impostorGame = {
+        pair: randomPair,
+        impostorName: playersArr[impostorIndex].name || playersArr[impostorIndex].pseudo,
+        playerRoles: impostorStateData,
+        phase: 'discussion' // 'discussion' ou 'vote'
+    };
+
+    if (window.mettreAJourSalonFirebase && state.roomCode) {
+        window.mettreAJourSalonFirebase(state.roomCode, {
+            status: 'IN_GAME',
+            selectedMode: 'impostor',
+            impostorGame: state.impostorGame
+        });
+    }
+}
+
+window.nextImpostorPhase = function(newPhase) {
+    if (window.isHost && window.currentCodeSalon) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+            'impostorGame/phase': newPhase
+        });
+    }
+};
+
+// AJOUT de la fonction renderImpostorScreen
+function renderImpostorScreen(data) {
+    const mainArea = document.getElementById('impostor-main-area');
+    const timerEl = document.getElementById('impostor-timer');
+    if (!mainArea) return;
+
+    const impData = data.impostorGame;
+    if (!impData || !impData.playerRoles) {
+        mainArea.innerHTML = `<div class="text-slate-400">Préparation de la mission Impostor en cours...</div>`;
+        return;
+    }
+
+    const myName = state.username;
+    const myData = impData.playerRoles[myName];
+
+    if (!myData) {
+        mainArea.innerHTML = `<div class="text-red-400">Erreur : Rôle non attribué pour cet opérateur.</div>`;
+        return;
+    }
+
+    if (timerEl) {
+        timerEl.innerText = impData.phase === 'vote' ? 'Phase de Vote' : 'Phase de Discussion';
+    }
+
+    // Affichage personnalisé selon le rôle (Citoyen vs Imposteur)
+    if (myData.role === 'impostor') {
+        mainArea.innerHTML = `
+            <div class="p-6 bg-red-500/10 border-2 border-red-500/40 rounded-3xl space-y-4 shadow-xl">
+                <div class="inline-block bg-red-500/20 text-red-400 text-xs px-4 py-1.5 rounded-full font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-user-secret">️ Rôle : INCOGNITO (IMPOSTEUR)</i>
+                </div>
+                <h3 class="text-2xl font-black text-white">Vous êtes l'Imposteur !</h3>
+                <p class="text-sm text-slate-300">Vous ne connaissez pas le mot secret des citoyens. Blufflez, écoutez les indices des autres et tentez de deviner le mot sans vous faire repérer.</p>
+                <div class="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs text-slate-400">
+                    Indice global : Le thème est en cours de discussion. Restez discret !
+                </div>
+            </div>
+        `;
+    } else {
+        mainArea.innerHTML = `
+            <div class="p-6 bg-emerald-500/10 border-2 border-emerald-500/40 rounded-3xl space-y-4 shadow-xl">
+                <div class="inline-block bg-emerald-500/20 text-emerald-300 text-xs px-4 py-1.5 rounded-full font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-shield-halved"> Rôle : CITOYEN</i>
+                </div>
+                <h3 class="text-2xl font-black text-white">Votre Mot Secret :</h3>
+                <div class="text-3xl font-mono font-black text-emerald-400 tracking-wider bg-slate-900 py-3 rounded-xl border border-emerald-500/30">
+                    "${myData.word}"
+                </div>
+                <p class="text-xs text-slate-300">Donnez subtilement des indices sans révéler directement le mot pour démasquer l'imposteur parmi vous.</p>
+            </div>
+        `;
+    }
+}
         function revealImpostorWord() {
             impostorGameState.revealed = true;
             renderImpostorScreen();
@@ -26158,17 +26670,6 @@ function updateLobbyUI() {
             }
         }
 
-        function backToLobby() { 
-
-	    // Nettoyage de tous les timers possibles
-    		if (window.voteTimerInterval) clearInterval(window.voteTimerInterval);
-    		if (window.bactimerInterval) clearInterval(window.bactimerInterval);
-
-            if (document.pointerLockElement) document.exitPointerLock();
-            showScreen('screen-lobby'); 
-            updateLobbyUI(); 
-        }
-
         function showScreen(id) {
             ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results'].forEach(s => {
                 const el = document.getElementById(s);
@@ -26579,6 +27080,56 @@ function submitVotes() {
         if (typeof startNextBacRound === 'function') startNextBacRound(); // Fonction qui initialise la manche suivante du Petit Bac
     }
 }
+
+window.backToLobby = function() {
+    // 1. Masquer tous les écrans et afficher le lobby
+    document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
+    const lobby = document.getElementById('screen-lobby');
+    if (lobby) lobby.classList.remove('hidden');
+    
+    // 2. Réinitialiser la progression du Quiz localement
+    if (typeof state !== 'undefined' && state.quizGame) {
+        state.quizGame.currentIndex = 0;
+        state.quizGame.answersLog = [];
+        state.quizGame.currentRoundAnswers = {};
+    }
+
+    // 1. Réinitialiser la variable locale
+isReady = false;
+
+// 2. Mettre à jour l'interface du bouton et du texte
+const btn = document.getElementById('deploy-btn');
+const statusText = document.getElementById('ready-status-text');
+
+if (btn) {
+    btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-dark border-2 border-command-cyan text-command-cyan glow-cyan hover:bg-command-cyan hover:text-command-dark";
+    btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
+}
+if (statusText) {
+    statusText.innerText = "STATUT : NON CONFIRMÉ";
+    statusText.className = "text-center font-mono text-xs text-yellow-500 mt-2";
+}
+
+// 3. Mettre à jour le statut sur Firebase pour que les autres joueurs voient le changement
+const currentRoomCode = state.roomCode || (document.getElementById('session-code') ? document.getElementById('session-code').innerText.trim() : null);
+if (currentRoomCode && window.myPlayerKey) {
+    window.update(window.ref(window.db, `salons/${currentRoomCode}/players/${window.myPlayerKey}`), {
+        isReady: false
+    });
+}
+    
+    // 3. L'hôte informe Firebase que la partie est terminée
+    const roomCode = window.currentCodeSalon || (state && state.roomCode);
+    if (window.isHost && roomCode && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(roomCode, {
+            status: 'LOBBY'
+        });
+    }
+
+    // Afficher le lobby
+    showScreen('screen-lobby');
+    updateLobbyUI();
+};
 
     </script>
 </body>
