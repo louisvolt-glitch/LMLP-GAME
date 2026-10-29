@@ -253,113 +253,112 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 <!-- ECRAN 2: LOBBY -->
 <main id="screen-lobby" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <!-- COLONNE DE GAUCHE : DOSSIER DE MISSION (DIFFÉRENT SELON HÔTE / NON-HÔTE) -->
+<!-- COLONNE DE GAUCHE : DOSSIER DE MISSION (UNIFIÉ HÔTE / NON-HÔTE) -->
     <div class="lg:col-span-1 flex flex-col space-y-4">
         
         <!-- Panneau Non-Hôte : Dossier de Mission Verrouillé -->
-<div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-    <div class="flex justify-between items-center">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-            <i class="fa-solid fa-lock"></i> Dossier de Mission
-        </h4>
-        <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
-            Verrouillé
-        </span>
-    </div>
-    <p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
-
-    <div class="space-y-3 pt-2 text-xs">
-        <!-- Paramètre Cible (Mode) -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</span>
-            <span id="non-host-target-mode" class="font-bold text-indigo-300 text-sm block">Quiz Culture G</span>
-        </div>
-
-        <!-- Filtre Temporel avec badge circulaire -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
-            <div class="space-y-1">
-                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</span>
-                <span id="non-host-timer-display" class="font-bold text-amber-400 text-sm block">20s / secteur</span>
+        <div id="non-host-mission-folder" class="hidden glass p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-slate-800">
+            <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock"></i> Dossier de Mission
+                </h4>
+                <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
+                    Verrouillé
+                </span>
             </div>
-            <span id="non-host-timer-badge" class="font-mono font-bold text-amber-400 bg-slate-900 w-10 h-10 rounded-full border border-slate-800 flex items-center justify-center text-xs shadow-inner">20s</span>
-        </div>
+            <p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
 
-        <!-- Ravitaillement (Modules) -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules)</span>
-            <div class="flex justify-between items-center text-xs font-mono text-cyan-400 mb-1">
-                <span>[██████--]</span>
-                <span>80%</span>
+            <div class="space-y-3 text-xs">
+                <!-- Paramètre Cible (Mode) -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</span>
+                    <span id="non-host-target-mode" class="font-bold text-indigo-300 text-sm block">Quiz Culture G</span>
+                </div>
+
+                <!-- Filtre Temporel avec badge circulaire -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div class="space-y-1">
+                        <span class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</span>
+                        <span id="non-host-timer-display" class="font-bold text-amber-400 text-sm block">20s / secteur</span>
+                    </div>
+                    <span id="non-host-timer-badge" class="font-mono font-bold text-amber-400 bg-slate-900 w-10 h-10 rounded-full border border-slate-800 flex items-center justify-center text-xs shadow-inner">20s</span>
+                </div>
+
+                <!-- Ravitaillement (Modules) -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules)</span>
+                    <div class="flex justify-between items-center text-xs font-mono text-cyan-400 mb-1">
+                        <span>[██████--]</span>
+                        <span>80%</span>
+                    </div>
+                    <span id="non-host-modules-display" class="font-bold text-emerald-400 text-xs block">Culture Générale & Tech</span>
+                </div>
             </div>
-            <span id="non-host-modules-display" class="font-bold text-emerald-400 text-xs block">Culture Générale & Tech</span>
-        </div>
-    </div>
 
-    <div class="pt-8 text-center">
-        <span class="text-[10px] text-slate-500 uppercase tracking-widest block">Paramétrage géré par l'hôte du QG</span>
-    </div>
-</div>
-
-        <!-- Panneau Hôte (Réglages - masqué pour le non-hôte) -->
-<div id="host-settings-container" class="glass p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-indigo-500/30">
-    <div class="flex justify-between items-center">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-            <i class="fa-solid fa-sliders"></i> Dossier de Mission (Hôte QG)
-        </h4>
-        <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-500/30 uppercase">
-            Actif / Contrôle
-        </span>
-    </div>
-
-    <div class="space-y-3 text-xs">
-        <!-- Sélection du Mode de Jeu -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</label>
-            <select id="host-select-mode" onchange="onHostChangeMode(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold focus:outline-none focus:border-indigo-500">
-                <option value="quiz">Quiz Culture G</option>
-                <option value="impostor">Jeu de l'Imposteur</option>
-                <option value="geoguessr">GeoGuessr</option>
-                <option value="anomaly">Anomalies 3D</option>
-                <option value="petitsbac">Petit Bac</option>
-            </select>
-        </div>
-
-        <!-- Sélection du Minuteur / Filtre Temporel -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</label>
-            <select id="host-select-timer" onchange="onHostChangeTimer(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-amber-400 font-bold focus:outline-none focus:border-indigo-500">
-                <option value="15">15s / secteur</option>
-                <option value="20" selected>20s / secteur</option>
-                <option value="30">30s / secteur</option>
-                <option value="45">45s / secteur</option>
-            </select>
-        </div>
-
-        <!-- Ravitaillement / Catégories -->
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-            <div class="flex justify-between items-center text-xs font-mono text-cyan-400">
-                <span>[██████--]</span>
-                <span>80%</span>
-            </div>
-            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules & Catégories)</label>
-            <div id="quiz-categories-checklist" class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1 text-[11px]">
-                <!-- Généré dynamiquement ou listé par défaut -->
-                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
-                    <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Culture Générale & Tech
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
-                    <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Géographie
-                </label>
+            <div class="pt-4 text-center">
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest block">Paramétrage géré par l'hôte du QG</span>
             </div>
         </div>
-    </div>
 
-    <div class="pt-2 text-center">
-        <button onclick="launchGame()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black rounded-xl uppercase tracking-wider text-xs shadow-lg transition">
-            Lancer la Mission
-        </button>
-    </div>
-</div>
+        <!-- Panneau Hôte (Réglages - actif pour le créateur du salon) -->
+        <div id="host-settings-container" class="glass p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-indigo-500/30">
+            <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders"></i> Dossier de Mission (Hôte QG)
+                </h4>
+                <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-500/30 uppercase">
+                    Actif / Contrôle
+                </span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <!-- Sélection du Mode de Jeu -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+                    <label class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</label>
+                    <select id="host-select-mode" onchange="onHostChangeMode(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold focus:outline-none focus:border-indigo-500">
+                        <option value="quiz">Quiz Culture G</option>
+                        <option value="impostor">Jeu de l'Imposteur</option>
+                        <option value="geoguessr">GeoGuessr</option>
+                        <option value="anomaly">Anomalies 3D</option>
+                        <option value="petitsbac">Petit Bac</option>
+                    </select>
+                </div>
+
+                <!-- Sélection du Minuteur / Filtre Temporel -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+                    <label class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</label>
+                    <select id="host-select-timer" onchange="onHostChangeTimer(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-amber-400 font-bold focus:outline-none focus:border-indigo-500">
+                        <option value="15">15s / secteur</option>
+                        <option value="20" selected>20s / secteur</option>
+                        <option value="30">30s / secteur</option>
+                        <option value="45">45s / secteur</option>
+                    </select>
+                </div>
+
+                <!-- Ravitaillement / Catégories -->
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex justify-between items-center text-xs font-mono text-cyan-400">
+                        <span>[██████--]</span>
+                        <span>80%</span>
+                    </div>
+                    <label class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules & Catégories)</label>
+                    <div id="quiz-categories-checklist" class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1 text-[11px]">
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Culture Générale & Tech
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                            <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Géographie
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2 text-center">
+                <button onclick="launchGame()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black rounded-xl uppercase tracking-wider text-xs shadow-lg transition">
+                    Lancer la Mission
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- COLONNE DE DROITE : OPÉRATEURS, CHAT ET PROTOCOLE DE DÉPART -->
