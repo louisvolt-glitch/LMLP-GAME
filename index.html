@@ -24843,11 +24843,12 @@ function createRoom() {
         return;
     }
 
-    // 1. Initialiser l'état global (state) pour l'hôte
+    isHost = true;
+
     state = {
         username: username,
         roomCode: roomCode,
-        selectedMode: 'quiz', // ou votre mode par défaut
+        selectedMode: 'quiz',
         avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
         players: {
             [username]: {
@@ -24863,16 +24864,15 @@ function createRoom() {
     const hostData = {
         host: username,
         players: state.players,
-        settings: { /* vos paramètres par défaut */ }
+        settings: { timer: 20 }
     };
 
     window.creerSalonFirebase(roomCode, hostData);
     
-    // 3. Mettre à jour l'interface utilisateur
     updatePlayerProfile();
     showScreen('screen-lobby');
+    setupLobbyViewForUser();
     
-    // 4. Activer l'écoute en temps réel pour le salon
     window.rejoindreSalonFirebase(roomCode, (dataSalon) => {
         if (dataSalon && dataSalon.players) {
             state.players = dataSalon.players;
@@ -24897,11 +24897,12 @@ function joinRoom() {
         return;
     }
 
+    isHost = false;
+
     if (nameInput) state.username = nameInput;
     updatePlayerProfile();
     state.roomCode = roomInput;
 
-    // 🚀 1. ACTIVER L'ÉCOUTE EN TEMPS RÉEL EN PREMIER
     if (window.rejoindreSalonFirebase) {
         window.rejoindreSalonFirebase(roomInput, (dataSalon) => {
             if (dataSalon && dataSalon.players) {
@@ -24915,7 +24916,6 @@ function joinRoom() {
         });
     }
 
-    // 2. RÉCUPÉRER LE SALON, AJOUTER LE JOUEUR ET METTRE À JOUR FIREBASE
     if (window.rejoindreSalonFirebaseGet) {
     	window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
         	// S'assurer que players est un objet (ou le convertir si besoin)
@@ -24926,24 +24926,23 @@ function joinRoom() {
             		players = obj;
         	}
 
-        	// Ajouter le nouveau joueur s'il n'est pas déjà présent
         	if (!players[state.username]) {
             		players[state.username] = {
                 		name: state.username,
                 		avatar: state.avatar,
                 		isBot: false,
-                		isHost: false,  // S'assure qu'il n'est PAS l'hôte
+                		isHost: false,
                 		score: 0,
                 		maxStage: 0
             		};
 
-            		// Mettre à jour Firebase avec le dictionnaire mis à jour
             		if (window.mettreAJourSalonFirebase) {
                 		window.mettreAJourSalonFirebase(roomInput, { players: players });
             		}
         	}
 
         	showScreen('screen-lobby');
+		setupLobbyViewForUser();
         	selectGameMode('quiz');
     	}, () => {
         	alert("Ce salon n'existe pas !");
@@ -25029,6 +25028,9 @@ function updateLobbyUI() {
     setDisplay('host-settings-geo', mode === 'geoguessr');
     setDisplay('host-settings-anomaly', mode === 'anomaly');
     setDisplay('host-settings-petitsbac', mode === 'petitsbac');
+
+    setupLobbyViewForUser();
+
 }
 
 	const GAME_DESCRIPTIONS = {
