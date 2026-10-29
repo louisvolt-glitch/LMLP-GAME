@@ -127,8 +127,8 @@
 
 <!-- Importation des SDK Firebase (version modulaire 9+) -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, get, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
   // 1. Votre configuration Firebase (fournie par la console à l'étape 1)
   const firebaseConfig = {
@@ -151,6 +151,7 @@
   window.get = get;
   window.update = update;
   window.onValue = onValue;
+  window.onDisconnect = onDisconnect;
 
   window.creerSalonFirebase = function(codeSalon, donneesHote) {
     set(ref(db, 'salons/' + codeSalon), donneesHote)
@@ -25214,40 +25215,31 @@ function createRoom() {
     }
 
     window.isHost = true;
+    state.username = username;
+    state.roomCode = roomCode;
 
-// Récupérer les valeurs dynamiques du formulaire hôte
     const timerVal = parseInt(document.getElementById('input-host-timer')?.value || 20);
     const questionsCount = parseInt(document.getElementById('input-quiz-questions-count')?.value || 10);
 
     const checkedCategories = Array.from(document.querySelectorAll('.quiz-cat-checkbox:checked'))
         .map(cb => cb.value);
 
-state = {
-        username: username,
-        roomCode: roomCode,
-        selectedMode: 'quiz',
-        quizGame: {
-            categoriesSequence: checkedCategories.length > 0 ? checkedCategories : ['geo', 'history', 'science', 'cinema', 'tech'],
-        },
-        quizSettings: {
-            timer: timerVal,
-            questionsCount: questionsCount,
-        },
-        avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
+    state.quizGame.categoriesSequence = checkedCategories.length > 0 ? checkedCategories : ['geo', 'history', 'science', 'cinema', 'tech'];
+    state.quizSettings.timer = timerVal;
+    state.quizSettings.questionsCount = questionsCount;
+
+    const hostData = {
+        host: username,
         players: {
             [username]: {
                 name: username,
-                avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
+                avatar: state.avatar,
                 isHost: true,
                 isBot: false,
-                score: 0
+                score: 0,
+                isReady: false
             }
-        }
-    };
-
-const hostData = {
-        host: username,
-        players: state.players,
+        },
         selectedMode: 'quiz',
         settings: {
             timer: timerVal,
@@ -25256,19 +25248,19 @@ const hostData = {
         }
     };
 
-    window.creerSalonFirebase(roomCode, hostData);
-    updatePlayerProfile();
-    showScreen('screen-lobby');
-    setupLobbyViewForUser();
-    window.rejoindreSalonFirebase(roomCode);
-    updateLobbyUI();
+    // Création du salon et enregistrement de la déconnexion automatique (onDisconnect)
+    set(ref(db, 'salons/' + roomCode), hostData).then(() => {
+        const playerRef = ref(db, `salons/${roomCode}/players/${username}`);
+        onDisconnect(playerRef).remove(); // Supprime le joueur si il quitte la page
 
+        updatePlayerProfile();
+        showScreen('screen-lobby');
+        setupLobbyViewForUser();
+        window.rejoindreSalonFirebase(roomCode);
+    }).catch((error) => console.error("Erreur de création :", error));
 }
 
 function joinRoom() {
-
-    window.myPlayerKey = state.username;
-
     const nameInput = document.getElementById('input-username').value.trim();
     const roomInput = document.getElementById('input-room').value.trim().toUpperCase();
 
@@ -25281,59 +25273,48 @@ function joinRoom() {
         return;
     }
 
-    // --- CORRECTION ICI ---
     state.username = nameInput;
     window.myPlayerKey = nameInput; 
     window.isHost = false;
-
-    updatePlayerProfile();
     state.roomCode = roomInput;
 
+    updatePlayerProfile();
     window.rejoindreSalonFirebase(roomInput);
-    updateLobbyUI();
-    // ----------------------
-
-    window.isHost = false;
-
-    if (nameInput) state.username = nameInput;
-    updatePlayerProfile();
-    state.roomCode = roomInput;
-
-window.rejoindreSalonFirebase(roomInput);
-
-updateLobbyUI();
 
     if (window.rejoindreSalonFirebaseGet) {
-    	window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
-        	// S'assurer que players est un objet (ou le convertir si besoin)
-        	let players = dataSalon.players || {};
-        	if (Array.isArray(players)) {
-            		let obj = {};
-            		players.forEach(p => { if (p.name) obj[p.name] = p; });
-            		players = obj;
-        	}
+        window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
+            let players = dataSalon.players || {};
+            if (Array.isArray(players)) {
+                let obj = {};
+                players.forEach(p => { if (p.name) obj[p.name] = p; });
+                players = obj;
+            }
 
-        	if (!players[state.username]) {
-            		players[state.username] = {
-                		name: state.username,
-                		avatar: state.avatar,
-                		isBot: false,
-                		isHost: false,
-                		score: 0,
-                		maxStage: 0
-            		};
+            // Ajout du joueur dans l'objet des joueurs
+            players[state.username] = {
+                name: state.username,
+                avatar: state.avatar,
+                isBot: false,
+                isHost: false,
+                score: 0,
+                isReady: false
+            };
 
-            		if (window.mettreAJourSalonFirebase) {
-                		window.mettreAJourSalonFirebase(roomInput, { players: players });
-            		}
-        	}
+            // Écriture immédiate dans Firebase + onDisconnect pour supprimer le joueur en cas de départ
+            const playerRef = ref(db, `salons/${roomInput}/players/${state.username}`);
+            set(playerRef, players[state.username]);
+            onDisconnect(playerRef).remove(); // Supprime le joueur s'il ferme la page
 
-        	showScreen('screen-lobby');
-		setupLobbyViewForUser();
-        	selectGameMode('quiz');
-    	}, () => {
-        	alert("Ce salon n'existe pas !");
-    	});
+            if (window.mettreAJourSalonFirebase) {
+                window.mettreAJourSalonFirebase(roomInput, { players: players });
+            }
+
+            showScreen('screen-lobby');
+            setupLobbyViewForUser();
+            selectGameMode(dataSalon.selectedMode || 'quiz');
+        }, () => {
+            alert("Ce salon n'existe pas !");
+        });
     }
 }
 
