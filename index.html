@@ -110,16 +110,33 @@
 
   window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     const salonRef = ref(db, 'salons/' + codeSalon);
-    // Écouter les changements en temps réel sur ce salon
     onValue(salonRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        callbackMiseAJour(data);
-      } else {
-        console.log("Ce salon n'existe pas.");
-      }
+        const data = snapshot.val();
+        if (data) {
+            // Mise à jour visuelle pour les non-hôtes en temps réel
+            if (!isHost) {
+                if (data.selectedMode) {
+                    document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
+                }
+                if (data.settings && data.settings.timer) {
+                    document.getElementById('non-host-timer-display').innerText = data.settings.timer + "s";
+                }
+            }
+            callbackMiseAJour(data);
+        }
     });
-  };
+};
+
+function getFriendlyModeName(modeKey) {
+    const names = {
+        'quiz': 'Quiz Culture G',
+        'impostor': "Jeu de l'Imposteur",
+        'geoguessr': 'GeoGuessr',
+        'anomaly': 'Anomalies 3D',
+        'petitsbac': 'Petit Bac'
+    };
+    return names[modeKey] || modeKey;
+}
 
 window.rejoindreSalonFirebaseGet = function(codeSalon, callbackSucces, callbackErreur) {
     const salonRef = ref(db, 'salons/' + codeSalon);
@@ -197,6 +214,35 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
         <!-- ECRAN 2: LOBBY -->
         <main id="screen-lobby" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+	    <!-- Panneau visible uniquement pour les Non-Hôtes (Dossier de Mission Verrouillé) -->
+	    <div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+    		<div class="flex justify-between items-center">
+        		<h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">
+            			<i class="fa-solid fa-lock"></i> Dossier de Mission
+        		</h4>
+        		<span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
+            			Verrouillé
+        		</span>
+    	    	</div>
+    	    	<p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
+    
+    	    	<div class="space-y-3 pt-2 text-xs">
+        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            			<span class="text-slate-400">Mode Cible :</span>
+            			<span id="non-host-target-mode" class="font-bold text-indigo-300">Quiz Culture G</span>
+        		</div>
+        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            			<span class="text-slate-400">Filtre Temporel :</span>
+            			<span id="non-host-timer-display" class="font-bold text-amber-400">20s / question</span>
+        		</div>
+        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            			<span class="text-slate-400">Ravitaillement :</span>
+            			<span id="non-host-modules-display" class="font-bold text-emerald-400">20 Catégories actives</span>
+        		</div>
+    	    	</div>
+	    </div>
+
             <div class="glass p-6 rounded-3xl flex flex-col justify-between space-y-4">
                 <div>
                     <div class="flex justify-between items-center mb-4">
@@ -24760,7 +24806,33 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
             return code;
         }
 
-let estHote = false;
+let isHost = false;
+
+function setupLobbyViewForUser() {
+    const hostSettingsQuiz = document.getElementById('host-settings-quiz');
+    const hostSettingsGeo = document.getElementById('host-settings-geo');
+    const hostSettingsAnomaly = document.getElementById('host-settings-anomaly');
+    const hostSettingsPetitsBac = document.getElementById('host-settings-petitsbac');
+    
+    const nonHostFolder = document.getElementById('non-host-mission-folder');
+    const botControls = document.querySelector('#screen-lobby .grid-cols-2'); // Boutons Ajouter/Retirer Bot
+
+    if (isHost) {
+        // Afficher les contrôles et réglages pour l'hôte
+        if (nonHostFolder) nonHostFolder.classList.add('hidden');
+        if (botControls) botControls.classList.remove('hidden');
+        // Les panneaux de configuration s'affichent selon le mode actif
+    } else {
+        // Masquer les réglages modifiables pour les non-hôtes et afficher le dossier verrouillé
+        if (hostSettingsQuiz) hostSettingsQuiz.classList.add('hidden');
+        if (hostSettingsGeo) hostSettingsGeo.classList.add('hidden');
+        if (hostSettingsAnomaly) hostSettingsAnomaly.classList.add('hidden');
+        if (hostSettingsPetitsBac) hostSettingsPetitsBac.classList.add('hidden');
+        if (botControls) botControls.classList.add('hidden');
+        
+        if (nonHostFolder) nonHostFolder.classList.remove('hidden');
+    }
+}
 
 function createRoom() {
     const username = document.getElementById('input-username').value.trim();
