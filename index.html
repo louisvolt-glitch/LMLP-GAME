@@ -119,7 +119,10 @@
                     document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
                 }
                 if (data.settings && data.settings.timer) {
-                    document.getElementById('non-host-timer-display').innerText = data.settings.timer + "s";
+                    const timerVal = data.settings.timer;
+                    document.getElementById('non-host-timer-display').innerText = timerVal + "s / secteur";
+                    const badge = document.getElementById('non-host-timer-badge');
+                    if (badge) badge.innerText = timerVal + "s";
                 }
             }
             callbackMiseAJour(data);
@@ -226,39 +229,48 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     <div class="lg:col-span-1 flex flex-col space-y-4">
         
         <!-- Panneau Non-Hôte : Dossier de Mission Verrouillé -->
-        <div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-            <div class="flex justify-between items-center">
-                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                    <i class="fa-solid fa-lock"></i> Dossier de Mission
-                </h4>
-                <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
-                    Verrouillé
-                </span>
-            </div>
-            <p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
-    
-            <div class="space-y-3 pt-2 text-xs">
-                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</span>
-                    <span id="non-host-target-mode" class="font-bold text-indigo-300 text-sm block">Quiz Culture G</span>
-                </div>
-                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</span>
-                    <span id="non-host-timer-display" class="font-bold text-amber-400 text-sm block">20s / question</span>
-                </div>
-                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules)</span>
-                    <div class="flex justify-between items-center text-xs font-mono text-cyan-400 mb-1">
-                        <span>[██████--]</span>
-                        <span>80%</span>
-                    </div>
-                    <span id="non-host-modules-display" class="font-bold text-emerald-400 text-xs block">Culture Générale & Tech</span>
-                </div>
-            </div>
-            <div class="pt-8 text-center">
-                <span class="text-[10px] text-slate-500 uppercase tracking-widest block">Paramétrage géré par l'hôte du QG</span>
-            </div>
+<div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+    <div class="flex justify-between items-center">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-lock"></i> Dossier de Mission
+        </h4>
+        <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
+            Verrouillé
+        </span>
+    </div>
+    <p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
+
+    <div class="space-y-3 pt-2 text-xs">
+        <!-- Paramètre Cible (Mode) -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</span>
+            <span id="non-host-target-mode" class="font-bold text-indigo-300 text-sm block">Quiz Culture G</span>
         </div>
+
+        <!-- Filtre Temporel avec badge circulaire -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div class="space-y-1">
+                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</span>
+                <span id="non-host-timer-display" class="font-bold text-amber-400 text-sm block">20s / secteur</span>
+            </div>
+            <span id="non-host-timer-badge" class="font-mono font-bold text-amber-400 bg-slate-900 w-10 h-10 rounded-full border border-slate-800 flex items-center justify-center text-xs shadow-inner">20s</span>
+        </div>
+
+        <!-- Ravitaillement (Modules) -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules)</span>
+            <div class="flex justify-between items-center text-xs font-mono text-cyan-400 mb-1">
+                <span>[██████--]</span>
+                <span>80%</span>
+            </div>
+            <span id="non-host-modules-display" class="font-bold text-emerald-400 text-xs block">Culture Générale & Tech</span>
+        </div>
+    </div>
+
+    <div class="pt-8 text-center">
+        <span class="text-[10px] text-slate-500 uppercase tracking-widest block">Paramétrage géré par l'hôte du QG</span>
+    </div>
+</div>
 
         <!-- Panneau Hôte (Réglages - masqué pour le non-hôte) -->
 <div id="host-settings-container" class="glass p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-indigo-500/30">
@@ -24790,28 +24802,15 @@ let isHost = false;
 function setupLobbyViewForUser() {
     const hostSettingsContainer = document.getElementById('host-settings-container');
     const nonHostFolder = document.getElementById('non-host-mission-folder');
-    const hostSettingsQuiz = document.getElementById('host-settings-quiz');
-    const hostSettingsGeo = document.getElementById('host-settings-geo');
-    const hostSettingsAnomaly = document.getElementById('host-settings-anomaly');
-    const hostSettingsPetitsBac = document.getElementById('host-settings-petitsbac');
-    const botControls = document.querySelector('#screen-lobby .grid-cols-2'); // Boutons Bot
 
     if (isHost) {
         // --- VUE HÔTE ---
         if (nonHostFolder) nonHostFolder.classList.add('hidden');
         if (hostSettingsContainer) hostSettingsContainer.classList.remove('hidden');
-        if (botControls) botControls.classList.remove('hidden');
     } else {
         // --- VUE NON-HÔTE (INVITÉ) ---
         if (hostSettingsContainer) hostSettingsContainer.classList.add('hidden');
         if (nonHostFolder) nonHostFolder.classList.remove('hidden');
-        if (botControls) botControls.classList.add('hidden');
-        
-        // Masquer les panneaux de configuration spécifiques de l'hôte
-        if (hostSettingsQuiz) hostSettingsQuiz.classList.add('hidden');
-        if (hostSettingsGeo) hostSettingsGeo.classList.add('hidden');
-        if (hostSettingsAnomaly) hostSettingsAnomaly.classList.add('hidden');
-        if (hostSettingsPetitsBac) hostSettingsPetitsBac.classList.add('hidden');
     }
 }
 
