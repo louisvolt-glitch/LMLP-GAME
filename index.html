@@ -165,18 +165,25 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     <div id="app" class="max-w-6xl mx-auto p-4 md:p-6 min-h-screen flex flex-col justify-between">
 
         <!-- HEADER -->
-        <header class="glass rounded-2xl p-4 mb-4 flex justify-between items-center shadow-2xl border-b border-indigo-500/20">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-500/30">
-                    PA
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-300 bg-clip-text text-transparent">Party Arcade</h1>
-                    <p class="text-xs text-slate-400" id="room-display">Salon Intégral</p>
-                </div>
-            </div>
-            <div id="player-profile" class="flex items-center space-x-3"></div>
-        </header>
+<header class="glass rounded-2xl p-4 mb-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-2xl border-b border-indigo-500/20">
+    <div class="flex items-center space-x-3 text-emerald-400 text-xs font-bold">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+        <span>EN LIGNE – SYNCHRONISATION ÉTABLI</span>
+    </div>
+
+    <div class="flex items-center gap-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800 text-xs font-mono">
+        <span class="text-slate-400">SESSION:</span>
+        <span id="session-code-top" class="text-cyan-400 font-black tracking-widest">CMD-7890</span>
+        <i class="fa-solid fa-copy text-slate-400 cursor-pointer hover:text-white" onclick="navigator.clipboard.writeText(document.getElementById('session-code-top').innerText)"></i>
+    </div>
+
+    <div class="flex items-center gap-2 text-cyan-400 font-mono text-xs bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>DÉMARRAGE DANS : <strong id="lobby-countdown" class="text-white">01:45</strong></span>
+    </div>
+
+    <div id="player-profile" class="flex items-center space-x-3"></div>
+</header>
 
         <!-- ECRAN 1: ACCUEIL -->
         <main id="screen-home" class="flex-1 flex flex-col justify-center items-center py-6">
@@ -254,9 +261,65 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         </div>
 
         <!-- Panneau Hôte (Réglages - masqué pour le non-hôte) -->
-        <div id="host-settings-container" class="glass p-6 rounded-3xl flex flex-col justify-between space-y-4">
-            <!-- Vos réglages hôtes existants (Quiz, GeoGuessr, etc.) -->
+<div id="host-settings-container" class="glass p-5 rounded-3xl flex flex-col justify-between space-y-4 shadow-xl border border-indigo-500/30">
+    <div class="flex justify-between items-center">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-sliders"></i> Dossier de Mission (Hôte QG)
+        </h4>
+        <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-500/30 uppercase">
+            Actif / Contrôle
+        </span>
+    </div>
+
+    <div class="space-y-3 text-xs">
+        <!-- Sélection du Mode de Jeu -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</label>
+            <select id="host-select-mode" onchange="onHostChangeMode(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-bold focus:outline-none focus:border-indigo-500">
+                <option value="quiz">Quiz Culture G</option>
+                <option value="impostor">Jeu de l'Imposteur</option>
+                <option value="geoguessr">GeoGuessr</option>
+                <option value="anomaly">Anomalies 3D</option>
+                <option value="petitsbac">Petit Bac</option>
+            </select>
         </div>
+
+        <!-- Sélection du Minuteur / Filtre Temporel -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</label>
+            <select id="host-select-timer" onchange="onHostChangeTimer(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-amber-400 font-bold focus:outline-none focus:border-indigo-500">
+                <option value="15">15s / secteur</option>
+                <option value="20" selected>20s / secteur</option>
+                <option value="30">30s / secteur</option>
+                <option value="45">45s / secteur</option>
+            </select>
+        </div>
+
+        <!-- Ravitaillement / Catégories -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs font-mono text-cyan-400">
+                <span>[██████--]</span>
+                <span>80%</span>
+            </div>
+            <label class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules & Catégories)</label>
+            <div id="quiz-categories-checklist" class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1 text-[11px]">
+                <!-- Généré dynamiquement ou listé par défaut -->
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                    <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Culture Générale & Tech
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white">
+                    <input type="checkbox" checked onchange="updateHostSettings()" class="rounded bg-slate-900 border-slate-700 text-indigo-500"> Géographie
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="pt-2 text-center">
+        <button onclick="launchGame()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black rounded-xl uppercase tracking-wider text-xs shadow-lg transition">
+            Lancer la Mission
+        </button>
+    </div>
+</div>
     </div>
 
     <!-- COLONNE DE DROITE : OPÉRATEURS, CHAT ET PROTOCOLE DE DÉPART -->
@@ -24666,6 +24729,32 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
                 `;
             }).join('');
         }
+
+// Changement de mode par l'hôte
+function onHostChangeMode(newMode) {
+    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    state.selectedMode = newMode;
+    window.mettreAJourSalonFirebase(state.roomCode, {
+        selectedMode: newMode
+    });
+}
+
+// Changement du minuteur par l'hôte
+function onHostChangeTimer(newTimer) {
+    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    window.mettreAJourSalonFirebase(state.roomCode, {
+        settings: { timer: newTimer }
+    });
+}
+
+// Mise à jour générale des réglages hôte
+function updateHostSettings() {
+    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    // Récupération des catégories cochées si nécessaire
+    window.mettreAJourSalonFirebase(state.roomCode, {
+        updatedAt: Date.now()
+    });
+}
 
         function selectAvatar(idx) {
             state.avatar = AVATARS[idx];
