@@ -25300,10 +25300,13 @@ function joinRoom() {
                 isReady: false
             };
 
+            // === AJOUT 1 : Mettre à jour le state local immédiatement ===
+            state.players = players;
+
             // Écriture immédiate dans Firebase + onDisconnect pour supprimer le joueur en cas de départ
             const playerRef = ref(db, `salons/${roomInput}/players/${state.username}`);
             set(playerRef, players[state.username]);
-            onDisconnect(playerRef).remove(); // Supprime le joueur s'il ferme la page
+            onDisconnect(playerRef).remove();
 
             if (window.mettreAJourSalonFirebase) {
                 window.mettreAJourSalonFirebase(roomInput, { players: players });
@@ -25312,42 +25315,13 @@ function joinRoom() {
             showScreen('screen-lobby');
             setupLobbyViewForUser();
             selectGameMode(dataSalon.selectedMode || 'quiz');
+
+            // === AJOUT 2 : Forcer le rendu immédiat de la liste des opérateurs ===
+            updateLobbyUI();
+
         }, () => {
             alert("Ce salon n'existe pas !");
         });
-    }
-}
-
-function addOneBot() {
-    if (state.players.length >= 8) return;
-    const bName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + state.players.length;
-    state.players.push({ 
-        id: `bot-${Date.now()}`, 
-        name: bName, 
-        avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)], 
-        isBot: true, 
-        score: 0, 
-        maxStage: 0 
-    });
-    
-    updateLobbyUI();
-
-    // 🚀 Synchroniser la liste mise à jour sur Firebase
-    if (window.mettreAJourSalonFirebase && state.roomCode) {
-        window.mettreAJourSalonFirebase(state.roomCode, { players: state.players });
-    }
-}
-
-function removeOneBot() {
-    const idx = state.players.findLastIndex(p => p.isBot);
-    if (idx !== -1) { 
-        state.players.splice(idx, 1); 
-        updateLobbyUI(); 
-
-        // 🚀 Synchroniser la liste mise à jour sur Firebase
-        if (window.mettreAJourSalonFirebase && state.roomCode) {
-            window.mettreAJourSalonFirebase(state.roomCode, { players: state.players });
-        }
     }
 }
 
