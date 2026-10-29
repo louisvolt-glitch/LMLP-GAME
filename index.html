@@ -166,6 +166,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
 	    window.currentRoom = data;
             window.currentCodeSalon = codeSalon;
+	    state.roomCode = codeSalon;
 
 	    // --- 1. SYNCHRONISATION DU STATE GLOBAL DU JEU ---
             if (typeof window.state === 'undefined') window.state = {};
@@ -25279,6 +25280,18 @@ function joinRoom() {
         alert("Veuillez entrer un code de salon à rejoindre !");
         return;
     }
+
+    // --- CORRECTION ICI ---
+    state.username = nameInput;
+    window.myPlayerKey = nameInput; 
+    window.isHost = false;
+
+    updatePlayerProfile();
+    state.roomCode = roomInput;
+
+    window.rejoindreSalonFirebase(roomInput);
+    updateLobbyUI();
+    // ----------------------
 
     window.isHost = false;
 
