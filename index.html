@@ -108,12 +108,11 @@
       .catch((error) => console.error("Erreur de création :", error));
   };
 
-  window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
+window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     const salonRef = ref(db, 'salons/' + codeSalon);
     onValue(salonRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // Mise à jour visuelle pour les non-hôtes en temps réel
             if (!isHost) {
                 if (data.selectedMode) {
                     document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
@@ -124,7 +123,27 @@
                     const badge = document.getElementById('non-host-timer-badge');
                     if (badge) badge.innerText = timerVal + "s";
                 }
+                if (data.settings && data.settings.categoriesText) {
+                    const modDisp = document.getElementById('non-host-modules-display');
+                    if (modDisp) modDisp.innerText = data.settings.categoriesText;
+                }
+                if (data.gameStarted) {
+                    // Lancer la partie automatiquement si l'hôte a lancé
+                    showScreen('screen-quiz');
+                }
             }
+
+	    // === AJOUT DE LA GESTION DU CHAT ICI ===
+            if (data.chatMessages) {
+                const box = document.getElementById('chat-messages-box');
+                if (box) {
+                    const msgs = data.chatMessages;
+                    const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
+                    box.innerHTML = arr.map(m => `<div><span class="text-slate-500">[${m.time}]</span> <strong class="text-indigo-400">${m.sender}:</strong> ${m.text}</div>`).join('');
+                    box.scrollTop = box.scrollHeight;
+                }
+            }
+
             callbackMiseAJour(data);
         }
     });
@@ -178,11 +197,6 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         <span class="text-slate-400">SESSION:</span>
         <span id="session-code-top" class="text-cyan-400 font-black tracking-widest">CMD-7890</span>
         <i class="fa-solid fa-copy text-slate-400 cursor-pointer hover:text-white" onclick="navigator.clipboard.writeText(document.getElementById('session-code-top').innerText)"></i>
-    </div>
-
-    <div class="flex items-center gap-2 text-cyan-400 font-mono text-xs bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800">
-        <i class="fa-solid fa-clock-rotate-left"></i>
-        <span>DÉMARRAGE DANS : <strong id="lobby-countdown" class="text-white">01:45</strong></span>
     </div>
 
     <div id="player-profile" class="flex items-center space-x-3"></div>
@@ -24718,6 +24732,37 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
             loadGoogleMapsApi();
         };
 
+	function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    if (!input || !input.value.trim()) return;
+    const text = input.value.trim();
+    input.value = '';
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const msgObj = { sender: state.username, text: text, time: timeStr };
+
+    const chatRef = ref(db, `salons/${state.roomCode}/chatMessages`);
+    get(chatRef).then((snapshot) => {
+        let msgs = snapshot.val() || [];
+        if (!Array.isArray(msgs)) msgs = Object.values(msgs);
+        msgs.push(msgObj);
+        set(chatRef, msgs);
+    });
+}
+
+// Dans l'écouteur Firebase du salon, ajoutez la mise à jour du chat :
+// (À intégrer dans votre listener onValue global du salon)
+function listenToChat(codeSalon) {
+    onValue(ref(db, `salons/${codeSalon}/chatMessages`), (snapshot) => {
+        const msgs = snapshot.val();
+        const box = document.getElementById('chat-messages-box');
+        if (!box || !msgs) return;
+        const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
+        box.innerHTML = arr.map(m => `<div><span class="text-slate-500">[${m.time}]</span> <strong class="text-indigo-400">${m.sender}:</strong> ${m.text}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
+    });
+}
+
         function renderAvatarSelector() {
             const container = document.getElementById('avatar-selector');
             if (!container) return;
@@ -24963,14 +25008,47 @@ function removeOneBot() {
     }
 }
 
+// Fonction de l'hôte : Lancer la mission pour l'ensemble des joueurs connectés
+function launchGame() {
+    const roomCode = document.getElementById('session-code-top').innerText;
+    if (!roomCode) return;
+
+    // Met à jour Firebase pour basculer tous les clients sur l'écran du quiz
+    window.mettreAJourSalonFirebase(roomCode, {
+        gameStarted: true
+    });
+}
+
+// Fonction pour les joueurs : Basculer le statut "Prêt"
+let isPlayerReady = false;
+function togglePlayerReady() {
+    isPlayerReady = !isPlayerReady;
+    const btn = document.getElementById('btn-toggle-ready');
+    const statusText = document.getElementById('player-ready-status');
+
+    if (isPlayerReady) {
+        btn.className = "w-full sm:w-auto px-8 py-3 bg-slate-800 text-emerald-400 font-black rounded-xl border border-emerald-500/50 uppercase tracking-wider text-xs transition";
+        btn.innerText = "Prêt (Confirmé)";
+        statusText.innerText = "Statut : Prêt pour le déploiement";
+        statusText.className = "text-xs font-bold text-emerald-400 uppercase";
+    } else {
+        btn.className = "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl shadow-lg shadow-cyan-500/20 uppercase tracking-wider text-xs transition transform active:scale-95";
+        btn.innerText = "Prêt pour le Déploiement";
+        statusText.innerText = "Statut : Non Confirmé";
+        statusText.className = "text-xs font-bold text-amber-400 uppercase";
+    }
+}
+
 function updateLobbyUI() {
     if (!state || !state.players) return;
 
-    // Mettre à jour les informations du salon
-    document.getElementById('room-display').innerText = `Salon: ${state.roomCode}`;
-    document.getElementById('room-code-badge').innerText = `CODE: ${state.roomCode}`;
+    if (state.roomCode) {
+        const topCode = document.getElementById('session-code-top');
+        if (topCode) topCode.innerText = state.roomCode;
+        const badgeCode = document.getElementById('room-code-badge');
+        if (badgeCode) badgeCode.innerText = `CODE: ${state.roomCode}`;
+    }
     
-    // Gérer state.players qu'il soit un tableau ou un objet
     const playersArray = Array.isArray(state.players) 
         ? state.players 
         : Object.values(state.players);
@@ -24979,11 +25057,13 @@ function updateLobbyUI() {
 
     const playersListEl = document.getElementById('players-list');
     
-    // Générer proprement le HTML pour chaque joueur avec .map().join('')
     playersListEl.innerHTML = playersArray.map(p => {
         const icon = p.avatar && p.avatar.icon ? p.avatar.icon : 'fa-user';
         const color = p.avatar && p.avatar.color ? p.avatar.color : 'text-indigo-400';
         const roleText = p.isBot ? 'IA' : (p.isHost ? 'Hôte' : 'Joueur');
+	const statusBadge = p.isReady 
+            ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30">PRÊT AU COMBAT</span>' 
+            : '<span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-500/30">EN ATTENTE DE BRIEFING</span>';
 
         return `
             <div class="flex justify-between items-center p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
