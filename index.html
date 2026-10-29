@@ -167,7 +167,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 	    const nonHostFolder = document.getElementById('non-host-mission-folder');
             const hostContainer = document.getElementById('host-settings-container');
             
-            if (!isHost) {
+            if (!window.isHost) {
                 if (nonHostFolder) nonHostFolder.classList.remove('hidden');
                 if (hostContainer) hostContainer.classList.add('hidden');
             } else {
@@ -175,7 +175,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (hostContainer) hostContainer.classList.remove('hidden');
             }
 
-            if (!isHost) {
+            if (!window.isHost) {
                 if (data.selectedMode) {
                     document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
                 }
@@ -209,6 +209,55 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         </div>
                     `).join('');
                     box.scrollTop = box.scrollHeight;
+                }
+            }
+
+// === MISE À JOUR DES JOUEURS ET DU COMPTEUR ===
+            if (data.players) {
+		// 1. Liste des bots à exclure (basée sur votre constante)
+                const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
+
+                const playersList = Object.values(data.players).filter(p => 
+        	p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo)
+    		);
+                
+                // 1. Correction du compteur d'opérateurs
+                const countEl = document.getElementById('player-count');
+                if (countEl) countEl.innerText = playersList.length;
+
+                // 2. Génération dynamique de la grille
+                const grid = document.getElementById('operators-grid');
+                if (grid) {
+                    grid.innerHTML = ''; // On vide la grille
+                    
+                    playersList.forEach(p => {
+                        const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
+                        const isReady = p.isReady;
+                        
+                        // Application de vos styles dynamiques
+                        const borderClass = isReady ? 'border-command-cyan/40 glow-cyan' : 'border-command-border';
+                        const avatarBg = isReady ? 'bg-command-cyan/10 border-command-cyan text-command-cyan' : 'bg-gray-800 border-gray-700 text-gray-300';
+                        const statusColor = isReady ? 'text-command-green' : 'text-yellow-500';
+                        const statusText = isReady ? 'PRÊT AU COMBAT' : 'EN ATTENTE DE BRIEFING';
+                        const dotColor = isReady ? 'bg-command-green glow-green' : 'bg-yellow-500';
+                        
+                        const init = p.name ? p.name.substring(0, 2).toUpperCase() : '??';
+
+                        grid.innerHTML += `
+                            <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded ${avatarBg} border flex items-center justify-center font-mono font-bold">
+                                        ${init}
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-sm text-gray-100">${p.name} ${isHostBadge}</div>
+                                        <div class="text-xs font-mono ${statusColor}">${statusText}</div>
+                                    </div>
+                                </div>
+                                <span class="w-2.5 h-2.5 rounded-full ${dotColor}"></span>
+                            </div>
+                        `;
+                    });
                 }
             }
 
@@ -381,62 +430,8 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
                 <!-- Grille des joueurs -->
                 <div id="operators-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <!-- Joueur 1 (Hôte) -->
-                    <div class="bg-command-dark p-3 rounded-lg border border-command-cyan/40 flex items-center justify-between glow-cyan">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded bg-command-cyan/10 border border-command-cyan flex items-center justify-center font-mono text-command-cyan font-bold">
-                                V7
-                            </div>
-                            <div>
-                                <div class="font-bold text-sm text-gray-100">Vecteur-7 <span class="text-xs text-command-cyan font-mono">(Hôte)</span></div>
-                                <div class="text-xs font-mono text-command-green">PRÊT AU COMBAT</div>
-                            </div>
-                        </div>
-                        <span class="w-2.5 h-2.5 rounded-full bg-command-green glow-green"></span>
-                    </div>
-
-                    <!-- Joueur 2 -->
-                    <div class="bg-command-dark p-3 rounded-lg border border-command-border flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded bg-gray-800 border border-gray-700 flex items-center justify-center font-mono text-gray-300 font-bold">
-                                NX
-                            </div>
-                            <div>
-                                <div class="font-bold text-sm text-gray-100">NovaX</div>
-                                <div id="status-player-2" class="text-xs font-mono text-yellow-500">EN ATTENTE DE BRIEFING</div>
-                            </div>
-                        </div>
-                        <span id="dot-player-2" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                    </div>
-
-                    <!-- Joueur 3 -->
-                    <div class="bg-command-dark p-3 rounded-lg border border-command-border flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded bg-gray-800 border border-gray-700 flex items-center justify-center font-mono text-gray-300 font-bold">
-                                CZ
-                            </div>
-                            <div>
-                                <div class="font-bold text-sm text-gray-100">CyberZen</div>
-                                <div class="text-xs font-mono text-command-green">PRÊT AU COMBAT</div>
-                            </div>
-                        </div>
-                        <span class="w-2.5 h-2.5 rounded-full bg-command-green glow-green"></span>
-                    </div>
-
-                    <!-- Joueur 4 (Vous) -->
-                    <div class="bg-command-dark p-3 rounded-lg border border-command-cyan/30 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded bg-command-cyan/20 border border-command-cyan flex items-center justify-center font-mono text-command-cyan font-bold">
-                                ME
-                            </div>
-                            <div>
-                                <div class="font-bold text-sm text-gray-100">Vous (Commandant)</div>
-                                <div id="my-status-label" class="text-xs font-mono text-yellow-500">EN ATTENTE DE BRIEFING</div>
-                            </div>
-                        </div>
-                        <span id="my-status-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                    </div>
-                </div>
+                
+		</div>
             </section>
 
             <!-- 4. Console de Communication & Interaction Rapide -->
@@ -24906,7 +24901,7 @@ function listenToChat(codeSalon) {
 
 // Changement de mode par l'hôte
 function onHostChangeMode(newMode) {
-    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    if (!window.isHost || !window.mettreAJourSalonFirebase) return;
     state.selectedMode = newMode;
     window.mettreAJourSalonFirebase(state.roomCode, {
         selectedMode: newMode
@@ -24915,7 +24910,7 @@ function onHostChangeMode(newMode) {
 
 // Changement du minuteur par l'hôte
 function onHostChangeTimer(newTimer) {
-    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    if (!window.isHost || !window.mettreAJourSalonFirebase) return;
     window.mettreAJourSalonFirebase(state.roomCode, {
         settings: { timer: newTimer }
     });
@@ -24923,7 +24918,7 @@ function onHostChangeTimer(newTimer) {
 
 // Mise à jour générale des réglages hôte
 function updateHostSettings() {
-    if (!isHost || !window.mettreAJourSalonFirebase) return;
+    if (!window.isHost || !window.mettreAJourSalonFirebase) return;
     // Récupération des catégories cochées si nécessaire
     window.mettreAJourSalonFirebase(state.roomCode, {
         updatedAt: Date.now()
@@ -24959,13 +24954,13 @@ function updateHostSettings() {
             return code;
         }
 
-let isHost = false;
+window.isHost = false;
 
 function setupLobbyViewForUser() {
     const hostSettingsContainer = document.getElementById('host-settings-container');
     const nonHostFolder = document.getElementById('non-host-mission-folder');
 
-    if (isHost) {
+    if (window.isHost) {
         // --- VUE HÔTE ---
         if (nonHostFolder) nonHostFolder.classList.add('hidden');
         if (hostSettingsContainer) hostSettingsContainer.classList.remove('hidden');
@@ -24985,7 +24980,7 @@ function createRoom() {
         return;
     }
 
-    isHost = true;
+    window.isHost = true;
 
     state = {
         username: username,
@@ -25039,7 +25034,7 @@ function joinRoom() {
         return;
     }
 
-    isHost = false;
+    window.isHost = false;
 
     if (nameInput) state.username = nameInput;
     updatePlayerProfile();
