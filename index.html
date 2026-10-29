@@ -101,7 +101,13 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // Exemple d'utilisation pour votre code de salon (ex: "CU4NW")
+  window.db = db;
+  window.ref = ref;
+  window.set = set;
+  window.get = get;
+  window.update = update;
+  window.onValue = onValue;
+
   window.creerSalonFirebase = function(codeSalon, donneesHote) {
     set(ref(db, 'salons/' + codeSalon), donneesHote)
       .then(() => console.log("Salon créé avec succès sur Firebase !"))
@@ -139,12 +145,20 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (box) {
                     const msgs = data.chatMessages;
                     const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
-                    box.innerHTML = arr.map(m => `<div><span class="text-slate-500">[${m.time}]</span> <strong class="text-indigo-400">${m.sender}:</strong> ${m.text}</div>`).join('');
+                    box.innerHTML = arr.map(m => `
+                        <div>
+                            <span class="text-slate-500">[${m.time}]</span> 
+                            <strong class="text-indigo-400">${m.sender}:</strong> 
+                            <span class="text-slate-200">${m.text}</span>
+                        </div>
+                    `).join('');
                     box.scrollTop = box.scrollHeight;
                 }
             }
 
-            callbackMiseAJour(data);
+            if (typeof callbackMiseAJour === 'function') {
+                callbackMiseAJour(data);
+            }
         }
     });
 };
@@ -24732,7 +24746,7 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
             loadGoogleMapsApi();
         };
 
-	function sendChatMessage() {
+function sendChatMessage() {
     const input = document.getElementById('chat-input');
     if (!input || !input.value.trim()) return;
     const text = input.value.trim();
@@ -24741,17 +24755,22 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const msgObj = { sender: state.username, text: text, time: timeStr };
 
+    if (!state.roomCode) {
+        console.error("Erreur : Aucun code de salon actif.");
+        return;
+    }
+
     const chatRef = ref(db, `salons/${state.roomCode}/chatMessages`);
     get(chatRef).then((snapshot) => {
         let msgs = snapshot.val() || [];
         if (!Array.isArray(msgs)) msgs = Object.values(msgs);
         msgs.push(msgObj);
         set(chatRef, msgs);
+    }).catch((error) => {
+        console.error("Erreur lors de l'envoi du message tactique :", error);
     });
 }
 
-// Dans l'écouteur Firebase du salon, ajoutez la mise à jour du chat :
-// (À intégrer dans votre listener onValue global du salon)
 function listenToChat(codeSalon) {
     onValue(ref(db, `salons/${codeSalon}/chatMessages`), (snapshot) => {
         const msgs = snapshot.val();
