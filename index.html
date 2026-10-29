@@ -212,210 +212,100 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             </div>
         </main>
 
-        <!-- ECRAN 2: LOBBY -->
-        <main id="screen-lobby" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- ECRAN 2: LOBBY -->
+<main id="screen-lobby" class="hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-	    <!-- Panneau visible uniquement pour les Non-Hôtes (Dossier de Mission Verrouillé) -->
-	    <div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4">
-    		<div class="flex justify-between items-center">
-        		<h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">
-            			<i class="fa-solid fa-lock"></i> Dossier de Mission
-        		</h4>
-        		<span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
-            			Verrouillé
-        		</span>
-    	    	</div>
-    	    	<p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
+    <!-- COLONNE DE GAUCHE : DOSSIER DE MISSION (DIFFÉRENT SELON HÔTE / NON-HÔTE) -->
+    <div class="lg:col-span-1 flex flex-col space-y-4">
+        
+        <!-- Panneau Non-Hôte : Dossier de Mission Verrouillé -->
+        <div id="non-host-mission-folder" class="hidden bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock"></i> Dossier de Mission
+                </h4>
+                <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 uppercase">
+                    Verrouillé
+                </span>
+            </div>
+            <p class="text-[11px] text-slate-400 italic">PARAMÉTRAGE GÉRÉ PAR L'HÔTE DU QG</p>
     
-    	    	<div class="space-y-3 pt-2 text-xs">
-        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            			<span class="text-slate-400">Mode Cible :</span>
-            			<span id="non-host-target-mode" class="font-bold text-indigo-300">Quiz Culture G</span>
-        		</div>
-        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            			<span class="text-slate-400">Filtre Temporel :</span>
-            			<span id="non-host-timer-display" class="font-bold text-amber-400">20s / question</span>
-        		</div>
-        		<div class="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            			<span class="text-slate-400">Ravitaillement :</span>
-            			<span id="non-host-modules-display" class="font-bold text-emerald-400">20 Catégories actives</span>
-        		</div>
-    	    	</div>
-	    </div>
-
-            <div class="glass p-6 rounded-3xl flex flex-col justify-between space-y-4">
-                <div>
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-users text-indigo-400"></i> Joueurs (<span id="player-count">1</span>)
-                        </h3>
-                        <span id="room-code-badge" class="bg-indigo-500/20 text-indigo-300 font-mono text-xs px-3 py-1 rounded-full border border-indigo-500/30">CODE: ----</span>
-                    </div>
-                    <div id="players-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1 mb-4"></div>
-
-                    <!-- Paramètres Quiz -->
-                    <div id="host-settings-quiz" class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3 hidden">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400"><i class="fa-solid fa-gear"></i> Paramètres Quiz (20 Catégories)</h4>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Nombre de questions : <span id="val-quiz-questions" class="text-white font-bold">10</span></label>
-                            <input type="range" id="setting-quiz-questions" min="5" max="30" value="10" oninput="document.getElementById('val-quiz-questions').innerText=this.value" class="w-full accent-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Temps par question :</label>
-                            <select id="setting-quiz-timer" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                                <option value="15">15 secondes</option>
-                                <option value="20" selected>20 secondes</option>
-                                <option value="30">30 secondes</option>
-                            </select>
-                        </div>
-			<div>
-        			<!-- AJOUTEZ LE BOUTON ICI : -->
-        			<div class="flex justify-between items-center mb-1">
-            				<label class="block text-xs text-slate-400">Catégories (20 au choix) :</label>
-            				<button type="button" onclick="toggleAllQuizCategories()" class="text-[10px] text-indigo-400 hover:text-indigo-300 underline font-semibold transition">
-                				Tout cocher / décocher
-            				</button>
-        			</div>
-        			<!-- FIN DE L'AJOUT -->
-        			<div id="quiz-categories-checklist" class="bg-slate-950 border border-slate-700 rounded-lg p-2.5 max-h-48 overflow-y-auto space-y-2 text-xs"></div>
-    			</div>
-                    </div>
-
-                    <!-- Paramètres GeoGuessr -->
-                    <div id="host-settings-geo" class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3 hidden">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400"><i class="fa-solid fa-gear"></i> Paramètres GeoGuessr (1000+ Emplacements)</h4>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Manches : <span id="val-rounds" class="text-white font-bold">5</span></label>
-                            <input type="range" id="setting-rounds" min="1" max="10" value="5" oninput="document.getElementById('val-rounds').innerText=this.value" class="w-full accent-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Temps par manche :</label>
-                            <select id="setting-timer" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
-                                <option value="30">30 secondes</option>
-                                <option value="45" selected>45 secondes</option>
-                                <option value="60">60 secondes</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Paramètres Anomalies 3D -->
-                    <div id="host-settings-anomaly" class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3 hidden">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400"><i class="fa-solid fa-gear"></i> Paramètres Anomalies 3D</h4>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Sorties nécessaires : <span id="val-anomaly-stages" class="text-white font-bold">8</span></label>
-                            <input type="range" id="setting-anomaly-stages" min="3" max="15" value="8" oninput="document.getElementById('val-anomaly-stages').innerText=this.value" class="w-full accent-amber-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Temps maximal de partie :</label>
-                            <select id="setting-anomaly-timer" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
-                                <option value="120">2 minutes</option>
-                                <option value="180">3 minutes</option>
-                                <option value="300" selected>5 minutes</option>
-                                <option value="600">10 minutes</option>
-                            </select>
-                        </div>
-                    </div>
-		    <div id="host-settings-petitsbac" class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3 hidden">
-    			<h4 class="text-xs font-bold uppercase tracking-wider text-cyan-400">
-        			<i class="fa-solid fa-gear"></i> Paramètres Petit Bac
-    			</h4>
-    			<div>
-        			<label class="block text-xs text-slate-400 mb-1">Nombre de catégories : <span id="val-bac-categories" class="text-white font-bold">5</span></label>
-        			<input type="range" id="setting-petitsbac-categories" min="3" max="8" value="5" oninput="document.getElementById('val-bac-categories').innerText=this.value" class="w-full accent-cyan-500">
-    			</div>
-    			<div>
-        			<label class="block text-xs text-slate-400 mb-1">Manches : <span id="val-bac-rounds" class="text-white font-bold">3</span></label>
-        			<input type="range" id="setting-petitsbac-rounds" min="1" max="5" value="3" oninput="document.getElementById('val-bac-rounds').innerText=this.value" class="w-full accent-cyan-500">
-    			</div>
-    			<div>
-        			<label class="block text-xs text-slate-400 mb-1">Temps par manche :</label>
-        			<select id="setting-petitsbac-timer" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
-            				<option value="45">45 secondes</option>
-            				<option value="60" selected>60 secondes</option>
-            				<option value="90">90 secondes</option>
-        			</select>
-    			</div>
-		    </div>
-
+            <div class="space-y-3 pt-2 text-xs">
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Paramètre Cible (Mode)</span>
+                    <span id="non-host-target-mode" class="font-bold text-indigo-300 text-sm block">Quiz Culture G</span>
                 </div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Filtre Temporel</span>
+                    <span id="non-host-timer-display" class="font-bold text-amber-400 text-sm block">20s / question</span>
+                </div>
+                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <span class="text-slate-400 block text-[10px] uppercase font-semibold">Ravitaillement (Modules)</span>
+                    <div class="flex justify-between items-center text-xs font-mono text-cyan-400 mb-1">
+                        <span>[██████--]</span>
+                        <span>80%</span>
+                    </div>
+                    <span id="non-host-modules-display" class="font-bold text-emerald-400 text-xs block">Culture Générale & Tech</span>
+                </div>
+            </div>
+            <div class="pt-8 text-center">
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest block">Paramétrage géré par l'hôte du QG</span>
+            </div>
+        </div>
 
-                <div class="grid grid-cols-2 gap-2 pt-2">
-                    <button onclick="addOneBot()" class="bg-indigo-600/80 hover:bg-indigo-500 text-xs font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20">
-                        <i class="fa-solid fa-plus"></i> Ajouter Bot
-                    </button>
-                    <button onclick="removeOneBot()" class="bg-slate-800 hover:bg-slate-700 text-xs font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 text-slate-300">
-                        <i class="fa-solid fa-minus"></i> Retirer Bot
-                    </button>
+        <!-- Panneau Hôte (Réglages - masqué pour le non-hôte) -->
+        <div id="host-settings-container" class="glass p-6 rounded-3xl flex flex-col justify-between space-y-4">
+            <!-- Vos réglages hôtes existants (Quiz, GeoGuessr, etc.) -->
+        </div>
+    </div>
+
+    <!-- COLONNE DE DROITE : OPÉRATEURS, CHAT ET PROTOCOLE DE DÉPART -->
+    <div class="lg:col-span-2 glass p-6 rounded-3xl flex flex-col justify-between space-y-6 shadow-2xl">
+        <div>
+            <!-- En-tête de la liste des joueurs -->
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-users text-indigo-400"></i> Opérateurs Connectés (<span id="player-count">1</span> /8)
+                </h3>
+                <span id="room-code-badge" class="bg-indigo-500/20 text-indigo-300 font-mono text-xs px-3 py-1 rounded-full border border-indigo-500/30 uppercase">CODE: ----</span>
+            </div>
+
+            <!-- Liste des joueurs / opérateurs -->
+            <div id="players-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[260px] overflow-y-auto pr-1 mb-4"></div>
+        </div>
+
+        <!-- Section Basse : Chat Sécurisé & Bouton Prêt -->
+        <div class="space-y-4 pt-4 border-t border-slate-800/80">
+            <!-- Canal de discussion sécurisé -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halweed text-indigo-400"></i> Canal de Discussion Sécurisé
+                    </span>
+                    <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Online</span>
+                </div>
+                <div id="chat-messages-box" class="h-20 overflow-y-auto text-[11px] font-mono text-slate-300 space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-900">
+                    <div class="text-slate-500">[08:25] Système: Synchronisation du salon établie.</div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Envoyer un message tactique..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <button type="button" onclick="sendChatMessage()" class="bg-indigo-600/80 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Transmettre</button>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 glass p-6 rounded-3xl flex flex-col justify-between space-y-6">
+            <!-- Protocole de Départ / Bouton Prêt -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
                 <div>
-                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-gamepad text-purple-400"></i> Mode de Jeu
-                    </h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div onclick="selectGameMode('quiz')" id="card-mode-quiz" class="mode-card relative border-2 border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/20 p-4 rounded-2xl cursor-pointer transition-all">
-                            <div class="text-xl mb-1 text-indigo-400"><i class="fa-solid fa-lightbulb"></i></div>
-                            <h4 class="font-bold text-sm">Quiz Culture G</h4>
-                            <p class="text-xs text-slate-400 mt-1">100+ questions par difficulté pour chacune des 20 catégories.</p>
-                            <span class="mode-badge absolute top-3 right-3 bg-indigo-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                                <i class="fa-solid fa-check"></i> Actif
-                            </span>
-                        </div>
-
-                        <div onclick="selectGameMode('impostor')" id="card-mode-impostor" class="mode-card relative border-2 border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 p-4 rounded-2xl cursor-pointer transition-all">
-                            <div class="text-xl mb-1 text-red-400"><i class="fa-solid fa-user-ninja"></i></div>
-                            <h4 class="font-bold text-sm">Jeu de l'Imposteur</h4>
-                            <p class="text-xs text-slate-400 mt-1">Grande banque de paires de mots uniques et distinctes.</p>
-                            <span class="mode-badge hidden absolute top-3 right-3 bg-indigo-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                                <i class="fa-solid fa-check"></i> Actif
-                            </span>
-                        </div>
-
-                        <div onclick="selectGameMode('geoguessr')" id="card-mode-geoguessr" class="mode-card relative border-2 border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 p-4 rounded-2xl cursor-pointer transition-all">
-                            <div class="text-xl mb-1 text-emerald-400"><i class="fa-solid fa-earth-americas"></i></div>
-                            <h4 class="font-bold text-sm">GeoGuessr</h4>
-                            <p class="text-xs text-slate-400 mt-1">Banque mondiale de 1000+ coordonnées réelles vérifiées.</p>
-                            <span class="mode-badge hidden absolute top-3 right-3 bg-indigo-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                                <i class="fa-solid fa-check"></i> Actif
-                            </span>
-                        </div>
-
-                        <div onclick="selectGameMode('anomaly')" id="card-mode-anomaly" class="mode-card relative border-2 border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 p-4 rounded-2xl cursor-pointer transition-all">
-                            <div class="text-xl mb-1 text-amber-400"><i class="fa-solid fa-eye"></i></div>
-                            <h4 class="font-bold text-sm">Anomalies</h4>
-                            <p class="text-xs text-slate-400 mt-1">Simulateur 3D avec extincteur détaillé et détection d'anomalies.</p>
-                            <span class="mode-badge hidden absolute top-3 right-3 bg-indigo-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                                <i class="fa-solid fa-check"></i> Actif
-                            </span>
-                        </div>
-			<div onclick="selectGameMode('petitsbac')" id="card-mode-petitsbac" class="mode-card relative border-2 border-slate-800/80 bg-slate-900/50 hover:bg-slate-800/60 p-4 rounded-2xl cursor-pointer transition-all">
-    				<div class="text-xl mb-1 text-cyan-400"><i class="fa-solid fa-pen-nib"></i></div>
-    				<h4 class="font-bold text-sm">Petit Bac</h4>
-    				<p class="text-xs text-slate-400 mt-1">Trouvez des mots avec la lettre imposée pour chaque catégorie.</p>
-    				<span class="mode-badge hidden absolute top-3 right-3 bg-indigo-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-        				<i class="fa-solid fa-check"></i> Actif
-    				</span>
-			</div>
-                    </div>
+                    <span class="text-[10px] text-slate-400 uppercase tracking-widest block font-semibold">Protocole de Départ</span>
+                    <span id="player-ready-status" class="text-xs font-bold text-amber-400 uppercase">Statut : Non Confirmé</span>
                 </div>
-
-		<div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-2">
-                	<h4 id="game-info-title" class="text-sm font-bold text-indigo-400 flex items-center gap-2">
-                    		<i class="fa-solid fa-circle-info"></i> Sélectionner un mode
-                	</h4>
-                	<p id="game-info-desc" class="text-xs text-slate-300 leading-relaxed">
-                    		Cliquez sur l'une des cartes ci-dessus pour découvrir le fonctionnement, le but et le système de points du jeu sélectionné.
-                	</p>
-            	</div>
-
-                <button onclick="startGame()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black py-4 rounded-2xl shadow-xl shadow-emerald-500/20 text-lg uppercase tracking-wider transition transform active:scale-98">
-                    Lancer la Partie !
+                <button id="btn-toggle-ready" onclick="togglePlayerReady()" class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl shadow-lg shadow-cyan-500/20 uppercase tracking-wider text-xs transition transform active:scale-95">
+                    Prêt pour le Déploiement
                 </button>
             </div>
-        </main>
+        </div>
+    </div>
+</main>
 
         <!-- ECRAN CHOIX DIFFICULTE QUIZ -->
         <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
@@ -24809,28 +24699,30 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
 let isHost = false;
 
 function setupLobbyViewForUser() {
+    const hostSettingsContainer = document.getElementById('host-settings-container');
+    const nonHostFolder = document.getElementById('non-host-mission-folder');
     const hostSettingsQuiz = document.getElementById('host-settings-quiz');
     const hostSettingsGeo = document.getElementById('host-settings-geo');
     const hostSettingsAnomaly = document.getElementById('host-settings-anomaly');
     const hostSettingsPetitsBac = document.getElementById('host-settings-petitsbac');
-    
-    const nonHostFolder = document.getElementById('non-host-mission-folder');
-    const botControls = document.querySelector('#screen-lobby .grid-cols-2'); // Boutons Ajouter/Retirer Bot
+    const botControls = document.querySelector('#screen-lobby .grid-cols-2'); // Boutons Bot
 
     if (isHost) {
-        // Afficher les contrôles et réglages pour l'hôte
+        // --- VUE HÔTE ---
         if (nonHostFolder) nonHostFolder.classList.add('hidden');
+        if (hostSettingsContainer) hostSettingsContainer.classList.remove('hidden');
         if (botControls) botControls.classList.remove('hidden');
-        // Les panneaux de configuration s'affichent selon le mode actif
     } else {
-        // Masquer les réglages modifiables pour les non-hôtes et afficher le dossier verrouillé
+        // --- VUE NON-HÔTE (INVITÉ) ---
+        if (hostSettingsContainer) hostSettingsContainer.classList.add('hidden');
+        if (nonHostFolder) nonHostFolder.classList.remove('hidden');
+        if (botControls) botControls.classList.add('hidden');
+        
+        // Masquer les panneaux de configuration spécifiques de l'hôte
         if (hostSettingsQuiz) hostSettingsQuiz.classList.add('hidden');
         if (hostSettingsGeo) hostSettingsGeo.classList.add('hidden');
         if (hostSettingsAnomaly) hostSettingsAnomaly.classList.add('hidden');
         if (hostSettingsPetitsBac) hostSettingsPetitsBac.classList.add('hidden');
-        if (botControls) botControls.classList.add('hidden');
-        
-        if (nonHostFolder) nonHostFolder.classList.remove('hidden');
     }
 }
 
