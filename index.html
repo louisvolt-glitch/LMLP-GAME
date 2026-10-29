@@ -24773,11 +24773,17 @@ function createRoom() {
 
     // Définir explicitement que cet utilisateur est l'hôte
     const hostData = {
-        host: username,
-        players: {
-            [username]: { avatar: selectedAvatar, score: 0 }
-        },
-        settings: { ... } // vos paramètres par défaut
+    	host: username,
+    	players: {
+        	[username]: { 
+            	name: username, 
+            	avatar: selectedAvatar, 
+            	score: 0,
+            	isHost: true,
+            	isBot: false
+        	}
+    	},
+    	settings: { /* vos paramètres par défaut */ }
     };
 
     window.creerSalonFirebase(roomCode, hostData);
@@ -24822,35 +24828,39 @@ function joinRoom() {
         });
     }
 
-    // 🚀 2. RÉCUPÉRER LE SALON, AJOUTER LE JOUEUR (NON-HÔTE) ET METTRE À JOUR FIREBASE
+    // 2. RÉCUPÉRER LE SALON, AJOUTER LE JOUEUR ET METTRE À JOUR FIREBASE
     if (window.rejoindreSalonFirebaseGet) {
-        window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
-            let players = dataSalon.players || [];
-            
-            // Éviter les doublons si on clique plusieurs fois
-            if (!players.some(p => p.name === state.username)) {
-                players.push({
-                    id: 'p-' + Date.now(),
-                    name: state.username,
-                    avatar: state.avatar,
-                    isBot: false,
-                    isHost: false, // <-- S'assure qu'il n'est PAS l'hôte
-                    score: 0,
-                    maxStage: 0
-                });
-                
-                // Mettre à jour Firebase avec la liste actualisée
-                if (window.mettreAJourSalonFirebase) {
-                    window.mettreAJourSalonFirebase(roomInput, { players: players });
-                }
-            }
-            
-            showScreen('screen-lobby');
-            selectGameMode('quiz');
+    	window.rejoindreSalonFirebaseGet(roomInput, (dataSalon) => {
+        	// S'assurer que players est un objet (ou le convertir si besoin)
+        	let players = dataSalon.players || {};
+        	if (Array.isArray(players)) {
+            		let obj = {};
+            		players.forEach(p => { if (p.name) obj[p.name] = p; });
+            		players = obj;
+        	}
 
-        }, () => {
-            alert("Ce salon n'existe pas !");
-        });
+        	// Ajouter le nouveau joueur s'il n'est pas déjà présent
+        	if (!players[state.username]) {
+            		players[state.username] = {
+                		name: state.username,
+                		avatar: state.avatar,
+                		isBot: false,
+                		isHost: false,  // S'assure qu'il n'est PAS l'hôte
+                		score: 0,
+                		maxStage: 0
+            		};
+
+            		// Mettre à jour Firebase avec le dictionnaire mis à jour
+            		if (window.mettreAJourSalonFirebase) {
+                		window.mettreAJourSalonFirebase(roomInput, { players: players });
+            		}
+        	}
+
+        	showScreen('screen-lobby');
+        	selectGameMode('quiz');
+    	}, () => {
+        	alert("Ce salon n'existe pas !");
+    	});
     }
 }
 
