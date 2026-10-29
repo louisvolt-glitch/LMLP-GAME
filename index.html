@@ -24771,30 +24771,45 @@ function createRoom() {
         return;
     }
 
-    // Définir explicitement que cet utilisateur est l'hôte
+    // 1. Initialiser l'état global (state) pour l'hôte
+    state = {
+        username: username,
+        roomCode: roomCode,
+        selectedMode: 'quiz', // ou votre mode par défaut
+        avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
+        players: {
+            [username]: {
+                name: username,
+                avatar: window.state && window.state.avatar ? window.state.avatar : AVATARS[0],
+                score: 0,
+                isHost: true,
+                isBot: false
+            }
+        }
+    };
+
     const hostData = {
-    	host: username,
-    	players: {
-        	[username]: { 
-            	name: username, 
-            	avatar: state.avatar, 
-            	score: 0,
-            	isHost: true,
-            	isBot: false
-        	}
-    	},
-    	settings: { /* vos paramètres par défaut */ }
+        host: username,
+        players: state.players,
+        settings: { /* vos paramètres par défaut */ }
     };
 
     window.creerSalonFirebase(roomCode, hostData);
     
-    // Activer l'interface Hôte sur votre écran
-    isHost = true;
-    currentUsername = username;
-    currentRoom = roomCode;
-    
+    // 3. Mettre à jour l'interface utilisateur
+    updatePlayerProfile();
     showScreen('screen-lobby');
-    ecouterSalonFirebase(roomCode);
+    
+    // 4. Activer l'écoute en temps réel pour le salon
+    window.rejoindreSalonFirebase(roomCode, (dataSalon) => {
+        if (dataSalon && dataSalon.players) {
+            state.players = dataSalon.players;
+            updateLobbyUI();
+        }
+    });
+
+    updateLobbyUI();
+
 }
 
 function joinRoom() {
