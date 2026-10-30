@@ -315,12 +315,13 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     if (selectedMode === 'quiz') {
                         const diffScreen = document.getElementById('screen-quiz-difficulty');
                         if (diffScreen) diffScreen.classList.remove('hidden');
-                    } else if (selectedMode === 'impostor') {
-                        const imposScreen = document.getElementById('screen-impostor');
-                        if (imposScreen) imposScreen.classList.remove('hidden'); 
-                        if (typeof renderImpostorScreen === 'function') {
-                            renderImpostorScreen(data);
-                        }
+                    else if (selectedMode === 'impostor') {
+    			const imposScreen = document.getElementById('screen-impostor');
+    			if (imposScreen) imposScreen.classList.remove('hidden'); 
+    			if (typeof renderImpostorScreen === 'function') {
+        			renderImpostorScreen(data);
+    			}
+		    }
                     } else if (selectedMode === 'geoguessr') {
                         const geoScreen = document.getElementById('screen-game-geoguessr');
                         if (geoScreen) geoScreen.classList.remove('hidden');
@@ -26196,45 +26197,79 @@ function showQuizFinalRecap() {
         // --- JEU DE L'IMPOSTEUR ---
         let impostorGameState = { pair: null, impostorId: null, revealed: false };
 
+// Initialisation et lancement de la partie Impostor par l'hôte
 function startImpostorGame() {
-    // 1. Récupérer la liste des joueurs connectés
-    const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
+    if (!window.isHost) return;
+
+    let playersRaw = state.players || {};
+    let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
+    playersArr = playersArr.filter(p => p && (p.name || p.pseudo));
+
     if (playersArr.length < 3) {
-        alert("Il faut au moins 3 joueurs pour lancer le Jeu de l'Imposteur !");
+        alert("Il faut au moins 3 joueurs pour lancer le mode Imposteur !");
         return;
     }
 
-    // 2. Choisir une paire aléatoire de mots (Citoyen / Imposteur)
+    // 1. Choisir une paire de mots aléatoire parmi IMPOSTOR_PAIRS
     const randomPair = IMPOSTOR_PAIRS[Math.floor(Math.random() * IMPOSTOR_PAIRS.length)];
     
-    // 3. Choisir un imposteur au hasard parmi les joueurs
-    const impostorIndex = Math.floor(Math.random() * playersArr.length);
-
-    // 4. Assigner les rôles et mots à chaque joueur
-    let impostorStateData = {};
-    playersArr.forEach((p, idx) => {
-        const playerName = p.name || p.pseudo;
-        const isImpostor = (idx === impostorIndex);
-        impostorStateData[playerName] = {
-            role: isImpostor ? 'impostor' : 'citizen',
-            word: isImpostor ? randomPair.impostor : randomPair.citizen, // Ou mot caché pour l'imposteur
-            hasVoted: false
-        };
-    });
-
-    // 5. Mettre à jour l'état global et synchroniser sur Firebase
-    state.impostorGame = {
-        pair: randomPair,
-        impostorName: playersArr[impostorIndex].name || playersArr[impostorIndex].pseudo,
-        playerRoles: impostorStateData,
-        phase: 'discussion' // 'discussion' ou 'vote'
+    // 2. Mélanger les joueurs pour attribuer les rôles
+    let shuffledPlayers = [...playersArr].sort(() => Math.random() - 0.5);
+    
+    let roles = {};
+    // Le premier est l'imposteur
+    let impostorPlayer = shuffledPlayers[0];
+    roles[impostorPlayer.name || impostorPlayer.pseudo] = {
+        role: 'impostor',
+        word: randomPair.impostor
     };
 
-    if (window.mettreAJourSalonFirebase && state.roomCode) {
-        window.mettreAJourSalonFirebase(state.roomCode, {
+    // Vérifier si on ajoute Mr. White (si 5 joueurs ou plus)
+    let mrWhitePlayerName = null;
+    let startIndex = 1;
+    if (playersArr.length >= 5 && shuffledPlayers.length > 1) {
+        let mrWhitePlayer = shuffledPlayers[1];
+        mrWhitePlayerName = mrWhitePlayer.name || mrWhitePlayer.pseudo;
+        roles[mrWhitePlayerName] = {
+            role: 'mrwhite',
+            word: '???' // Mr. White n'a aucun mot
+        };
+        startIndex = 2;
+    }
+
+    // Attribuer le mot citoyen aux autres
+    for (let i = startIndex; i < shuffledPlayers.length; i++) {
+        let pName = shuffledPlayers[i].name || shuffledPlayers[i].pseudo;
+        roles[pName] = {
+            role: 'citizen',
+            word: randomPair.citizen
+        };
+    }
+
+    const impostorSettings = state.settings || {};
+    const maxRounds = parseInt(impostorSettings.impostorRounds, 10) || 2;
+    const timerVal = parseInt(impostorSettings.impostorTimer, 10) || 20;
+
+    const impostorGameState = {
+        status: 'WORD_REVEAL', // Phases: WORD_REVEAL -> WRITING -> DISCUSSION -> VOTE -> SUMMARY
+        pair: randomPair,
+        roles: roles,
+        currentRound: 1,
+        maxRounds: maxRounds,
+        roundTimer: timerVal,
+        writingData: {}, // { roundNumber: { playerName: [mots écrits par tour] } }
+        readyToWriting: {}, // { playerName: true }
+        readyToDiscussion: {}, // { playerName: true }
+        readyToVote: {}, // { playerName: true }
+        votes: {}, // { voterName: targetName }
+        readyToMenu: {} // { playerName: true }
+    };
+
+    if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
             status: 'IN_GAME',
             selectedMode: 'impostor',
-            impostorGame: state.impostorGame
+            impostorGame: impostorGameState
         });
     }
 }
@@ -26247,59 +26282,358 @@ window.nextImpostorPhase = function(newPhase) {
     }
 };
 
+// 1. Bouton "Aller à la phase d'écriture"
+function setImpostorReadyForWriting() {
+    const myName = window.myPlayerKey || state.username;
+    const roomCode = state.roomCode;
+    if (!roomCode) return;
+
+    const path = `salons/${roomCode}/impostorGame/readyToWriting/${myName}`;
+    window.set(window.ref(window.db, path), true).then(() => {
+        checkAllPlayersReadyForWriting(roomCode);
+    });
+}
+
+function checkAllPlayersReadyForWriting(roomCode) {
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        const data = snapshot.val();
+        if (!data || !data.impostorGame) return;
+
+        let players = data.players || {};
+        let humanPlayers = Object.values(players).filter(p => !p.isBot);
+        let readyMap = data.impostorGame.readyToWriting || {};
+
+        let allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
+        
+        if (allReady && window.isHost) {
+            // Passer à la phase d'écriture
+            window.mettreAJourSalonFirebase(roomCode, {
+                "impostorGame/status": "WRITING",
+                "impostorGame/currentRound": 1
+            });
+        }
+    });
+}
+
+// 2. Soumission des indices d'écriture (par tour)
+function submitImpostorClue() {
+    const clueInput = document.getElementById('input-impostor-clue');
+    if (!clueInput || !clueInput.value.trim()) {
+        alert("Veuillez écrire un indice valide !");
+        return;
+    }
+    const clue = clueInput.value.trim();
+    const myName = window.myPlayerKey || state.username;
+    const roomCode = state.roomCode;
+    if (!roomCode) return;
+
+    window.get(window.ref(window.db, `salons/${roomCode}/impostorGame`)).then((snapshot) => {
+        let gameData = snapshot.val();
+        let currentRound = gameData.currentRound || 1;
+        
+        let updates = {};
+        updates[`impostorGame/writingData/${currentRound}/${myName}`] = clue;
+        
+        window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+            clueInput.value = "";
+            checkAllPlayersSubmittedClue(roomCode, currentRound);
+        });
+    });
+}
+
+function checkAllPlayersSubmittedClue(roomCode, currentRound) {
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        const data = snapshot.val();
+        if (!data || !data.impostorGame) return;
+
+        let players = data.players || {};
+        let humanPlayers = Object.values(players).filter(p => !p.isBot);
+        let roundSubmissions = data.impostorGame.writingData?.[currentRound] || {};
+
+        let allSubmitted = humanPlayers.length > 0 && humanPlayers.every(p => roundSubmissions[p.name || p.pseudo]);
+
+        if (allSubmitted && window.isHost) {
+            let maxRounds = data.impostorGame.maxRounds || 2;
+            if (currentRound < maxRounds) {
+                // Tour suivant d'écriture
+                window.mettreAJourSalonFirebase(roomCode, {
+                    "impostorGame/currentRound": currentRound + 1
+                });
+            } else {
+                // Fin des tours d'écriture -> Passage à la discussion
+                window.mettreAJourSalonFirebase(roomCode, {
+                    "impostorGame/status": "DISCUSSION"
+                });
+            }
+        }
+    });
+}
+
+// 3. Bouton "Aller à la phase de vote" (depuis la discussion)
+function setImpostorReadyForVote() {
+    const myName = window.myPlayerKey || state.username;
+    const roomCode = state.roomCode;
+    if (!roomCode) return;
+
+    const path = `salons/${roomCode}/impostorGame/readyToVote/${myName}`;
+    window.set(window.ref(window.db, path), true).then(() => {
+        checkAllPlayersReadyForVote(roomCode);
+    });
+}
+
+function checkAllPlayersReadyForVote(roomCode) {
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        const data = snapshot.val();
+        if (!data || !data.impostorGame) return;
+
+        let players = data.players || {};
+        let humanPlayers = Object.values(players).filter(p => !p.isBot);
+        let readyMap = data.impostorGame.readyToVote || {};
+
+        let allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
+
+        if (allReady && window.isHost) {
+            window.mettreAJourSalonFirebase(roomCode, {
+                "impostorGame/status": "VOTE"
+            });
+        }
+    });
+}
+
+// 4. Soumission du vote
+function submitImpostorVote(targetPlayer) {
+    const myName = window.myPlayerKey || state.username;
+    const roomCode = state.roomCode;
+    if (!roomCode) return;
+
+    const path = `salons/${roomCode}/impostorGame/votes/${myName}`;
+    window.set(window.ref(window.db, path), targetPlayer).then(() => {
+        checkAllPlayersVoted(roomCode);
+    });
+}
+
+function checkAllPlayersVoted(roomCode) {
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        const data = snapshot.val();
+        if (!data || !data.impostorGame) return;
+
+        let players = data.players || {};
+        let humanPlayers = Object.values(players).filter(p => !p.isBot);
+        let votesMap = data.impostorGame.votes || {};
+
+        let allVoted = humanPlayers.length > 0 && humanPlayers.every(p => votesMap[p.name || p.pseudo]);
+
+        if (allVoted && window.isHost) {
+            // Calculer les résultats du vote
+            let voteCounts = {};
+            for (let target of Object.values(votesMap)) {
+                voteCounts[target] = (voteCounts[target] || 0) + 1;
+            }
+
+            // Trouver celui qui a le plus de votes
+            let mostVoted = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
+
+            let roles = data.impostorGame.roles || {};
+            let suspectRole = roles[mostVoted]?.role;
+
+            let winnerMessage = "";
+            if (suspectRole === 'impostor' || suspectRole === 'mrwhite') {
+                winnerMessage = `Victoire des Citoyens ! ${mostVoted} était l'Imposteur / Mr. White !`;
+            } else {
+                winnerMessage = `Victoire de l'Imposteur ! ${mostVoted} était un citoyen innocent.`;
+            }
+
+            window.mettreAJourSalonFirebase(roomCode, {
+                "impostorGame/status": "SUMMARY",
+                "impostorGame/winnerMessage": winnerMessage
+            });
+        }
+    });
+}
+
+// 5. Bouton "Retour au salon" (récapitulatif) unanime
+function setImpostorReadyForMenu() {
+    const myName = window.myPlayerKey || state.username;
+    const roomCode = state.roomCode;
+    if (!roomCode) return;
+
+    const path = `salons/${roomCode}/impostorGame/readyToMenu/${myName}`;
+    window.set(window.ref(window.db, path), true).then(() => {
+        checkAllPlayersReadyForMenu(roomCode);
+    });
+}
+
+function checkAllPlayersReadyForMenu(roomCode) {
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        const data = snapshot.val();
+        if (!data || !data.impostorGame) return;
+
+        let players = data.players || {};
+        let humanPlayers = Object.values(players).filter(p => !p.isBot);
+        let menuMap = data.impostorGame.readyToMenu || {};
+
+        let allReady = humanPlayers.length > 0 && humanPlayers.every(p => menuMap[p.name || p.pseudo]);
+
+        if (allReady && window.isHost) {
+            window.mettreAJourSalonFirebase(roomCode, {
+                status: 'LOBBY',
+                impostorGame: null
+            });
+        }
+    });
+}
+
 // AJOUT de la fonction renderImpostorScreen
 function renderImpostorScreen(data) {
     const mainArea = document.getElementById('impostor-main-area');
     const timerEl = document.getElementById('impostor-timer');
     if (!mainArea) return;
 
-    const impData = data.impostorGame;
-    if (!impData || !impData.playerRoles) {
-        mainArea.innerHTML = `<div class="text-slate-400">Préparation de la mission Impostor en cours...</div>`;
+    const gameData = data.impostorGame;
+    if (!gameData) {
+        mainArea.innerHTML = `<div class="text-xl font-bold text-slate-400">Préparation de la partie en cours...</div>`;
         return;
     }
 
-    const myName = state.username;
-    const myData = impData.playerRoles[myName];
+    const myName = window.myPlayerKey || state.username;
+    const myRoleInfo = gameData.roles ? gameData.roles[myName] : null;
 
-    if (!myData) {
-        mainArea.innerHTML = `<div class="text-red-400">Erreur : Rôle non attribué pour cet opérateur.</div>`;
-        return;
-    }
+    // --- PHASE 1 : RÉVÉLATION DES MOTS ---
+    if (gameData.status === 'WORD_REVEAL') {
+        if (timerEl) timerEl.innerText = "Révélation des mots";
+        
+        let roleDesc = "";
+        let wordDisplay = "";
+        if (myRoleInfo.role === 'impostor') {
+            roleDesc = "Vous êtes l' <span class='text-red-400 font-black'>IMPOSTEUR</span> ! Bluffer pour survivre.";
+            wordDisplay = myRoleInfo.word;
+        } else if (myRoleInfo.role === 'mrwhite') {
+            roleDesc = "Vous êtes <span class='text-purple-400 font-black'>MR. WHITE</span> ! Vous n'avez pas de mot, fondez-vous dans la masse.";
+            wordDisplay = "??? (Aucun mot)";
+        } else {
+            roleDesc = "Vous êtes un <span class='text-emerald-400 font-black'>CITOYEN</span>.";
+            wordDisplay = myRoleInfo.word;
+        }
 
-    if (timerEl) {
-        timerEl.innerText = impData.phase === 'vote' ? 'Phase de Vote' : 'Phase de Discussion';
-    }
+        const isReady = gameData.readyToWriting && gameData.readyToWriting[myName];
 
-    // Affichage personnalisé selon le rôle (Citoyen vs Imposteur)
-    if (myData.role === 'impostor') {
         mainArea.innerHTML = `
-            <div class="p-6 bg-red-500/10 border-2 border-red-500/40 rounded-3xl space-y-4 shadow-xl">
-                <div class="inline-block bg-red-500/20 text-red-400 text-xs px-4 py-1.5 rounded-full font-bold uppercase tracking-wider">
-                    <i class="fa-solid fa-user-secret">️ Rôle : INCOGNITO (IMPOSTEUR)</i>
-                </div>
-                <h3 class="text-2xl font-black text-white">Vous êtes l'Imposteur !</h3>
-                <p class="text-sm text-slate-300">Vous ne connaissez pas le mot secret des citoyens. Blufflez, écoutez les indices des autres et tentez de deviner le mot sans vous faire repérer.</p>
-                <div class="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs text-slate-400">
-                    Indice global : Le thème est en cours de discussion. Restez discret !
-                </div>
+            <h3 class="text-2xl font-black text-white mb-2">Votre Rôle Secret</h3>
+            <p class="text-sm text-slate-300 mb-6">${roleDesc}</p>
+            
+            <div class="p-6 bg-slate-900 border border-slate-700 rounded-2xl max-w-sm mx-auto mb-6 shadow-xl">
+                <span class="text-xs text-slate-400 uppercase font-mono block mb-1">Votre mot secret :</span>
+                <span class="text-3xl font-black text-amber-400 tracking-wider">${wordDisplay}</span>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="setImpostorReadyForWriting()" id="btn-ready-writing" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReady ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                    ${isReady ? '<i class="fa-solid fa-check"></i> Prêt (En attente des autres)' : 'Aller à la phase d\'écriture'}
+                </button>
             </div>
         `;
-    } else {
+    }
+    // --- PHASE 2 : ÉCRITURE DES MOTS À TOUR DE RÔLE ---
+    else if (gameData.status === 'WRITING') {
+        if (timerEl) timerEl.innerText = `Tour ${gameData.currentRound} / ${gameData.maxRounds}`;
+        
         mainArea.innerHTML = `
-            <div class="p-6 bg-emerald-500/10 border-2 border-emerald-500/40 rounded-3xl space-y-4 shadow-xl">
-                <div class="inline-block bg-emerald-500/20 text-emerald-300 text-xs px-4 py-1.5 rounded-full font-bold uppercase tracking-wider">
-                    <i class="fa-solid fa-shield-halved"> Rôle : CITOYEN</i>
-                </div>
-                <h3 class="text-2xl font-black text-white">Votre Mot Secret :</h3>
-                <div class="text-3xl font-mono font-black text-emerald-400 tracking-wider bg-slate-900 py-3 rounded-xl border border-emerald-500/30">
-                    "${myData.word}"
-                </div>
-                <p class="text-xs text-slate-300">Donnez subtilement des indices sans révéler directement le mot pour démasquer l'imposteur parmi vous.</p>
+            <h3 class="text-2xl font-black text-indigo-300 mb-2">Phase d'Écriture (Tour ${gameData.currentRound}/${gameData.maxRounds})</h3>
+            <p class="text-xs text-slate-400 mb-6">Écrivez un mot ou un indice qui se rapporte à votre mot secret.</p>
+
+            <div class="max-w-md mx-auto space-y-4">
+                <input type="text" id="input-impostor-clue" placeholder="Votre mot indice..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center focus:outline-none focus:border-indigo-500 font-mono text-lg">
+                <button onclick="submitImpostorClue()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
+                    Soumettre mon Indice
+                </button>
             </div>
+        `;
+    }
+    // --- PHASE 3 : DISCUSSION ---
+    else if (gameData.status === 'DISCUSSION') {
+        if (timerEl) timerEl.innerText = "Phase de Discussion";
+
+        let allCluesHtml = "";
+        if (gameData.writingData) {
+            for (let r = 1; r <= gameData.maxRounds; r++) {
+                if (gameData.writingData[r]) {
+                    allCluesHtml += `<div class="text-xs font-bold text-indigo-400 mb-1">--- Tour ${r} ---</div>`;
+                    for (let [player, clue] of Object.entries(gameData.writingData[r])) {
+                        allCluesHtml += `<div class="p-2 bg-slate-900 rounded-lg mb-1 flex justify-between text-xs font-mono"><span class="text-slate-400">${player}:</span> <strong class="text-white">"${clue}"</strong></div>`;
+                    }
+                }
+            }
+        }
+
+        const isReadyVote = gameData.readyToVote && gameData.readyToVote[myName];
+
+        mainArea.innerHTML = `
+            ouvrez le débat ! Discutez des indices écrits ci-dessous :</h3>
+            <div class="max-w-md mx-auto w-full bg-slate-950/80 border border-slate-800 p-4 rounded-2xl max-h-48 overflow-y-auto mb-6 text-left space-y-2">
+                ${allCluesHtml || '<span class="text-slate-500 italic">Aucun indice enregistré.</span>'}
+            </div>
+
+            <button onclick="setImpostorReadyForVote()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyVote ? 'bg-emerald-500 text-slate-950' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
+                ${isReadyVote ? '<i class="fa-solid fa-check"></i> Prêt pour le vote' : 'Aller à la phase de vote'}
+            </button>
+        `;
+    }
+    // --- PHASE 4 : VOTE ---
+    else if (gameData.status === 'VOTE') {
+        if (timerEl) timerEl.innerText = "Phase de Vote";
+
+        let playersList = Object.keys(gameData.roles || {});
+        let voteButtonsHtml = playersList.filter(p => p !== myName).map(p => `
+            <button onclick="submitImpostorVote('${p}')" class="p-3 bg-slate-900 hover:bg-red-500/20 border border-slate-700 hover:border-red-500 rounded-xl font-bold text-sm transition text-white">
+                Voter contre ${p}
+            </button>
+        `).join('');
+
+        mainArea.innerHTML = `
+            <h3 class="text-2xl font-black text-red-400 mb-2">Qui est l'Imposteur ?</h3>
+            <p class="text-xs text-slate-400 mb-6">Cliquez sur le joueur que vous suspectez d'être l'imposteur ou Mr. White.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+                ${voteButtonsHtml}
+            </div>
+        `;
+    }
+    // --- PHASE 5 : RÉCAPITULATIF FINAL ---
+    else if (gameData.status === 'SUMMARY') {
+        if (timerEl) timerEl.innerText = "Fin de Partie";
+
+        let winnerText = gameData.winnerMessage || "Partie terminée.";
+        let rolesSummaryHtml = "";
+        for (let [pName, info] of Object.entries(gameData.roles || {})) {
+            rolesSummaryHtml += `
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between items-center text-xs">
+                    <div>
+                        <strong class="text-white">${pName}</strong> 
+                        <span class="text-slate-400">(${info.role})</span>
+                    </div>
+                    <span class="font-mono text-amber-400 font-bold">Mot : ${info.word}</span>
+                </div>
+            `;
+        }
+
+        const isReadyMenu = gameData.readyToMenu && gameData.readyToMenu[myName];
+
+        mainArea.innerHTML = `
+            <h3 class="text-2xl font-black bg-gradient-to-r from-amber-300 to-yellow-500 bg-clip-text text-transparent mb-2">Récapitulatif de la Partie</h3>
+            <div class="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-indigo-300 font-bold text-sm mb-4">
+                ${winnerText}
+            </div>
+            
+            <div class="max-w-md mx-auto space-y-2 mb-6 text-left max-h-40 overflow-y-auto">
+                ${rolesSummaryHtml}
+            </div>
+
+            <button onclick="setImpostorReadyForMenu()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyMenu ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                ${isReadyMenu ? '<i class="fa-solid fa-check"></i> Prêt (En attente du menu)' : 'Retour au salon'}
+            </button>
         `;
     }
 }
+
         function revealImpostorWord() {
             impostorGameState.revealed = true;
             renderImpostorScreen();
