@@ -26092,16 +26092,6 @@ function showQuizFinalRecap() {
     }
 
     const historyContainer = document.getElementById('quiz-history-table');
-    if (historyContainer && state.quizGame.answersLog) {
-        historyContainer.innerHTML = state.quizGame.answersLog.map((item, idx) => `
-            <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs space-y-1">
-                <div class="font-bold text-white">Q${idx + 1}. ${item.q}</div>
-                <div class="text-emerald-400">Bonne réponse : ${item.options[item.correct]}</div>
-            </div>
-        `).join('');
-    }
-
-    const historyContainer = document.getElementById('quiz-history-table');
     if (historyContainer) {
         if (state.quizGame.answersLog && state.quizGame.answersLog.length > 0) {
             historyContainer.innerHTML = state.quizGame.answersLog.map((log, idx) => {
