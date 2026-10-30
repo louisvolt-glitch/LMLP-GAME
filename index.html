@@ -25335,6 +25335,11 @@ function joinRoom() {
         return;
     }
 
+    if (nameInput.toLowerCase() === 'anonyme') {
+        alert("Ce pseudo est réservé.");
+        return;
+    }
+
     state.username = nameInput;
     window.myPlayerKey = nameInput; 
     window.isHost = false;
@@ -25527,9 +25532,12 @@ function updateLobbyUI() {
         if (badgeCode) badgeCode.innerText = `CODE: ${currentState.roomCode}`;
     }
 
-    const playersArray = Array.isArray(currentState.players)
+let rawPlayers = Array.isArray(currentState.players)
         ? currentState.players
         : Object.values(currentState.players);
+    
+    // Filtrer et rejeter les entrées vides, nulles ou sans nom (Anonymes non prévus)
+    const playersArray = rawPlayers.filter(p => p && p.name && p.name.trim() !== '');
 
     const playerCountEl = document.getElementById('player-count');
     if (playerCountEl) playerCountEl.innerText = playersArray.length;
@@ -27197,7 +27205,6 @@ function submitVotes() {
     }
 }
 
-// Remplace l'ancienne fonction backToLobby
 window.backToLobby = function() {
     let myKey = window.myPlayerKey || state.username;
     let roomCode = window.currentCodeSalon || (state && state.roomCode);
