@@ -25759,13 +25759,26 @@ function startQuizScreen() {
     const oldWaitMsg = document.getElementById('quiz-wait-msg');
     if (oldWaitMsg) oldWaitMsg.remove();
 
-    // Gestion du timer intelligente
+// Gestion du timer intelligente
     document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
+    
     state.quizGame.timerInterval = setInterval(() => {
-        state.quizGame.timeleft--;
-        document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
-        
-        // Vérifier si tous les joueurs humains ont répondu
+        // Décrémenter le temps seulement s'il reste du temps
+        if (state.quizGame.timeleft > 0) {
+            state.quizGame.timeleft--;
+            document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
+        }
+
+        let myKey = window.myPlayerKey || state.username;
+
+        // 1. Si le chrono est à 0 et que le joueur n'a pas cliqué, on soumet automatiquement une mauvaise réponse (-1)
+        if (state.quizGame.timeleft <= 0) {
+            if (!state.quizGame.currentRoundAnswers || !state.quizGame.currentRoundAnswers[myKey]) {
+                answerQuizQuestion(-1);
+            }
+        }
+
+        // 2. Vérifier si tous les joueurs humains ont répondu
         let allAnswered = false;
         if (state.quizGame.currentRoundAnswers && state.players) {
             const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
@@ -25776,14 +25789,13 @@ function startQuizScreen() {
             allAnswered = humanPlayers.length > 0 && humanPlayers.every(p => answersKeys.includes(p.name || p.pseudo));
         }
 
-        // Le tour se termine SI le chrono est à 0 OU SI tout le monde a répondu
-        if (state.quizGame.timeleft <= 0 || allAnswered) {
+        // 3. Le tour se termine UNIQUEMENT SI tout le monde a répondu (soit manuellement, soit car tous les timers sont à 0)
+        if (allAnswered) {
             clearInterval(state.quizGame.timerInterval);
             
-            let myKey = window.myPlayerKey || state.username;
             if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
             
-            // Si le joueur n'a pas répondu, il a faux par défaut
+            // Sécurité de rattrapage
             if (!state.quizGame.currentRoundAnswers[myKey]) {
                 state.quizGame.currentRoundAnswers[myKey] = { choice: -1, isCorrect: false, pointEarned: 0 };
             }
@@ -25792,6 +25804,7 @@ function startQuizScreen() {
             showQuizSummaryScreen(finalChoice, qobj);
         }
     }, 1000);
+}
 }
 
 function answerQuizQuestion(selIdx) {
@@ -25863,6 +25876,8 @@ function answerQuizQuestion(selIdx) {
             		}
         	});
         
+		window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates);
+
     		let waitMsg = document.getElementById('quiz-wait-msg');
     		if (!waitMsg) {
         		waitMsg = document.createElement('div');
