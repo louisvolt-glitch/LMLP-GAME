@@ -250,12 +250,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             displayString = `${timerStr} / question (${data.settings.questionsCount || 10} questions)`;
                             const cats = data.settings.categories || [];
                             
-                            // MODIFICATION 1 : Afficher le nom de toutes les catégories choisies
-                            if (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length) {
+                            // PAR CE NOUVEAU BLOC :
+                            if (typeof window.categoriesMeta !== 'undefined' && cats.length === window.categoriesMeta.length) {
                                 modulesStr = "Toutes les catégories";
-                            } else if (typeof categoriesMeta !== 'undefined' && cats.length > 0) {
+                            } else if (typeof window.categoriesMeta !== 'undefined' && cats.length > 0) {
                                 modulesStr = cats.map(c => {
-                                    const found = categoriesMeta.find(m => m.key === c);
+                                    const found = window.categoriesMeta.find(m => m.key === c);
                                     return found ? found.name : c;
                                 }).join('<br>');
                             } else {
@@ -1170,6 +1170,8 @@ document.addEventListener('DOMContentLoaded', initQuizCategoriesChecklist);
             { key: 'pets', name: '🐾 Animaux de Compagnie' }
         ];
 
+	window.categoriesMeta = categoriesMeta;
+
 	
 function initQuizCategoriesChecklist() {
     const container = document.getElementById('quiz-categories-checklist');
@@ -1177,7 +1179,7 @@ function initQuizCategoriesChecklist() {
     
     container.innerHTML = categoriesMeta.map(cat => `
         <label class="flex items-center gap-2 cursor-pointer hover:text-white select-none">
-            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onclick="setTimeout(updateHostSettings, 50)">
+            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onchange="updateHostSettings()">
             <span>${cat.name}</span>
         </label>
     `).join('');
