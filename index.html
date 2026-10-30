@@ -194,6 +194,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
             }
 
+	    // MODIFICATION 2A : Récupérer en direct qui a déjà répondu
+            if (data.quizGame && data.quizGame.currentRoundAnswers) {
+                if (typeof window.state.quizGame === 'undefined') window.state.quizGame = {};
+                window.state.quizGame.currentRoundAnswers = data.quizGame.currentRoundAnswers;
+            }
+
             // --- 2. GESTION AFFICHAGE HÔTE / NON-HÔTE ---
             const nonHostFolder = document.getElementById('non-host-mission-folder');
             const hostContainer = document.getElementById('host-settings-container');
@@ -216,11 +222,22 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     let modulesStr = "";
                     
                     switch (data.selectedMode) {
-                        case 'quiz':
+			case 'quiz':
                             timerStr = (data.settings.timer || 20) + "s";
                             displayString = `${timerStr} / question (${data.settings.questionsCount || 10} questions)`;
                             const cats = data.settings.categories || [];
-                            modulesStr = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length) ? "Toutes les catégories" : `${cats.length} catégorie(s) sélectionnée(s)`;
+                            
+                            // MODIFICATION 1 : Afficher le nom de toutes les catégories choisies
+                            if (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length) {
+                                modulesStr = "Toutes les catégories";
+                            } else if (typeof categoriesMeta !== 'undefined' && cats.length > 0) {
+                                modulesStr = cats.map(c => {
+                                    const found = categoriesMeta.find(m => m.key === c);
+                                    return found ? found.name : c;
+                                }).join(' • ');
+                            } else {
+                                modulesStr = cats.length > 0 ? cats.join(', ') : "Aucune catégorie";
+                            }
                             break;
                         case 'impostor':
                             timerStr = (data.settings.impostorTimer || 20) + "s";
@@ -25738,29 +25755,46 @@ function startQuizScreen() {
         </button>
     `).join('');
 
-    // Gestion du timer
+// MODIFICATION 2D : Retirer l'ancien message d'attente
+    const oldWaitMsg = document.getElementById('quiz-wait-msg');
+    if (oldWaitMsg) oldWaitMsg.remove();
+
+    // Gestion du timer intelligente
     document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
     state.quizGame.timerInterval = setInterval(() => {
         state.quizGame.timeleft--;
         document.getElementById('quiz-timer').innerText = `${state.quizGame.timeleft}s`;
         
-if (state.quizGame.timeleft <= 0) {
+        // Vérifier si tous les joueurs humains ont répondu
+        let allAnswered = false;
+        if (state.quizGame.currentRoundAnswers && state.players) {
+            const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
+            const humanPlayers = playersArr.filter(p => !p.isBot);
+            const answersKeys = Object.keys(state.quizGame.currentRoundAnswers);
+            
+            // Si le nombre de réponses correspond au nombre de joueurs humains = tout le monde a fini
+            allAnswered = humanPlayers.length > 0 && humanPlayers.every(p => answersKeys.includes(p.name || p.pseudo));
+        }
+
+        // Le tour se termine SI le chrono est à 0 OU SI tout le monde a répondu
+        if (state.quizGame.timeleft <= 0 || allAnswered) {
             clearInterval(state.quizGame.timerInterval);
             
-            // On s'assure de marquer une réponse vide (0 pt) pour ceux qui n'ont pas cliqué
             let myKey = window.myPlayerKey || state.username;
             if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
+            
+            // Si le joueur n'a pas répondu, il a faux par défaut
             if (!state.quizGame.currentRoundAnswers[myKey]) {
                 state.quizGame.currentRoundAnswers[myKey] = { choice: -1, isCorrect: false, pointEarned: 0 };
             }
             
-            showQuizSummaryScreen(-1, qobj);
+            let finalChoice = state.quizGame.currentRoundAnswers[myKey].choice;
+            showQuizSummaryScreen(finalChoice, qobj);
         }
     }, 1000);
 }
 
 function answerQuizQuestion(selIdx) {
-    clearInterval(state.quizGame.timerInterval);
     let qobj = state.quizGame.currentQuestionObj;
 
     const optionButtons = document.querySelectorAll('#quiz-options-grid button');
@@ -25815,10 +25849,27 @@ function answerQuizQuestion(selIdx) {
     });
 
     if (typeof window.mettreAJourSalonFirebase === 'function' && window.currentCodeSalon) {
-        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-            players: state.players,
-            quizGame: state.quizGame
+if (window.currentCodeSalon) {
+        const updates = {};
+        updates[`players/${myKey}`] = state.players[myKey];
+        updates[`quizGame/currentRoundAnswers/${myKey}`] = state.quizGame.currentRoundAnswers[myKey];
+        
+        playersArr.forEach((p) => {
+            if (p.isBot) {
+                updates[`players/${p.name}`] = state.players[p.name];
+                updates[`quizGame/currentRoundAnswers/${p.name}`] = state.quizGame.currentRoundAnswers[p.name];
+            }
         });
+        // MODIFICATION 2C : Message d'attente au lieu de passer à l'écran suivant
+    let waitMsg = document.getElementById('quiz-wait-msg');
+    if (!waitMsg) {
+        waitMsg = document.createElement('div');
+        waitMsg.id = 'quiz-wait-msg';
+        waitMsg.className = 'text-center text-amber-400 font-bold mt-4 animate-pulse';
+        document.getElementById('quiz-options-grid').parentElement.appendChild(waitMsg);
+    }
+    waitMsg.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Réponse enregistrée. En attente des autres joueurs...';
+    }
     }
 
     showQuizSummaryScreen(selIdx, qobj);
