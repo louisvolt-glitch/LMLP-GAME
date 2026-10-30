@@ -25532,12 +25532,19 @@ function updateLobbyUI() {
         if (badgeCode) badgeCode.innerText = `CODE: ${currentState.roomCode}`;
     }
 
-let rawPlayers = Array.isArray(currentState.players)
+    let rawPlayers = Array.isArray(currentState.players)
         ? currentState.players
         : Object.values(currentState.players);
     
-    // Filtrer et rejeter les entrées vides, nulles ou sans nom (Anonymes non prévus)
-    const playersArray = rawPlayers.filter(p => p && p.name && p.name.trim() !== '');
+    // === MODIFICATION 1 : FILTRE STRICT ANTI-ANONYME ===
+    // Rejette les entrées nulles, vides, ou portant le nom "Anonyme" (quelle que soit la casse)
+    const playersArray = rawPlayers.filter(p => 
+        p && 
+        p.name && 
+        typeof p.name === 'string' && 
+        p.name.trim() !== '' && 
+        p.name.trim().toLowerCase() !== 'anonyme'
+    );
 
     const playerCountEl = document.getElementById('player-count');
     if (playerCountEl) playerCountEl.innerText = playersArray.length;
@@ -25562,7 +25569,8 @@ let rawPlayers = Array.isArray(currentState.players)
                         <i class="fa-solid ${avatarIcon}"></i>
                     </div>
                     <div>
-                        <div class="font-bold text-sm text-gray-100">${p.name || p.pseudo || 'Anonyme'} ${isHostBadge}</div>
+                        <!-- === MODIFICATION 2 : SUPPRESSION DU REPLI 'ANONYME' === -->
+                        <div class="font-bold text-sm text-gray-100">${p.name} ${isHostBadge}</div>
                         <div class="text-xs font-mono ${statusColor}">${statusText}</div>
                     </div>
                 </div>
