@@ -274,9 +274,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             }
 
             // --- 5. MISE À JOUR DES JOUEURS (Déléguée proprement à updateLobbyUI) ---
-            if (data.players) {
+		if (data.players) {
                 window.state.players = data.players; 
-                updateLobbyUI(); // Met à jour le compteur ET la grille de manière sécurisée
+                if (typeof state !== 'undefined') {
+                    state.players = data.players;
+                }
+                updateLobbyUI(); // Met à jour le compteur ET la grille pour l'Hôte et les Non-Hôtes
             }
 
             if (typeof callbackMiseAJour === 'function') {
@@ -24970,6 +24973,8 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
             anomalyData: { scene: null, camera: null, renderer: null, animId: null }
         };
 
+	window.state = state;
+
         window.onload = function() {
             renderAvatarSelector();
             renderQuizChecklist();
@@ -25387,23 +25392,24 @@ function toggleReady() {
 }
 
 function updateLobbyUI() {
-    if (!state || !state.players) return;
+    // Utiliser l'état global partagé entre le module et le script classique
+    const currentState = window.state || state;
+    if (!currentState || !currentState.players) return;
 
-    if (state.roomCode) {
+    if (currentState.roomCode) {
         const topCode = document.getElementById('session-code');
-        if (topCode) topCode.innerText = state.roomCode;
+        if (topCode) topCode.innerText = currentState.roomCode;
         const badgeCode = document.getElementById('room-code-badge');
-        if (badgeCode) badgeCode.innerText = `CODE: ${state.roomCode}`;
+        if (badgeCode) badgeCode.innerText = `CODE: ${currentState.roomCode}`;
     }
 
-    const playersArray = Array.isArray(state.players)
-        ? state.players
-        : Object.values(state.players);
+    const playersArray = Array.isArray(currentState.players)
+        ? currentState.players
+        : Object.values(currentState.players);
 
     const playerCountEl = document.getElementById('player-count');
     if (playerCountEl) playerCountEl.innerText = playersArray.length;
 
-    // Cibler operators-grid présent dans le HTML
     const playersListEl = document.getElementById('operators-grid') || document.getElementById('players-list');
     if (!playersListEl) return;
 
@@ -25414,15 +25420,15 @@ function updateLobbyUI() {
         const borderClass = isReady ? 'border-command-cyan/40 glow-cyan' : 'border-command-border';
         const dotColor = isReady ? 'bg-command-green glow-green' : 'bg-yellow-500';
         const avatarIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
-const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
-const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
+        const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
+        const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
 
-return `
-    <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded bg-gray-800 border flex items-center justify-center font-mono font-bold ${avatarColor}">
-                <i class="fa-solid ${avatarIcon}"></i>
-            </div>
+        return `
+            <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded bg-gray-800 border flex items-center justify-center font-mono font-bold ${avatarColor}">
+                        <i class="fa-solid ${avatarIcon}"></i>
+                    </div>
                     <div>
                         <div class="font-bold text-sm text-gray-100">${p.name || p.pseudo || 'Anonyme'} ${isHostBadge}</div>
                         <div class="text-xs font-mono ${statusColor}">${statusText}</div>
@@ -25434,7 +25440,7 @@ return `
     }).join('');
 
     // Gestion de l'affichage des paramètres selon le mode
-    const mode = state.selectedMode;
+    const mode = currentState.selectedMode;
     const setDisplay = (id, show) => {
         const el = document.getElementById(id);
         if (el) el.style.display = show ? 'block' : 'none';
