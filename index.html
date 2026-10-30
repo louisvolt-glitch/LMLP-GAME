@@ -2485,15 +2485,18 @@ function startImpostorGame() {
         status: 'WORD_REVEAL', // Phases: WORD_REVEAL -> WRITING -> DISCUSSION -> VOTE -> SUMMARY
         pair: randomPair,
         roles: roles,
+        // AJOUT : On crée un ordre de tour (sans les bots) et on l'initialise à 0
+        turnOrder: shuffledPlayers.filter(p => !p.isBot).map(p => p.name || p.pseudo),
+        currentTurnIndex: 0,
         currentRound: 1,
         maxRounds: maxRounds,
         roundTimer: timerVal,
-        writingData: {}, // { roundNumber: { playerName: [mots écrits par tour] } }
-        readyToWriting: {}, // { playerName: true }
-        readyToDiscussion: {}, // { playerName: true }
-        readyToVote: {}, // { playerName: true }
-        votes: {}, // { voterName: targetName }
-        readyToMenu: {} // { playerName: true }
+        writingData: {}, 
+        readyToWriting: {}, 
+        readyToDiscussion: {}, 
+        readyToVote: {}, 
+        votes: {}, 
+        readyToMenu: {} 
     };
 
     if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
@@ -2536,8 +2539,8 @@ function checkAllPlayersReadyForWriting(roomCode) {
 
         let allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
         
-        if (allReady && window.isHost) {
-            // Passer à la phase d'écriture
+        // CORRECTION : On a retiré "&& window.isHost" pour que le dernier joueur déclenche la phase
+        if (allReady) {
             window.mettreAJourSalonFirebase(roomCode, {
                 "impostorGame/status": "WRITING",
                 "impostorGame/currentRound": 1
@@ -2546,7 +2549,7 @@ function checkAllPlayersReadyForWriting(roomCode) {
     });
 }
 
-// 2. Soumission des indices d'écriture (par tour)
+// 2. Soumission des indices d'écriture (CHACUN SON TOUR)
 function submitImpostorClue() {
     const clueInput = document.getElementById('input-impostor-clue');
     if (!clueInput || !clueInput.value.trim()) {
@@ -2558,45 +2561,33 @@ function submitImpostorClue() {
     const roomCode = state.roomCode;
     if (!roomCode) return;
 
-    window.get(window.ref(window.db, `salons/${roomCode}/impostorGame`)).then((snapshot) => {
-        let gameData = snapshot.val();
+    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
+        let data = snapshot.val();
+        let gameData = data.impostorGame;
         let currentRound = gameData.currentRound || 1;
+        let currentTurnIndex = gameData.currentTurnIndex || 0;
+        let turnOrder = gameData.turnOrder || [];
         
         let updates = {};
         updates[`impostorGame/writingData/${currentRound}/${myName}`] = clue;
         
-        window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-            clueInput.value = "";
-            checkAllPlayersSubmittedClue(roomCode, currentRound);
-        });
-    });
-}
-
-function checkAllPlayersSubmittedClue(roomCode, currentRound) {
-    window.get(window.ref(window.db, `salons/${roomCode}`)).then((snapshot) => {
-        const data = snapshot.val();
-        if (!data || !data.impostorGame) return;
-
-        let players = data.players || {};
-        let humanPlayers = Object.values(players).filter(p => !p.isBot);
-        let roundSubmissions = data.impostorGame.writingData?.[currentRound] || {};
-
-        let allSubmitted = humanPlayers.length > 0 && humanPlayers.every(p => roundSubmissions[p.name || p.pseudo]);
-
-        if (allSubmitted && window.isHost) {
-            let maxRounds = data.impostorGame.maxRounds || 2;
+        let newTurnIndex = currentTurnIndex + 1;
+        
+        // Vérifie si tout le monde a joué ce tour
+        if (newTurnIndex >= turnOrder.length) {
+            let maxRounds = gameData.maxRounds || 2;
             if (currentRound < maxRounds) {
-                // Tour suivant d'écriture
-                window.mettreAJourSalonFirebase(roomCode, {
-                    "impostorGame/currentRound": currentRound + 1
-                });
+                updates[`impostorGame/currentRound`] = currentRound + 1;
+                updates[`impostorGame/currentTurnIndex`] = 0; // On recommence au joueur 1
             } else {
-                // Fin des tours d'écriture -> Passage à la discussion
-                window.mettreAJourSalonFirebase(roomCode, {
-                    "impostorGame/status": "DISCUSSION"
-                });
+                updates[`impostorGame/status`] = "DISCUSSION";
             }
+        } else {
+            // C'est au tour du joueur suivant
+            updates[`impostorGame/currentTurnIndex`] = newTurnIndex;
         }
+        
+        window.update(window.ref(window.db, `salons/${roomCode}`), updates);
     });
 }
 
@@ -2623,7 +2614,7 @@ function checkAllPlayersReadyForVote(roomCode) {
 
         let allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
 
-        if (allReady && window.isHost) {
+        if (allReady) {
             window.mettreAJourSalonFirebase(roomCode, {
                 "impostorGame/status": "VOTE"
             });
@@ -2654,7 +2645,7 @@ function checkAllPlayersVoted(roomCode) {
 
         let allVoted = humanPlayers.length > 0 && humanPlayers.every(p => votesMap[p.name || p.pseudo]);
 
-        if (allVoted && window.isHost) {
+        if (allVoted) {
             // Calculer les résultats du vote
             let voteCounts = {};
             for (let target of Object.values(votesMap)) {
@@ -2705,7 +2696,7 @@ function checkAllPlayersReadyForMenu(roomCode) {
 
         let allReady = humanPlayers.length > 0 && humanPlayers.every(p => menuMap[p.name || p.pseudo]);
 
-        if (allReady && window.isHost) {
+        if (allReady) {
             window.mettreAJourSalonFirebase(roomCode, {
                 status: 'LOBBY',
                 impostorGame: null
@@ -2770,20 +2761,76 @@ function renderImpostorScreen(data) {
             </div>
         `;
     }
-    // --- PHASE 2 : ÉCRITURE DES MOTS À TOUR DE RÔLE ---
+// --- PHASE 2 : ÉCRITURE DES MOTS À TOUR DE RÔLE ---
     else if (gameData.status === 'WRITING') {
         if (timerEl) timerEl.innerText = `Tour ${gameData.currentRound} / ${gameData.maxRounds}`;
         
+        let turnOrder = gameData.turnOrder || Object.keys(gameData.roles || {});
+        let currentTurnIndex = gameData.currentTurnIndex || 0;
+        let activePlayer = turnOrder[currentTurnIndex];
+        let isMyTurn = (activePlayer === myName);
+        
+        let roundData = gameData.writingData ? gameData.writingData[gameData.currentRound] || {} : {};
+        
+        // Création de la liste des joueurs en direct
+        let playersListHtml = turnOrder.map((pName, idx) => {
+            let status = "";
+            let wordOrStatus = "";
+            let isPast = idx < currentTurnIndex;
+            let isCurrent = idx === currentTurnIndex;
+            
+            if (isPast || roundData[pName]) {
+                status = '<i class="fa-solid fa-check text-emerald-400"></i>';
+                wordOrStatus = `<span class="text-white font-bold">"${roundData[pName] || '...'}"</span>`;
+            } else if (isCurrent) {
+                status = '<i class="fa-solid fa-pen text-amber-400 animate-pulse"></i>';
+                wordOrStatus = `<span class="text-amber-400 italic">En train d'écrire...</span>`;
+            } else {
+                status = '<i class="fa-solid fa-clock text-slate-500"></i>';
+                wordOrStatus = `<span class="text-slate-500 italic">En attente</span>`;
+            }
+            
+            let bgClass = isCurrent ? "bg-amber-500/10 border-amber-500/50" : "bg-slate-900 border-slate-800";
+            
+            return `
+                <div class="p-3 rounded-xl border ${bgClass} flex justify-between items-center text-sm transition-all shadow-sm">
+                    <div class="flex items-center gap-2">
+                        ${status} <span class="font-bold ${isCurrent ? 'text-amber-400' : 'text-slate-300'}">${pName}</span>
+                    </div>
+                    <div>${wordOrStatus}</div>
+                </div>
+            `;
+        }).join('');
+
+        // Affichage du champ de texte uniquement si c'est le tour du joueur
+        let inputAreaHtml = "";
+        if (isMyTurn) {
+            inputAreaHtml = `
+                <div class="max-w-md mx-auto space-y-3 mt-6">
+                    <div class="text-emerald-400 font-bold text-sm mb-2 animate-pulse"><i class="fa-solid fa-keyboard"></i> C'est à votre tour !</div>
+                    <input type="text" id="input-impostor-clue" placeholder="Votre mot indice..." class="w-full bg-slate-900 border border-emerald-500 rounded-xl px-4 py-3 text-white text-center focus:outline-none focus:border-emerald-400 font-mono text-lg shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                    <button onclick="submitImpostorClue()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
+                        Soumettre mon Indice
+                    </button>
+                </div>
+            `;
+        } else {
+            inputAreaHtml = `
+                <div class="max-w-md mx-auto mt-6 p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-slate-400 text-sm">
+                    <i class="fa-solid fa-hourglass-half animate-spin"></i> En attente de <strong class="text-amber-400">${activePlayer}</strong>...
+                </div>
+            `;
+        }
+
         mainArea.innerHTML = `
             <h3 class="text-2xl font-black text-indigo-300 mb-2">Phase d'Écriture (Tour ${gameData.currentRound}/${gameData.maxRounds})</h3>
-            <p class="text-xs text-slate-400 mb-6">Écrivez un mot ou un indice qui se rapporte à votre mot secret.</p>
+            <p class="text-xs text-slate-400 mb-4">Chaque joueur écrit un mot à tour de rôle pour prouver son identité.</p>
 
-            <div class="max-w-md mx-auto space-y-4">
-                <input type="text" id="input-impostor-clue" placeholder="Votre mot indice..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center focus:outline-none focus:border-indigo-500 font-mono text-lg">
-                <button onclick="submitImpostorClue()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
-                    Soumettre mon Indice
-                </button>
+            <div class="max-w-md mx-auto space-y-2 mb-4">
+                ${playersListHtml}
             </div>
+
+            ${inputAreaHtml}
         `;
     }
     // --- PHASE 3 : DISCUSSION ---
