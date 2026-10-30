@@ -199,7 +199,24 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (typeof window.state.quizGame === 'undefined') window.state.quizGame = {};
                 
                 if (data.quizGame.currentIndex !== undefined) {
-                    window.state.quizGame.currentIndex = data.quizGame.currentIndex;
+                    // Détecter si l'index a changé pour forcer le passage à la question suivante pour tous
+                    if (window.state.quizGame.currentIndex !== data.quizGame.currentIndex) {
+                        window.state.quizGame.currentIndex = data.quizGame.currentIndex;
+                        
+                        const summaryScreen = document.getElementById('screen-quiz-summary');
+                        const quizScreen = document.getElementById('screen-quiz');
+                        
+                        // Si les joueurs sont bloqués sur l'écran de résumé ou de quiz, on masque et on avance
+                        if ((summaryScreen && !summaryScreen.classList.contains('hidden')) || 
+                            (quizScreen && !quizScreen.classList.contains('hidden'))) {
+                            if (summaryScreen) summaryScreen.classList.add('hidden');
+                            if (quizScreen) quizScreen.classList.add('hidden');
+                            
+                            if (typeof prepareNextQuizQuestion === 'function') {
+                                prepareNextQuizQuestion();
+                            }
+                        }
+                    }
                 }
                 
                 // Récupérer en direct qui a déjà répondu (ou un objet vide si réinitialisé)
