@@ -194,6 +194,21 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
             }
 
+// --- SYNCHRONISATION DE LA QUESTION COURANTE ---
+            if (data.quizGame && data.quizGame.currentQuestionObj) {
+                if (typeof window.state === 'undefined') window.state = {};
+                if (!window.state.quizGame) window.state.quizGame = {};
+                
+                if (!window.state.quizGame.currentQuestionObj || window.state.quizGame.currentQuestionObj.q !== data.quizGame.currentQuestionObj.q) {
+                    window.state.quizGame.currentQuestionObj = data.quizGame.currentQuestionObj;
+                    const diffScreen = document.getElementById('screen-quiz-difficulty');
+                    if (diffScreen && !diffScreen.classList.contains('hidden')) {
+                        diffScreen.classList.add('hidden');
+                        if (typeof startQuizScreen === 'function') startQuizScreen();
+                    }
+                }
+            }
+
 	    // MODIFICATION 2A : Récupérer en direct qui a déjà répondu
             if (data.quizGame && data.quizGame.currentRoundAnswers) {
                 if (typeof window.state.quizGame === 'undefined') window.state.quizGame = {};
@@ -25681,6 +25696,13 @@ function chooseQuizDifficulty(diff) {
     if (typeof window.state === 'undefined') window.state = {};
     if (!window.state.quizGame) window.state.quizGame = {};
     
+    // Si la question est déjà synchronisée depuis Firebase, on l'utilise directement
+    if (window.currentRoom && window.currentRoom.quizGame && window.currentRoom.quizGame.currentQuestionObj) {
+        state.quizGame.currentQuestionObj = window.currentRoom.quizGame.currentQuestionObj;
+        startQuizScreen();
+        return;
+    }
+
     if (!window.state.quizGame.categoriesSequence || window.state.quizGame.categoriesSequence.length === 0) {
         const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
         if (checkedBoxes.length > 0) {
@@ -25691,12 +25713,6 @@ function chooseQuizDifficulty(diff) {
     }
 
     state.quizGame.pendingDifficulty = diff;
-
-    if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
-        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-            difficulty: diff
-        });
-    }
 
     const currentIndex = state.quizGame.currentIndex || 0;
     const categoryKey = state.quizGame.categoriesSequence[currentIndex % state.quizGame.categoriesSequence.length] || 'geo';
@@ -25716,6 +25732,18 @@ function chooseQuizDifficulty(diff) {
         categoryName: categoryName, 
         difficulty: diff 
     };
+
+    // Synchronisation Firebase de la question et réinitialisation des réponses du tour
+    if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+            difficulty: diff,
+            quizGame: {
+                ...(window.currentRoom?.quizGame || {}),
+                currentQuestionObj: state.quizGame.currentQuestionObj,
+                currentRoundAnswers: {} // Réinitialise les réponses pour éviter les fantômes
+            }
+        });
+    }
 
     startQuizScreen();
 }
@@ -25917,7 +25945,7 @@ function showQuizSummaryScreen(selIdx, qObj) {
     const explEl = document.getElementById('summary-explanation');
     if (explEl) explEl.innerText = qObj.exp || "Aucune explication disponible pour cette question.";
 
-    // 4. Affichage détaillé des réponses de chacun des joueurs
+    // 4. Affichage détaillé des questions et réponses de chacun des joueurs
     const answersContainer = document.getElementById('summary-players-answers');
     if (answersContainer) {
         answersContainer.innerHTML = '';
@@ -25931,17 +25959,15 @@ function showQuizSummaryScreen(selIdx, qObj) {
             if (!playerName) return;
 
             const pData = roundAnswers[playerName];
-            let chosenText = "Aucune réponse";
-            let isCorrect = false;
+            let chosenText = "N'a pas répondu";
             let badgeClass = "border-slate-700 bg-slate-950/80 text-slate-400";
             let iconHtml = '<i class="fa-regular fa-circle text-slate-500"></i> En attente';
 
             if (pData && pData.choice !== undefined && pData.choice !== -1) {
                 const choiceIdx = pData.choice;
                 chosenText = qObj.opts[choiceIdx] || "Réponse invalide";
-                isCorrect = pData.isCorrect;
                 
-                if (isCorrect) {
+                if (pData.isCorrect) {
                     badgeClass = "border-emerald-500 bg-emerald-500/15 text-emerald-300";
                     iconHtml = '<i class="fa-solid fa-check text-emerald-400"></i> Correct';
                 } else {
@@ -25950,18 +25976,17 @@ function showQuizSummaryScreen(selIdx, qObj) {
                 }
             } else {
                 badgeClass = "border-amber-500/30 bg-amber-500/10 text-amber-300";
-                iconHtml = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Temps écoulé';
+                iconHtml = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Non répondu';
             }
 
             answersContainer.innerHTML += `
-                <div class="p-3 rounded-xl border ${badgeClass} flex justify-between items-center shadow-sm">
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="font-bold text-white">[${playerName}]</span>
-                        <span class="font-mono font-bold text-sm">"${chosenText}"</span>
+                <div class="p-3.5 rounded-xl border ${badgeClass} flex flex-col gap-1.5 shadow-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-white text-xs"><i class="fa-solid fa-user text-indigo-400"></i> [${playerName}]</span>
+                        <span class="text-xs font-bold flex items-center gap-1.5">${iconHtml}</span>
                     </div>
-                    <div class="text-xs font-bold flex items-center gap-1.5">
-                        ${iconHtml}
-                    </div>
+                    <div class="text-xs text-slate-300 italic">Question : "${qObj.q}"</div>
+                    <div class="text-xs font-mono font-bold text-indigo-200">Réponse : "${chosenText}"</div>
                 </div>
             `;
         });
