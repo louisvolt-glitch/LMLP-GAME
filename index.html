@@ -194,10 +194,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
             }
 
-	    // MODIFICATION 2A : Récupérer en direct qui a déjà répondu
-            if (data.quizGame && data.quizGame.currentRoundAnswers) {
+	    // Synchronisation complète de l'état du Quiz (index et réponses du tour)
+            if (data.quizGame) {
                 if (typeof window.state.quizGame === 'undefined') window.state.quizGame = {};
-                window.state.quizGame.currentRoundAnswers = data.quizGame.currentRoundAnswers;
+                
+                if (data.quizGame.currentIndex !== undefined) {
+                    window.state.quizGame.currentIndex = data.quizGame.currentIndex;
+                }
+                
+                // Récupérer en direct qui a déjà répondu (ou un objet vide si réinitialisé)
+                window.state.quizGame.currentRoundAnswers = data.quizGame.currentRoundAnswers || {};
             }
 
             // --- 2. GESTION AFFICHAGE HÔTE / NON-HÔTE ---
@@ -25978,6 +25984,15 @@ function showQuizSummaryScreen(selIdx, qObj) {
 
 function nextQuizQuestionOrFinish() {
             state.quizGame.currentIndex++;
+            
+            // Synchroniser le nouvel index et réinitialiser les réponses du tour sur Firebase
+            if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+                window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+                    "quizGame/currentIndex": state.quizGame.currentIndex,
+                    "quizGame/currentRoundAnswers": null
+                });
+            }
+            
             prepareNextQuizQuestion();
         }
 
