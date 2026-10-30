@@ -194,21 +194,6 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
             }
 
-// --- SYNCHRONISATION DE LA QUESTION COURANTE ---
-            if (data.quizGame && data.quizGame.currentQuestionObj) {
-                if (typeof window.state === 'undefined') window.state = {};
-                if (!window.state.quizGame) window.state.quizGame = {};
-                
-                if (!window.state.quizGame.currentQuestionObj || window.state.quizGame.currentQuestionObj.q !== data.quizGame.currentQuestionObj.q) {
-                    window.state.quizGame.currentQuestionObj = data.quizGame.currentQuestionObj;
-                    const diffScreen = document.getElementById('screen-quiz-difficulty');
-                    if (diffScreen && !diffScreen.classList.contains('hidden')) {
-                        diffScreen.classList.add('hidden');
-                        if (typeof startQuizScreen === 'function') startQuizScreen();
-                    }
-                }
-            }
-
 	    // MODIFICATION 2A : Récupérer en direct qui a déjà répondu
             if (data.quizGame && data.quizGame.currentRoundAnswers) {
                 if (typeof window.state.quizGame === 'undefined') window.state.quizGame = {};
@@ -25695,13 +25680,6 @@ function prepareNextQuizQuestion() {
 function chooseQuizDifficulty(diff) {
     if (typeof window.state === 'undefined') window.state = {};
     if (!window.state.quizGame) window.state.quizGame = {};
-    
-    // Si la question est déjà synchronisée depuis Firebase, on l'utilise directement
-    if (window.currentRoom && window.currentRoom.quizGame && window.currentRoom.quizGame.currentQuestionObj) {
-        state.quizGame.currentQuestionObj = window.currentRoom.quizGame.currentQuestionObj;
-        startQuizScreen();
-        return;
-    }
 
     if (!window.state.quizGame.categoriesSequence || window.state.quizGame.categoriesSequence.length === 0) {
         const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
@@ -25715,7 +25693,7 @@ function chooseQuizDifficulty(diff) {
     state.quizGame.pendingDifficulty = diff;
 
     const currentIndex = state.quizGame.currentIndex || 0;
-    const categoryKey = state.quizGame.categoriesSequence[currentIndex % state.quizGame.categoriesSequence.length] || 'geo';
+    const categoryKey = window.state.quizGame.categoriesSequence[currentIndex % window.state.quizGame.categoriesSequence.length] || 'geo';
     const categoryMetaObj = categoriesMeta.find(c => c.key === categoryKey) || { name: 'Culture Générale' };
     const categoryName = categoryMetaObj.name;
 
@@ -25727,21 +25705,19 @@ function chooseQuizDifficulty(diff) {
     let pool = QUIZ_CATEGORIES_DATA[categoryKey][diff];
     let qObj = pool[Math.floor(Math.random() * pool.length)];
 
+    // Attribue une question unique au joueur local
     state.quizGame.currentQuestionObj = { 
         ...qObj, 
         categoryName: categoryName, 
         difficulty: diff 
     };
 
-    // Synchronisation Firebase de la question et réinitialisation des réponses du tour
+    let myKey = window.myPlayerKey || state.username;
+
+    // Synchronisation de la difficulté choisie (sans écraser la question du voisin)
     if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-            difficulty: diff,
-            quizGame: {
-                ...(window.currentRoom?.quizGame || {}),
-                currentQuestionObj: state.quizGame.currentQuestionObj,
-                currentRoundAnswers: {} // Réinitialise les réponses pour éviter les fantômes
-            }
+            difficulty: diff
         });
     }
 
@@ -25855,19 +25831,26 @@ function answerQuizQuestion(selIdx) {
     let timeLeftVal = typeof state.quizGame.timeleft === 'number' ? state.quizGame.timeleft : 0;
     let earned = selIdx === qobj.correct ? Math.round((1000 + timeLeftVal * 20) * mult) : 0;
 
-    // Utilisation de la clé d'identification exacte
     let myKey = window.myPlayerKey || state.username;
     if (!state.players) state.players = {};
     if (!state.players[myKey]) state.players[myKey] = { name: myKey, score: 0 };
     if (typeof state.players[myKey].score !== 'number') state.players[myKey].score = 0;
 
     if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
-    state.quizGame.currentRoundAnswers[myKey] = { choice: selIdx, isCorrect: selIdx === qobj.correct, pointEarned: earned };
+    
+    // On sauvegarde la question et le choix du joueur pour l'écran de résumé
+    state.quizGame.currentRoundAnswers[myKey] = { 
+        questionObj: qobj,
+        choice: selIdx, 
+        isCorrect: selIdx === qobj.correct, 
+        pointEarned: earned 
+    };
 
     if (selIdx === qobj.correct) {
         state.players[myKey].score += earned;
     }
 
+    // Gestion des bots éventuels
     const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
     playersArr.forEach((p) => {
         if (p.isBot) {
@@ -25875,82 +25858,67 @@ function answerQuizQuestion(selIdx) {
             let bchoice = correct ? qobj.correct : (qobj.correct + 1) % 4;
             let bearned = correct ? Math.round(1000 * mult) : 0;
             p.score += bearned;
-            state.quizGame.currentRoundAnswers[p.name] = { choice: bchoice, isCorrect: correct, pointEarned: bearned };
+            state.quizGame.currentRoundAnswers[p.name] = { 
+                questionObj: qobj,
+                choice: bchoice, 
+                isCorrect: correct, 
+                pointEarned: bearned 
+            };
         }
     });
 
-    if (!state.quizGame.answersLog) {
-        state.quizGame.answersLog = [];
-    }
-    state.quizGame.answersLog.push({
-        q: qobj.q,
-        options: qobj.opts,
-        correct: qobj.correct,
-        chosen: selIdx,
-        isCorrect: selIdx === qobj.correct
-    });
-
     if (typeof window.mettreAJourSalonFirebase === 'function' && window.currentCodeSalon) {
-	
-	if (window.currentCodeSalon) {
-        	const updates = {};
-        	updates[`players/${myKey}`] = state.players[myKey];
-        	updates[`quizGame/currentRoundAnswers/${myKey}`] = state.quizGame.currentRoundAnswers[myKey];
-        
-        	playersArr.forEach((p) => {
-            		if (p.isBot) {
-                	updates[`players/${p.name}`] = state.players[p.name];
-                	updates[`quizGame/currentRoundAnswers/${p.name}`] = state.quizGame.currentRoundAnswers[p.name];
-            		}
-        	});
-        
-		window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates);
+        if (window.currentCodeSalon) {
+            const updates = {};
+            updates[`players/${myKey}`] = state.players[myKey];
+            updates[`quizGame/currentRoundAnswers/${myKey}`] = state.quizGame.currentRoundAnswers[myKey];
+            
+            window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates);
 
-    		let waitMsg = document.getElementById('quiz-wait-msg');
-    		if (!waitMsg) {
-        		waitMsg = document.createElement('div');
-        		waitMsg.id = 'quiz-wait-msg';
-        		waitMsg.className = 'text-center text-amber-400 font-bold mt-4 animate-pulse';
-        		document.getElementById('quiz-options-grid').parentElement.appendChild(waitMsg);
-    		}
+            let waitMsg = document.getElementById('quiz-wait-msg');
+            if (!waitMsg) {
+                waitMsg = document.createElement('div');
+                waitMsg.id = 'quiz-wait-msg';
+                waitMsg.className = 'text-center text-amber-400 font-bold mt-4 animate-pulse';
+                document.getElementById('quiz-options-grid').parentElement.appendChild(waitMsg);
+            }
 
-    		waitMsg.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Réponse enregistrée. En attente des autres joueurs...';
-    	}
-   }
+            waitMsg.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Réponse enregistrée. En attente des autres joueurs...';
+        }
+    }
 }
 
 function showQuizSummaryScreen(selIdx, qObj) {
     showScreen('screen-quiz-summary');
     
-    if (!qObj) return;
+    let myKey = window.myPlayerKey || state.username;
+    let roundAnswers = state.quizGame.currentRoundAnswers || {};
+    let myAnswer = roundAnswers[myKey] || { pointEarned: 0 };
+    let activeQObj = myAnswer.questionObj || qObj;
 
     const roundPointsEl = document.getElementById('quiz-round-points');
-    let myKey = window.myPlayerKey || state.username;
-    let myAnswer = (state.quizGame.currentRoundAnswers && state.quizGame.currentRoundAnswers[myKey]) ? state.quizGame.currentRoundAnswers[myKey] : { pointEarned: 0 };
-    
     if (roundPointsEl) {
-        roundPointsEl.innerText = `+${myAnswer.pointEarned} pts`;
-        roundPointsEl.className = myAnswer.pointEarned > 0 ? "font-mono text-sm text-emerald-400 font-bold" : "font-mono text-sm text-slate-400 font-bold";
+        roundPointsEl.innerText = `+${myAnswer.pointEarned || 0} pts`;
+        roundPointsEl.className = (myAnswer.pointEarned || 0) > 0 ? "font-mono text-sm text-emerald-400 font-bold" : "font-mono text-sm text-slate-400 font-bold";
     }
 
-    // 1. Affichage de la question
+    // 1. Affichage de la question du joueur local
     const titleEl = document.getElementById('summary-question-title');
-    if (titleEl) titleEl.innerText = qObj.q;
+    if (titleEl) titleEl.innerText = activeQObj.q;
 
     // 2. Affichage de la bonne réponse
     const correctEl = document.getElementById('summary-correct-answer');
-    if (correctEl) correctEl.innerText = qObj.opts[qObj.correct] || 'Réponse';
+    if (correctEl) correctEl.innerText = activeQObj.opts[activeQObj.correct] || 'Réponse';
 
     // 3. Affichage de l'explication
     const explEl = document.getElementById('summary-explanation');
-    if (explEl) explEl.innerText = qObj.exp || "Aucune explication disponible pour cette question.";
+    if (explEl) explEl.innerText = activeQObj.exp || "Aucune explication disponible pour cette question.";
 
-    // 4. Affichage détaillé des questions et réponses de chacun des joueurs
+    // 4. Affichage détaillé des questions et réponses de chaque joueur dans le résumé
     const answersContainer = document.getElementById('summary-players-answers');
     if (answersContainer) {
         answersContainer.innerHTML = '';
 
-        let roundAnswers = state.quizGame.currentRoundAnswers || {};
         let playersRaw = state.players || {};
         let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
 
@@ -25962,10 +25930,12 @@ function showQuizSummaryScreen(selIdx, qObj) {
             let chosenText = "N'a pas répondu";
             let badgeClass = "border-slate-700 bg-slate-950/80 text-slate-400";
             let iconHtml = '<i class="fa-regular fa-circle text-slate-500"></i> En attente';
+            let playerQText = pData && pData.questionObj ? pData.questionObj.q : "Question non disponible";
+            let playerOpts = pData && pData.questionObj ? pData.questionObj.opts : [];
 
             if (pData && pData.choice !== undefined && pData.choice !== -1) {
                 const choiceIdx = pData.choice;
-                chosenText = qObj.opts[choiceIdx] || "Réponse invalide";
+                chosenText = playerOpts[choiceIdx] || "Réponse invalide";
                 
                 if (pData.isCorrect) {
                     badgeClass = "border-emerald-500 bg-emerald-500/15 text-emerald-300";
@@ -25985,7 +25955,7 @@ function showQuizSummaryScreen(selIdx, qObj) {
                         <span class="font-bold text-white text-xs"><i class="fa-solid fa-user text-indigo-400"></i> [${playerName}]</span>
                         <span class="text-xs font-bold flex items-center gap-1.5">${iconHtml}</span>
                     </div>
-                    <div class="text-xs text-slate-300 italic">Question : "${qObj.q}"</div>
+                    <div class="text-xs text-slate-300 italic">Question : "${playerQText}"</div>
                     <div class="text-xs font-mono font-bold text-indigo-200">Réponse : "${chosenText}"</div>
                 </div>
             `;
