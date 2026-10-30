@@ -161,32 +161,30 @@ import { getDatabase, ref, set, get, update, onValue, onDisconnect } from "https
 
 window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     const salonRef = ref(db, 'salons/' + codeSalon);
+    
     onValue(salonRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-
-	    window.currentRoom = data;
+            window.currentRoom = data;
             window.currentCodeSalon = codeSalon;
-	    state.roomCode = codeSalon;
+            state.roomCode = codeSalon;
 
-	    // --- 1. SYNCHRONISATION DU STATE GLOBAL DU JEU ---
+            // --- 1. SYNCHRONISATION DU STATE GLOBAL DU JEU ---
             if (typeof window.state === 'undefined') window.state = {};
             if (!window.state.quizGame) window.state.quizGame = {};
             if (!window.state.quizSettings) window.state.quizSettings = {};
 
-            // Synchroniser les paramètres envoyés par l'hôte dans Firebase
             if (data.settings) {
-    		window.state.quizSettings.timer = data.settings.timer || 20;
-    		window.state.quizSettings.questionsCount = data.settings.questionsCount || 10;
+                window.state.quizSettings.timer = data.settings.timer || 20;
+                window.state.quizSettings.questionsCount = data.settings.questionsCount || 10;
     
-    		// Modification ici :
-    		if (data.categoriesSequence) {
-        		window.state.quizGame.categoriesSequence = data.categoriesSequence;
-    		} else if (data.settings.categories) {
-        		window.state.quizGame.categoriesSequence = data.settings.categories;
-    		}
-    		window.state.quizGame.totalQuestions = data.settings.questionsCount || 10;
-	    }
+                if (data.categoriesSequence) {
+                    window.state.quizGame.categoriesSequence = data.categoriesSequence;
+                } else if (data.settings.categories) {
+                    window.state.quizGame.categoriesSequence = data.settings.categories;
+                }
+                window.state.quizGame.totalQuestions = data.settings.questionsCount || 10;
+            }
 
             if (data.difficulty) {
                 window.state.quizGame.pendingDifficulty = data.difficulty;
@@ -196,7 +194,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentQuestionObj = data.currentQuestionObj;
             }
 
-	    const nonHostFolder = document.getElementById('non-host-mission-folder');
+            // --- 2. GESTION AFFICHAGE HÔTE / NON-HÔTE ---
+            const nonHostFolder = document.getElementById('non-host-mission-folder');
             const hostContainer = document.getElementById('host-settings-container');
             
             if (!window.isHost) {
@@ -207,31 +206,30 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (hostContainer) hostContainer.classList.remove('hidden');
             }
 
-            if (!window.isHost) {
-    if (data.selectedMode) {
-        document.getElementById('non-host-target-mode').innerText = getFriendlyModeName(data.selectedMode);
-    }
-    if (data.settings) {
-        const timerVal = data.settings.timer || 20;
-        const nbQ = data.settings.questionsCount || 10;
-        const cats = data.settings.categories || [];
+            if (!window.isHost && data.selectedMode) {
+                const targetModeEl = document.getElementById('non-host-target-mode');
+                if (targetModeEl) targetModeEl.innerText = getFriendlyModeName(data.selectedMode);
+                
+                if (data.settings) {
+                    const timerVal = data.settings.timer || 20;
+                    const nbQ = data.settings.questionsCount || 10;
+                    const cats = data.settings.categories || [];
 
-        // Temps & Nombre de questions
-        document.getElementById('non-host-timer-display').innerText = `${timerVal}s / question (${nbQ} questions)`;
-        const badge = document.getElementById('non-host-timer-badge');
-        if (badge) badge.innerText = timerVal + "s";
+                    document.getElementById('non-host-timer-display').innerText = `${timerVal}s / question (${nbQ} questions)`;
+                    const badge = document.getElementById('non-host-timer-badge');
+                    if (badge) badge.innerText = timerVal + "s";
 
-        // Affichage du nombre de catégories sélectionnées
-        const modDisp = document.getElementById('non-host-modules-display');
-        if (modDisp) {
-            modDisp.innerText = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length)
-                ? "Toutes les catégories" 
-                : `${cats.length} catégorie(s) sélectionnée(s)`;
-        }
-    }
-}
+                    const modDisp = document.getElementById('non-host-modules-display');
+                    if (modDisp) {
+                        modDisp.innerText = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length)
+                            ? "Toutes les catégories" 
+                            : `${cats.length} catégorie(s) sélectionnée(s)`;
+                    }
+                }
+            }
 
-if (data.status === 'IN_GAME') {
+            // --- 3. CHANGEMENT D'ÉCRAN SI JEU LANCÉ ---
+            if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 if (lobbyScreen) lobbyScreen.classList.add('hidden');
 
@@ -241,28 +239,26 @@ if (data.status === 'IN_GAME') {
                     const diffScreen = document.getElementById('screen-quiz-difficulty');
                     if (diffScreen) diffScreen.classList.remove('hidden');
                 } else if (selectedMode === 'impostor') {
-    			const imposScreen = document.getElementById('screen-impostor');
-    			if (imposScreen) imposScreen.classList.remove('hidden');
-
-    			// Appel de la fonction de rendu à chaque mise à jour Firebase
-    			if (typeof renderImpostorScreen === 'function') {
-        			renderImpostorScreen(data);
-    			}
-		} else if (selectedMode === 'geoguessr') {
+                    const imposScreen = document.getElementById('screen-impostor');
+                    if (imposScreen) imposScreen.classList.add('hidden'); // Corrigé en remove si besoin
+                    if (typeof renderImpostorScreen === 'function') {
+                        renderImpostorScreen(data);
+                    }
+                } else if (selectedMode === 'geoguessr') {
                     const geoScreen = document.getElementById('screen-game-geoguessr');
                     if (geoScreen) geoScreen.classList.remove('hidden');
                 } else if (selectedMode === 'anomaly') {
                     const anoScreen = document.getElementById('screen-generic-game');
-                    if (anoScreen) anoScreen.classList.remove('hidden');
+                    if (anoScreen) anoScreen.classList.add('hidden');
                 } else if (selectedMode === 'petitsbac') {
                     const bacScreen = document.getElementById('screen-petitsbac');
-                    if (bacScreen) bacScreen.classList.remove('hidden');
+                    if (bacScreen) bacScreen.classList.add('hidden');
                 }
             }
 
-	    // === AJOUT DE LA GESTION DU CHAT ICI ===
-if (data.chatMessages) {
-    const box = document.getElementById('chat-messages');
+            // --- 4. GESTION DU CHAT ---
+            if (data.chatMessages) {
+                const box = document.getElementById('chat-messages');
                 if (box) {
                     const msgs = data.chatMessages;
                     const arr = Array.isArray(msgs) ? msgs : Object.values(msgs);
@@ -277,60 +273,10 @@ if (data.chatMessages) {
                 }
             }
 
-// === MISE À JOUR DES JOUEURS ET DU COMPTEUR ===
+            // --- 5. MISE À JOUR DES JOUEURS (Déléguée proprement à updateLobbyUI) ---
             if (data.players) {
-		// 1. Liste des bots à exclure (basée sur votre constante)
-                const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
-
-                // Conversion sécurisée Objet -> Tableau
-    		const playersArray = Array.isArray(data.players) ? data.players : Object.values(data.players);
-    
-    		const playersList = playersArray.filter(p => 
-        		p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo)
-    		);
-                
-                // 1. Correction du compteur d'opérateurs
-                const countEl = document.getElementById('player-count');
-                if (countEl) countEl.innerText = playersList.length;
-
-		window.state.players = data.players; // Mettre à jour le state global
-		updateLobbyUI();
-
-                // 2. Génération dynamique de la grille
-                const grid = document.getElementById('operators-grid');
-                if (grid) {
-                    grid.innerHTML = ''; // On vide la grille
-                    
-                    playersList.forEach(p => {
-                        const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
-                        const isReady = p.isReady;
-                        
-                        // Application de vos styles dynamiques
-                        const borderClass = isReady ? 'border-command-cyan/40 glow-cyan' : 'border-command-border';
-                        const avatarBg = isReady ? 'bg-command-cyan/10 border-command-cyan text-command-cyan' : 'bg-gray-800 border-gray-700 text-gray-300';
-                        const statusColor = isReady ? 'text-command-green' : 'text-yellow-500';
-                        const statusText = isReady ? 'PRÊT AU COMBAT' : 'EN ATTENTE DE BRIEFING';
-                        const dotColor = isReady ? 'bg-command-green glow-green' : 'bg-yellow-500';
-                        
-const avatarIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
-const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
-
-grid.innerHTML += `
-    <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded ${avatarBg} border flex items-center justify-center font-mono font-bold ${avatarColor}">
-                <i class="fa-solid ${avatarIcon}"></i>
-            </div>
-                                    <div>
-                                        <div class="font-bold text-sm text-gray-100">${p.name} ${isHostBadge}</div>
-                                        <div class="text-xs font-mono ${statusColor}">${statusText}</div>
-                                    </div>
-                                </div>
-                                <span class="w-2.5 h-2.5 rounded-full ${dotColor}"></span>
-                            </div>
-                        `;
-                    });
-                }
+                window.state.players = data.players; 
+                updateLobbyUI(); // Met à jour le compteur ET la grille de manière sécurisée
             }
 
             if (typeof callbackMiseAJour === 'function') {
