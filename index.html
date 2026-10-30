@@ -25718,34 +25718,50 @@ function startQuizMode() {
 }
 
 function prepareNextQuizQuestion() {
-            if (state.quizGame.currentIndex >= state.quizGame.categoriesSequence.length) {
-                showQuizFinalRecap();
-                return;
-            }
-            let catKey = state.quizGame.categoriesSequence[state.quizGame.currentIndex];
-            state.quizGame.pendingCategoryKey = catKey;
-            state.quizGame.pendingCategoryName = QUIZ_CATEGORIES_DATA[catKey].name;
-            document.getElementById('diff-theme-badge').innerText = `Thème : ${state.quizGame.pendingCategoryName}`;
-            showScreen('screen-quiz-difficulty');
-        }
+    let seq = state.quizGame.categoriesSequence;
+    // Conversion sécurisée si Firebase renvoie un objet au lieu d'un tableau
+    let seqArr = Array.isArray(seq) ? seq : (seq ? Object.values(seq) : []);
+    let maxQuestions = state.quizGame.totalQuestions || state.quizSettings?.questionsCount || 10;
+
+    // Vérification stricte de la fin du quiz
+    if (state.quizGame.currentIndex >= maxQuestions || (seqArr.length > 0 && state.quizGame.currentIndex >= seqArr.length)) {
+        showQuizFinalRecap();
+        return;
+    }
+
+    let catKey = seqArr[state.quizGame.currentIndex % seqArr.length] || 'geo';
+    state.quizGame.pendingCategoryKey = catKey;
+
+    const categoryMetaObj = categoriesMeta.find(c => c.key === catKey) || { name: 'Culture Générale' };
+    state.quizGame.pendingCategoryName = categoryMetaObj.name;
+
+    const badge = document.getElementById('diff-theme-badge');
+    if (badge) badge.innerText = `Thème : ${state.quizGame.pendingCategoryName}`;
+    
+    showScreen('screen-quiz-difficulty');
+}
 
 function chooseQuizDifficulty(diff) {
     if (typeof window.state === 'undefined') window.state = {};
     if (!window.state.quizGame) window.state.quizGame = {};
 
-    if (!window.state.quizGame.categoriesSequence || window.state.quizGame.categoriesSequence.length === 0) {
+    let seq = window.state.quizGame.categoriesSequence;
+    let seqArr = Array.isArray(seq) ? seq : (seq ? Object.values(seq) : []);
+    
+    if (seqArr.length === 0) {
         const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
         if (checkedBoxes.length > 0) {
-            window.state.quizGame.categoriesSequence = Array.from(checkedBoxes).map(cb => cb.value);
+            seqArr = Array.from(checkedBoxes).map(cb => cb.value);
         } else {
-            window.state.quizGame.categoriesSequence = ['geo'];
+            seqArr = ['geo'];
         }
+        window.state.quizGame.categoriesSequence = seqArr;
     }
 
     state.quizGame.pendingDifficulty = diff;
 
     const currentIndex = state.quizGame.currentIndex || 0;
-    const categoryKey = window.state.quizGame.categoriesSequence[currentIndex % window.state.quizGame.categoriesSequence.length] || 'geo';
+    const categoryKey = seqArr[currentIndex % seqArr.length] || 'geo';
     const categoryMetaObj = categoriesMeta.find(c => c.key === categoryKey) || { name: 'Culture Générale' };
     const categoryName = categoryMetaObj.name;
 
@@ -25757,16 +25773,12 @@ function chooseQuizDifficulty(diff) {
     let pool = QUIZ_CATEGORIES_DATA[categoryKey][diff];
     let qObj = pool[Math.floor(Math.random() * pool.length)];
 
-    // Attribue une question unique au joueur local
     state.quizGame.currentQuestionObj = { 
         ...qObj, 
         categoryName: categoryName, 
         difficulty: diff 
     };
 
-    let myKey = window.myPlayerKey || state.username;
-
-    // Synchronisation de la difficulté choisie (sans écraser la question du voisin)
     if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, {
             difficulty: diff
