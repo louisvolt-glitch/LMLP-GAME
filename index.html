@@ -330,16 +330,29 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
             // --- 5. MISE À JOUR DES JOUEURS (Déléguée proprement à updateLobbyUI) ---
 		if (data.players) {
-                window.state.players = data.players; 
-                if (typeof state !== 'undefined') {
-                    state.players = data.players;
+                	window.state.players = data.players; 
+                	if (typeof state !== 'undefined') {
+                    		state.players = data.players;
+                	}
+                	updateLobbyUI(); // Met à jour le compteur ET la grille pour l'Hôte et les Non-Hôtes
+            	}
+
+	    if (data.quizGame && data.quizGame.lobbyVotes && data.players) {
+                const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
+                const humanPlayers = playersArr.filter(p => !p.isBot);
+                const votesKeys = Object.keys(data.quizGame.lobbyVotes);
+                const allWannaGoBack = humanPlayers.length > 0 && humanPlayers.every(p => votesKeys.includes(p.name || p.pseudo));
+
+                if (allWannaGoBack) {
+                    if (typeof executeActualBackToLobby === 'function') {
+                        executeActualBackToLobby();
+                    }
                 }
-                updateLobbyUI(); // Met à jour le compteur ET la grille pour l'Hôte et les Non-Hôtes
             }
 
             if (typeof callbackMiseAJour === 'function') {
                 callbackMiseAJour(data);
-            }
+            	}
         }
     });
 };
@@ -27152,7 +27165,32 @@ function submitVotes() {
     }
 }
 
+// Remplace l'ancienne fonction backToLobby
 window.backToLobby = function() {
+    let myKey = window.myPlayerKey || state.username;
+    let roomCode = window.currentCodeSalon || (state && state.roomCode);
+
+    if (!roomCode) return;
+
+    // 1. Enregistrer le vote du joueur dans Firebase
+    const updates = {};
+    updates[`quizGame/lobbyVotes/${myKey}`] = true;
+    window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+
+    // 2. Désactiver le bouton et afficher un message d'attente sur l'écran de récap
+    const recapScreen = document.getElementById('screen-quiz-recap');
+    if (recapScreen) {
+        const btn = recapScreen.querySelector('button[onclick="backToLobby()"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.className = "w-full bg-slate-700 text-slate-400 font-bold py-3 rounded-xl cursor-not-allowed";
+            btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres opérateurs...';
+        }
+    }
+};
+
+// Nouvelle fonction exécutée uniquement lorsque TOUS les joueurs ont voté
+function executeActualBackToLobby() {
     // 1. Masquer tous les écrans et afficher le lobby
     document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
     const lobby = document.getElementById('screen-lobby');
@@ -27163,44 +27201,42 @@ window.backToLobby = function() {
         state.quizGame.currentIndex = 0;
         state.quizGame.answersLog = [];
         state.quizGame.currentRoundAnswers = {};
+        state.quizGame.lobbyVotes = {};
     }
 
-    // 1. Réinitialiser la variable locale
-isReady = false;
+    // 3. Réinitialiser la variable locale 'isReady'
+    isReady = false;
 
-// 2. Mettre à jour l'interface du bouton et du texte
-const btn = document.getElementById('deploy-btn');
-const statusText = document.getElementById('ready-status-text');
+    const btn = document.getElementById('deploy-btn');
+    const statusText = document.getElementById('ready-status-text');
 
-if (btn) {
-    btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-dark border-2 border-command-cyan text-command-cyan glow-cyan hover:bg-command-cyan hover:text-command-dark";
-    btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
-}
-if (statusText) {
-    statusText.innerText = "STATUT : NON CONFIRMÉ";
-    statusText.className = "text-center font-mono text-xs text-yellow-500 mt-2";
-}
+    if (btn) {
+        btn.className = "w-full py-4 px-3 rounded-lg font-bold text-sm tracking-wider uppercase transition-all bg-command-dark border-2 border-command-cyan text-command-cyan glow-cyan hover:bg-command-cyan hover:text-command-dark";
+        btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
+    }
+    if (statusText) {
+        statusText.innerText = "STATUT : NON CONFIRMÉ";
+        statusText.className = "text-center font-mono text-xs text-yellow-500 mt-2";
+    }
 
-// 3. Mettre à jour le statut sur Firebase pour que les autres joueurs voient le changement
-const currentRoomCode = state.roomCode || (document.getElementById('session-code') ? document.getElementById('session-code').innerText.trim() : null);
-if (currentRoomCode && window.myPlayerKey) {
-    window.update(window.ref(window.db, `salons/${currentRoomCode}/players/${window.myPlayerKey}`), {
-        isReady: false
-    });
-}
+    const currentRoomCode = state.roomCode || (document.getElementById('session-code') ? document.getElementById('session-code').innerText.trim() : null);
+    if (currentRoomCode && window.myPlayerKey) {
+        window.update(window.ref(window.db, `salons/${currentRoomCode}/players/${window.myPlayerKey}`), {
+            isReady: false
+        });
+    }
     
-    // 3. L'hôte informe Firebase que la partie est terminée
     const roomCode = window.currentCodeSalon || (state && state.roomCode);
     if (window.isHost && roomCode && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(roomCode, {
-            status: 'LOBBY'
+            status: 'LOBBY',
+            'quizGame/lobbyVotes': null // Nettoyer les votes pour la prochaine partie
         });
     }
 
-    // Afficher le lobby
     showScreen('screen-lobby');
     updateLobbyUI();
-};
+}
 
     </script>
 </body>
