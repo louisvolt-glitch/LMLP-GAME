@@ -257,9 +257,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                                 modulesStr = cats.map(c => {
                                     const found = categoriesMeta.find(m => m.key === c);
                                     return found ? found.name : c;
-                                }).join(' • ');
+                                }).join('<br>');
                             } else {
-                                modulesStr = cats.length > 0 ? cats.join(', ') : "Aucune catégorie";
+                                modulesStr = cats.length > 0 ? cats.join('<br>') : "Aucune catégorie";
                             }
                             break;
                         case 'impostor':
@@ -294,9 +294,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     const badge = document.getElementById('non-host-timer-badge');
                     if (badge) badge.innerText = timerStr;
 
-                    const modDisp = document.getElementById('non-host-modules-display');
+		    const modDisp = document.getElementById('non-host-modules-display');
                     if (modDisp) {
-                        modDisp.innerText = modulesStr;
+                        modDisp.innerHTML = modulesStr; 
                     }
                 }
             }
@@ -1177,7 +1177,7 @@ function initQuizCategoriesChecklist() {
     
     container.innerHTML = categoriesMeta.map(cat => `
         <label class="flex items-center gap-2 cursor-pointer hover:text-white select-none">
-            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onchange="updateHostSettings()">
+            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onclick="setTimeout(updateHostSettings, 50)">
             <span>${cat.name}</span>
         </label>
     `).join('');
