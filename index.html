@@ -25798,6 +25798,7 @@ function answerQuizQuestion(selIdx) {
     let qobj = state.quizGame.currentQuestionObj;
 
     const optionButtons = document.querySelectorAll('#quiz-options-grid button');
+
     optionButtons.forEach((btn, idx) => {
         btn.disabled = true;
         if (idx === qobj.correct) {
@@ -25849,30 +25850,30 @@ function answerQuizQuestion(selIdx) {
     });
 
     if (typeof window.mettreAJourSalonFirebase === 'function' && window.currentCodeSalon) {
-if (window.currentCodeSalon) {
-        const updates = {};
-        updates[`players/${myKey}`] = state.players[myKey];
-        updates[`quizGame/currentRoundAnswers/${myKey}`] = state.quizGame.currentRoundAnswers[myKey];
+	
+	if (window.currentCodeSalon) {
+        	const updates = {};
+        	updates[`players/${myKey}`] = state.players[myKey];
+        	updates[`quizGame/currentRoundAnswers/${myKey}`] = state.quizGame.currentRoundAnswers[myKey];
         
-        playersArr.forEach((p) => {
-            if (p.isBot) {
-                updates[`players/${p.name}`] = state.players[p.name];
-                updates[`quizGame/currentRoundAnswers/${p.name}`] = state.quizGame.currentRoundAnswers[p.name];
-            }
-        });
-        // MODIFICATION 2C : Message d'attente au lieu de passer à l'écran suivant
-    let waitMsg = document.getElementById('quiz-wait-msg');
-    if (!waitMsg) {
-        waitMsg = document.createElement('div');
-        waitMsg.id = 'quiz-wait-msg';
-        waitMsg.className = 'text-center text-amber-400 font-bold mt-4 animate-pulse';
-        document.getElementById('quiz-options-grid').parentElement.appendChild(waitMsg);
-    }
-    waitMsg.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Réponse enregistrée. En attente des autres joueurs...';
-    }
-    }
+        	playersArr.forEach((p) => {
+            		if (p.isBot) {
+                	updates[`players/${p.name}`] = state.players[p.name];
+                	updates[`quizGame/currentRoundAnswers/${p.name}`] = state.quizGame.currentRoundAnswers[p.name];
+            		}
+        	});
+        
+    		let waitMsg = document.getElementById('quiz-wait-msg');
+    		if (!waitMsg) {
+        		waitMsg = document.createElement('div');
+        		waitMsg.id = 'quiz-wait-msg';
+        		waitMsg.className = 'text-center text-amber-400 font-bold mt-4 animate-pulse';
+        		document.getElementById('quiz-options-grid').parentElement.appendChild(waitMsg);
+    		}
 
-    showQuizSummaryScreen(selIdx, qobj);
+    		waitMsg.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Réponse enregistrée. En attente des autres joueurs...';
+    	}
+   }
 }
 
 function showQuizSummaryScreen(selIdx, qObj) {
@@ -25908,30 +25909,36 @@ function showQuizSummaryScreen(selIdx, qObj) {
     // Ne garder que les vrais joueurs uniques
     playersArr = playersArr.filter(p => p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo));
 
-    const container = document.getElementById('summary-players-answers');
-    if (container) {
-        const roundAnswers = state.quizGame.currentRoundAnswers || {};
-        
-        container.innerHTML = playersArr.map((p, idx) => {
-            const ans = roundAnswers[p.name] || roundAnswers[p.pseudo] || { choice: -1, isCorrect: false, pointEarned: 0 };
-            const chosenText = (ans.choice >= 0 && qObj.opts && qObj.opts[ans.choice]) ? qObj.opts[ans.choice] : "Temps écoulé";
-            const pName = p.name || p.pseudo || `Opérateur ${idx + 1}`;
-            const pIcon = (p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user';
-            const isHostBadge = p.isHost ? '<span class="text-command-cyan font-mono">(Hôte)</span>' : '';
-            
-            return `
-                <div class="p-3 rounded-xl border ${ans.isCorrect ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'} flex flex-col justify-between text-xs space-y-1">
-                    <div class="flex justify-between items-center font-bold">
-                        <span><i class="fa-solid ${pIcon}"></i> ${pName} ${isHostBadge}</span>
-                        <span class="font-mono">${ans.isCorrect ? '+' + ans.pointEarned + ' pts' : '0 pt'}</span>
-                    </div>
-                    <div class="text-[11px] text-slate-300 truncate">
-                        Réponse : <span class="font-semibold italic">"${chosenText}"</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
+// À l'intérieur de ta fonction showQuizSummaryScreen(finalChoice, qobj)
+const answersContainer = document.getElementById('summary-players-answers');
+answersContainer.innerHTML = '';
+
+// On parcourt chaque option disponible pour cette question
+qobj.opts.forEach((optText, index) => {
+    let playersWhoChoseThis = [];
+    
+    // On cherche quels joueurs ont choisi cette option spécifique
+    for (const [playerName, data] of Object.entries(state.quizGame.currentRoundAnswers)) {
+        if (data.choice === index) {
+            playersWhoChoseThis.push(playerName);
+        }
     }
+
+    // Si au moins un joueur a choisi cette réponse, on génère l'affichage
+    if (playersWhoChoseThis.length > 0) {
+        // Ajout d'un style différent si c'était la bonne ou mauvaise réponse
+        const isCorrect = (index === qobj.correct);
+        const borderColor = isCorrect ? 'border-emerald-500' : 'border-slate-700';
+        const textColor = isCorrect ? 'text-emerald-400' : 'text-slate-300';
+        
+        answersContainer.innerHTML += `
+            <div class="bg-slate-900/90 p-3 rounded-xl border ${borderColor} flex flex-col gap-1">
+                <span class="text-xs font-bold ${textColor}">${optText}</span>
+                <span class="text-sm font-bold text-indigo-300">${playersWhoChoseThis.join(', ')}</span>
+            </div>
+        `;
+    }
+});
 }
 
 function nextQuizQuestionOrFinish() {
