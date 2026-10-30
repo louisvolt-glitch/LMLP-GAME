@@ -315,13 +315,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     if (selectedMode === 'quiz') {
                         const diffScreen = document.getElementById('screen-quiz-difficulty');
                         if (diffScreen) diffScreen.classList.remove('hidden');
-                    else if (selectedMode === 'impostor') {
+                    } else if (selectedMode === 'impostor') {
     			const imposScreen = document.getElementById('screen-impostor');
     			if (imposScreen) imposScreen.classList.remove('hidden'); 
     			if (typeof renderImpostorScreen === 'function') {
         			renderImpostorScreen(data);
     			}
-		    }
                     } else if (selectedMode === 'geoguessr') {
                         const geoScreen = document.getElementById('screen-game-geoguessr');
                         if (geoScreen) geoScreen.classList.remove('hidden');
