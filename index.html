@@ -206,53 +206,91 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (hostContainer) hostContainer.classList.remove('hidden');
             }
 
-            if (!window.isHost && data.selectedMode) {
+	    if (!window.isHost && data.selectedMode) {
                 const targetModeEl = document.getElementById('non-host-target-mode');
                 if (targetModeEl) targetModeEl.innerText = getFriendlyModeName(data.selectedMode);
                 
                 if (data.settings) {
-                    const timerVal = data.settings.timer || 20;
-                    const nbQ = data.settings.questionsCount || 10;
-                    const cats = data.settings.categories || [];
+                    let displayString = "";
+                    let timerStr = "";
+                    let modulesStr = "";
+                    
+                    switch (data.selectedMode) {
+                        case 'quiz':
+                            timerStr = (data.settings.timer || 20) + "s";
+                            displayString = `${timerStr} / question (${data.settings.questionsCount || 10} questions)`;
+                            const cats = data.settings.categories || [];
+                            modulesStr = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length) ? "Toutes les catégories" : `${cats.length} catégorie(s) sélectionnée(s)`;
+                            break;
+                        case 'impostor':
+                            timerStr = (data.settings.impostorTimer || 20) + "s";
+                            displayString = `${timerStr} / mot (${data.settings.impostorRounds || 2} tours)`;
+                            modulesStr = "Paires de mots (Imposteur)";
+                            break;
+                        case 'geoguessr':
+                            timerStr = (data.settings.geoTimer || 45) + "s";
+                            displayString = `${timerStr} / manche (${data.settings.geoRounds || 5} manches)`;
+                            modulesStr = "Street View - Monde entier";
+                            break;
+                        case 'anomaly':
+                            timerStr = (data.settings.anomalyTimer || 300) + "s";
+                            displayString = `Temps max : ${timerStr} (${data.settings.anomalyStages || 8} anomalies)`;
+                            modulesStr = "Couloir 3D";
+                            break;
+                        case 'petitsbac':
+                            timerStr = (data.settings.pbTimer || 60) + "s";
+                            displayString = `${timerStr} / manche (${data.settings.pbRounds || 3} manches)`;
+                            modulesStr = `${data.settings.pbCategories || 5} catégories par manche`;
+                            break;
+                        default:
+                            timerStr = (data.settings.timer || 20) + "s";
+                            displayString = `${timerStr}`;
+                            modulesStr = "Standard";
+                    }
 
-                    document.getElementById('non-host-timer-display').innerText = `${timerVal}s / question (${nbQ} questions)`;
+                    const timerDisplay = document.getElementById('non-host-timer-display');
+                    if (timerDisplay) timerDisplay.innerText = displayString;
+                    
                     const badge = document.getElementById('non-host-timer-badge');
-                    if (badge) badge.innerText = timerVal + "s";
+                    if (badge) badge.innerText = timerStr;
 
                     const modDisp = document.getElementById('non-host-modules-display');
                     if (modDisp) {
-                        modDisp.innerText = (typeof categoriesMeta !== 'undefined' && cats.length === categoriesMeta.length)
-                            ? "Toutes les catégories" 
-                            : `${cats.length} catégorie(s) sélectionnée(s)`;
+                        modDisp.innerText = modulesStr;
                     }
                 }
             }
 
-            // --- 3. CHANGEMENT D'ÉCRAN SI JEU LANCÉ ---
+	    // --- 3. CHANGEMENT D'ÉCRAN SI JEU LANCÉ ---
             if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
-                if (lobbyScreen) lobbyScreen.classList.add('hidden');
+                
+                // CORRECTION : Évite le split screen. On ne force l'affichage 
+                // du nouvel écran que si le joueur se trouve encore dans le lobby.
+                if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
+                    lobbyScreen.classList.add('hidden');
 
-                const selectedMode = data.selectedMode || 'quiz';
+                    const selectedMode = data.selectedMode || 'quiz';
 
-                if (selectedMode === 'quiz') {
-                    const diffScreen = document.getElementById('screen-quiz-difficulty');
-                    if (diffScreen) diffScreen.classList.remove('hidden');
-                } else if (selectedMode === 'impostor') {
-                    const imposScreen = document.getElementById('screen-impostor');
-                    if (imposScreen) imposScreen.classList.add('hidden'); // Corrigé en remove si besoin
-                    if (typeof renderImpostorScreen === 'function') {
-                        renderImpostorScreen(data);
+                    if (selectedMode === 'quiz') {
+                        const diffScreen = document.getElementById('screen-quiz-difficulty');
+                        if (diffScreen) diffScreen.classList.remove('hidden');
+                    } else if (selectedMode === 'impostor') {
+                        const imposScreen = document.getElementById('screen-impostor');
+                        if (imposScreen) imposScreen.classList.remove('hidden'); 
+                        if (typeof renderImpostorScreen === 'function') {
+                            renderImpostorScreen(data);
+                        }
+                    } else if (selectedMode === 'geoguessr') {
+                        const geoScreen = document.getElementById('screen-game-geoguessr');
+                        if (geoScreen) geoScreen.classList.remove('hidden');
+                    } else if (selectedMode === 'anomaly') {
+                        const anoScreen = document.getElementById('screen-generic-game');
+                        if (anoScreen) anoScreen.classList.remove('hidden'); 
+                    } else if (selectedMode === 'petitsbac') {
+                        const bacScreen = document.getElementById('screen-petitsbac');
+                        if (bacScreen) bacScreen.classList.remove('hidden'); 
                     }
-                } else if (selectedMode === 'geoguessr') {
-                    const geoScreen = document.getElementById('screen-game-geoguessr');
-                    if (geoScreen) geoScreen.classList.remove('hidden');
-                } else if (selectedMode === 'anomaly') {
-                    const anoScreen = document.getElementById('screen-generic-game');
-                    if (anoScreen) anoScreen.classList.add('hidden');
-                } else if (selectedMode === 'petitsbac') {
-                    const bacScreen = document.getElementById('screen-petitsbac');
-                    if (bacScreen) bacScreen.classList.add('hidden');
                 }
             }
 
@@ -25085,15 +25123,28 @@ function updateHostSettings() {
     if (!window.isHost || !window.mettreAJourSalonFirebase || !state.roomCode) return;
 
     const selectedMode = document.getElementById('select-game-mode')?.value || 'quiz';
-    const timerVal = document.getElementById('input-host-timer').value;
-    const questionsCount = document.getElementById('input-quiz-questions-count').value;
     
-    // Nouveaux paramètres Imposteur
+    // Quiz
+    const timerVal = document.getElementById('input-host-timer')?.value || 20;
+    const questionsCount = document.getElementById('input-quiz-questions-count')?.value || 10;
+    const checkedCategories = Array.from(document.querySelectorAll('.quiz-cat-checkbox:checked')).map(cb => cb.value);
+
+    // Imposteur
     const impostorTimer = document.getElementById('setting-impostor-timer')?.value || 20;
     const impostorRounds = document.getElementById('setting-impostor-rounds')?.value || 2;
+    
+    // GeoGuessr
+    const geoRounds = document.getElementById('setting-rounds')?.value || 5;
+    const geoTimer = document.getElementById('setting-timer')?.value || 45;
 
-    const checkedCategories = Array.from(document.querySelectorAll('.quiz-cat-checkbox:checked'))
-                                  .map(cb => cb.value);
+    // Anomalies 3D
+    const anomalyStages = document.getElementById('setting-anomaly-stages')?.value || 8;
+    const anomalyTimer = document.getElementById('setting-anomaly-timer')?.value || 300;
+
+    // Petits Bac
+    const pbCategories = document.getElementById('setting-petitsbac-categories')?.value || 5;
+    const pbRounds = document.getElementById('setting-petitsbac-rounds')?.value || 3;
+    const pbTimer = document.getElementById('setting-petitsbac-timer')?.value || 60;
 
     window.mettreAJourSalonFirebase(state.roomCode, {
         selectedMode: selectedMode,
@@ -25102,7 +25153,14 @@ function updateHostSettings() {
             questionsCount: questionsCount,
             categories: checkedCategories,
             impostorTimer: parseInt(impostorTimer, 10),
-            impostorRounds: parseInt(impostorRounds, 10)
+            impostorRounds: parseInt(impostorRounds, 10),
+            geoRounds: parseInt(geoRounds, 10),
+            geoTimer: parseInt(geoTimer, 10),
+            anomalyStages: parseInt(anomalyStages, 10),
+            anomalyTimer: parseInt(anomalyTimer, 10),
+            pbCategories: parseInt(pbCategories, 10),
+            pbRounds: parseInt(pbRounds, 10),
+            pbTimer: parseInt(pbTimer, 10)
         },
         updatedAt: Date.now()
     });
@@ -25288,6 +25346,20 @@ window.launchGame = function() {
             return;
         }
 
+        // VÉRIFICATION : Tous les joueurs doivent être prêts
+        let playersRaw = window.state.players || {};
+        let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
+        
+        // On exclut les bots de la vérification
+        const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
+        let humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot && !BOT_NAMES.includes(p.name || p.pseudo));
+        
+        const allReady = humanPlayers.every(p => p.isReady === true);
+        if (!allReady && humanPlayers.length > 0) {
+            alert("Le lancement est impossible : tous les opérateurs ne sont pas prêts pour le déploiement !");
+            return;
+        }
+
         const modeSelect = document.getElementById('select-game-mode');
         const selectedMode = document.getElementById('select-game-mode')?.value || 'quiz';
         
@@ -25309,7 +25381,6 @@ window.launchGame = function() {
                 return;
             }
 
-            // Génération de la séquence exacte correspondant au nombre de questions
             for (let i = 0; i < questionsCount; i++) {
                 seq.push(activeCategories[i % activeCategories.length]);
             }
@@ -25321,11 +25392,11 @@ window.launchGame = function() {
             state.quizGame.totalQuestions = questionsCount;
         }
 
-	if (selectedMode === 'impostor') {
-        if (typeof startImpostorGame === 'function') {
-            startImpostorGame();
-        }
-        return;
+        if (selectedMode === 'impostor') {
+            if (typeof startImpostorGame === 'function') {
+                startImpostorGame();
+            }
+            return;
         }
 
         const updatePayload = {
@@ -25336,7 +25407,7 @@ window.launchGame = function() {
                 questionsCount: questionsCount,
                 categories: activeCategories
             },
-            categoriesSequence: seq, // Synchronise la liste des thèmes avec tous les joueurs
+            categoriesSequence: seq, 
             quizGame: { currentIndex: 0, answersLog: [] },
             startedAt: Date.now()
         };
