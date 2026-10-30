@@ -25770,18 +25770,33 @@ function chooseQuizDifficulty(diff) {
         return;
     }
 
-    let pool = QUIZ_CATEGORIES_DATA[categoryKey][diff];
-    let qObj = pool[Math.floor(Math.random() * pool.length)];
+let pool = QUIZ_CATEGORIES_DATA[categoryKey][diff];
+    let originalQObj = pool[Math.floor(Math.random() * pool.length)];
+
+    // Lier chaque option à son état (bonne ou mauvaise réponse)
+    let optionsAvecIndex = originalQObj.opts.map((opt, index) => {
+        return { texte: opt, estLaBonneReponse: (index === originalQObj.correct) };
+    });
+
+    // Mélanger aléatoirement le tableau d'options
+    optionsAvecIndex.sort(() => Math.random() - 0.5);
+
+    // Extraire les textes mélangés et trouver la nouvelle position de la bonne réponse
+    let optionsMelangees = optionsAvecIndex.map(o => o.texte);
+    let nouvelIndexCorrect = optionsAvecIndex.findIndex(o => o.estLaBonneReponse);
 
     state.quizGame.currentQuestionObj = { 
-        ...qObj, 
+        ...originalQObj,
+        opts: optionsMelangees,      // Remplace par le tableau mélangé
+        correct: nouvelIndexCorrect, // Met à jour l'index gagnant
         categoryName: categoryName, 
         difficulty: diff 
     };
 
     if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-            difficulty: diff
+            difficulty: diff,
+            currentQuestionObj: state.quizGame.currentQuestionObj // Synchronise la question mélangée avec les autres joueurs
         });
     }
 
@@ -25960,6 +25975,24 @@ function showQuizSummaryScreen(selIdx, qObj) {
     let myAnswer = roundAnswers[myKey] || { pointEarned: 0 };
     let activeQObj = myAnswer.questionObj || qObj;
 
+    if (!state.quizGame.answersLog) state.quizGame.answersLog = [];
+    // Utiliser currentIndex pour éviter les doublons lors des re-rendus
+    if (state.quizGame.answersLog.length === state.quizGame.currentIndex) {
+        let choiceText = "Non répondu";
+        if (myAnswer.choice !== undefined && myAnswer.choice !== -1 && activeQObj.opts) {
+            choiceText = activeQObj.opts[myAnswer.choice];
+        }
+        let correctText = activeQObj.opts ? activeQObj.opts[activeQObj.correct] : "Inconnu";
+
+        state.quizGame.answersLog.push({
+            question: activeQObj.q,
+            playerChoice: choiceText,
+            correctAnswer: correctText,
+            isCorrect: myAnswer.isCorrect,
+            points: myAnswer.pointEarned || 0
+        });
+    }
+
     const roundPointsEl = document.getElementById('quiz-round-points');
     if (roundPointsEl) {
         roundPointsEl.innerText = `+${myAnswer.pointEarned || 0} pts`;
@@ -26067,6 +26100,34 @@ function showQuizFinalRecap() {
             </div>
         `).join('');
     }
+
+    const historyContainer = document.getElementById('quiz-history-table');
+    if (historyContainer) {
+        if (state.quizGame.answersLog && state.quizGame.answersLog.length > 0) {
+            historyContainer.innerHTML = state.quizGame.answersLog.map((log, idx) => {
+                const badgeClass = log.isCorrect 
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                    : "bg-red-500/10 border-red-500/30 text-red-400";
+                const icon = log.isCorrect 
+                    ? '<i class="fa-solid fa-check"></i>' 
+                    : '<i class="fa-solid fa-xmark"></i>';
+                
+                return `
+                    <div class="p-4 rounded-xl border ${badgeClass} text-sm mb-2 shadow-sm">
+                        <div class="font-bold text-slate-200 mb-2">Q${idx + 1}: ${log.question}</div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span>Votre réponse : <strong class="text-white">${log.playerChoice}</strong></span>
+                            <span class="font-bold">${icon} ${log.points} pts</span>
+                        </div>
+                        ${!log.isCorrect ? `<div class="text-xs text-emerald-300 mt-2 pt-2 border-t border-slate-700/50">Bonne réponse : ${log.correctAnswer}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        } else {
+            historyContainer.innerHTML = `<div class="text-slate-400 text-xs italic text-center p-4">Aucun historique disponible.</div>`;
+        }
+    }
+
 }
 
         function startNextRound() {
