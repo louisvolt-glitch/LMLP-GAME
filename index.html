@@ -25803,6 +25803,7 @@ function startQuizScreen() {
             let finalChoice = state.quizGame.currentRoundAnswers[myKey].choice;
             showQuizSummaryScreen(finalChoice, qobj);
      	}
+
      }, 1000);
 }
 
@@ -25901,58 +25902,70 @@ function showQuizSummaryScreen(selIdx, qObj) {
     
     if (roundPointsEl) {
         roundPointsEl.innerText = `+${myAnswer.pointEarned} pts`;
-        // Couleur verte si points gagnés, sinon gris
         roundPointsEl.className = myAnswer.pointEarned > 0 ? "font-mono text-sm text-emerald-400 font-bold" : "font-mono text-sm text-slate-400 font-bold";
     }
 
-    // 1. Remplir le titre, la bonne réponse et l'explication manquants
+    // 1. Affichage de la question
     const titleEl = document.getElementById('summary-question-title');
     if (titleEl) titleEl.innerText = qObj.q;
 
+    // 2. Affichage de la bonne réponse
     const correctEl = document.getElementById('summary-correct-answer');
     if (correctEl) correctEl.innerText = qObj.opts[qObj.correct] || 'Réponse';
 
+    // 3. Affichage de l'explication
     const explEl = document.getElementById('summary-explanation');
     if (explEl) explEl.innerText = qObj.exp || "Aucune explication disponible pour cette question.";
 
-    // 2. Gestion propre des joueurs (filtrage des bots et doublons)
-    const BOT_NAMES = ["PixelBot", "CyberSamurai", "RetroGamer", "AIBoss", "NeonKnight", "ShadowPlayer", "VortexAI", "QuantumBot"];
-    let playersRaw = state.players || {};
-    let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
-    
-    // Ne garder que les vrais joueurs uniques
-    playersArr = playersArr.filter(p => p && (p.name || p.pseudo) && !BOT_NAMES.includes(p.name || p.pseudo));
+    // 4. Affichage détaillé des réponses de chacun des joueurs
+    const answersContainer = document.getElementById('summary-players-answers');
+    if (answersContainer) {
+        answersContainer.innerHTML = '';
 
-// À l'intérieur de ta fonction showQuizSummaryScreen(finalChoice, qobj)
-const answersContainer = document.getElementById('summary-players-answers');
-answersContainer.innerHTML = '';
+        let roundAnswers = state.quizGame.currentRoundAnswers || {};
+        let playersRaw = state.players || {};
+        let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
 
-// On parcourt chaque option disponible pour cette question
-qobj.opts.forEach((optText, index) => {
-    let playersWhoChoseThis = [];
-    
-    // On cherche quels joueurs ont choisi cette option spécifique
-    for (const [playerName, data] of Object.entries(state.quizGame.currentRoundAnswers)) {
-        if (data.choice === index) {
-            playersWhoChoseThis.push(playerName);
-        }
+        playersArr.forEach(p => {
+            const playerName = p.name || p.pseudo;
+            if (!playerName) return;
+
+            const pData = roundAnswers[playerName];
+            let chosenText = "Aucune réponse";
+            let isCorrect = false;
+            let badgeClass = "border-slate-700 bg-slate-950/80 text-slate-400";
+            let iconHtml = '<i class="fa-regular fa-circle text-slate-500"></i> En attente';
+
+            if (pData && pData.choice !== undefined && pData.choice !== -1) {
+                const choiceIdx = pData.choice;
+                chosenText = qObj.opts[choiceIdx] || "Réponse invalide";
+                isCorrect = pData.isCorrect;
+                
+                if (isCorrect) {
+                    badgeClass = "border-emerald-500 bg-emerald-500/15 text-emerald-300";
+                    iconHtml = '<i class="fa-solid fa-check text-emerald-400"></i> Correct';
+                } else {
+                    badgeClass = "border-red-500 bg-red-500/15 text-red-300";
+                    iconHtml = '<i class="fa-solid fa-xmark text-red-400"></i> Incorrect';
+                }
+            } else {
+                badgeClass = "border-amber-500/30 bg-amber-500/10 text-amber-300";
+                iconHtml = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Temps écoulé';
+            }
+
+            answersContainer.innerHTML += `
+                <div class="p-3 rounded-xl border ${badgeClass} flex justify-between items-center shadow-sm">
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="font-bold text-white">[${playerName}]</span>
+                        <span class="font-mono font-bold text-sm">"${chosenText}"</span>
+                    </div>
+                    <div class="text-xs font-bold flex items-center gap-1.5">
+                        ${iconHtml}
+                    </div>
+                </div>
+            `;
+        });
     }
-
-    // Si au moins un joueur a choisi cette réponse, on génère l'affichage
-    if (playersWhoChoseThis.length > 0) {
-        // Ajout d'un style différent si c'était la bonne ou mauvaise réponse
-        const isCorrect = (index === qobj.correct);
-        const borderColor = isCorrect ? 'border-emerald-500' : 'border-slate-700';
-        const textColor = isCorrect ? 'text-emerald-400' : 'text-slate-300';
-        
-        answersContainer.innerHTML += `
-            <div class="bg-slate-900/90 p-3 rounded-xl border ${borderColor} flex flex-col gap-1">
-                <span class="text-xs font-bold ${textColor}">${optText}</span>
-                <span class="text-sm font-bold text-indigo-300">${playersWhoChoseThis.join(', ')}</span>
-            </div>
-        `;
-    }
-});
 }
 
 function nextQuizQuestionOrFinish() {
