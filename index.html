@@ -229,6 +229,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 const estMaintenantHote = !!data.players[window.myPlayerKey].isHost;
                 if (window.isHost !== estMaintenantHote) {
                     window.isHost = estMaintenantHote;
+                    
+                    // CORRECTION : Mettre à jour l'affichage de l'interface immédiatement
+                    if (typeof setupLobbyViewForUser === 'function') {
+                        setupLobbyViewForUser();
+                    }
+                    if (typeof updateLobbyUI === 'function') {
+                        updateLobbyUI();
+                    }
+
                     if (estMaintenantHote && typeof addSystemMessage === 'function') {
                         addSystemMessage("Transmission reçue : Le rôle d'Hôte vous a été transféré.");
                     }
