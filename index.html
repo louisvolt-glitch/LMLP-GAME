@@ -223,6 +223,18 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentRoundAnswers = data.quizGame.currentRoundAnswers || {};
             }
 
+	    // === NOUVEAU : DÉTECTION DU TRANSFERT D'HÔTE EN DIRECT ===
+            // Si le joueur local n'avait pas le rôle, mais que Firebase indique qu'il l'a maintenant (Transfert)
+            if (data.players && window.myPlayerKey && data.players[window.myPlayerKey]) {
+                const estMaintenantHote = !!data.players[window.myPlayerKey].isHost;
+                if (window.isHost !== estMaintenantHote) {
+                    window.isHost = estMaintenantHote;
+                    if (estMaintenantHote && typeof addSystemMessage === 'function') {
+                        addSystemMessage("Transmission reçue : Le rôle d'Hôte vous a été transféré.");
+                    }
+                }
+            }
+
             // --- 2. GESTION AFFICHAGE HÔTE / NON-HÔTE ---
             const nonHostFolder = document.getElementById('non-host-mission-folder');
             const hostContainer = document.getElementById('host-settings-container');
