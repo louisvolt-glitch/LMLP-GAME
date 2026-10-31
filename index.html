@@ -2477,7 +2477,8 @@ function startImpostorGame() {
         };
     }
 
-    const impostorSettings = state.settings || {};
+    // Récupération stricte des paramètres synchronisés depuis Firebase
+    const impostorSettings = (window.currentRoom && window.currentRoom.settings) ? window.currentRoom.settings : (state.settings || {});
     const maxRounds = parseInt(impostorSettings.impostorRounds, 10) || 2;
     const timerVal = parseInt(impostorSettings.impostorTimer, 10) || 20;
 
@@ -2720,10 +2721,15 @@ function renderImpostorScreen(data) {
     const myName = window.myPlayerKey || state.username;
     const myRoleInfo = gameData.roles ? gameData.roles[myName] : null;
 
-    // SECURITE CRUCIALE CONTRE L'ECRAN BLANC
     if (!myRoleInfo) {
         mainArea.innerHTML = `<div class="p-6 bg-red-500/20 border border-red-500 rounded-xl text-red-400 font-bold">Erreur : Vous n'avez pas de rôle pour cette partie. Attendez la manche suivante.</div>`;
         return;
+    }
+
+    // Nettoyer le timer de la phase d'écriture s'il est actif dans une autre phase
+    if (gameData.status !== 'WRITING' && window.impostorTimerInterval) {
+        clearInterval(window.impostorTimerInterval);
+        window.impostorTimerInterval = null;
     }
 
     // --- PHASE 1 : RÉVÉLATION DES MOTS ---
@@ -2755,24 +2761,52 @@ function renderImpostorScreen(data) {
             </div>
 
             <div class="space-y-3">
-                <button onclick="setImpostorReadyForWriting()" id="btn-ready-writing" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReady ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
-                    ${isReady ? '<i class="fa-solid fa-check"></i> Prêt (En attente des autres)' : 'Aller à la phase d\'écriture'}
+                <button ${isReady ? 'disabled' : ''} onclick="setImpostorReadyForWriting()" id="btn-ready-writing" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReady ? 'bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                    ${isReady ? '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres...' : 'Aller à la phase d\'écriture'}
                 </button>
             </div>
         `;
     }
-// --- PHASE 2 : ÉCRITURE DES MOTS À TOUR DE RÔLE ---
+    // --- PHASE 2 : ÉCRITURE DES MOTS (AVEC COMPTE À REBOURS ACTIF) ---
     else if (gameData.status === 'WRITING') {
-        if (timerEl) timerEl.innerText = `Tour ${gameData.currentRound} / ${gameData.maxRounds}`;
-        
         let turnOrder = gameData.turnOrder || Object.keys(gameData.roles || {});
         let currentTurnIndex = gameData.currentTurnIndex || 0;
         let activePlayer = turnOrder[currentTurnIndex];
         let isMyTurn = (activePlayer === myName);
         
+        let turnChanged = (window.impostorCurrentTurn !== currentTurnIndex) || (window.impostorCurrentRound !== gameData.currentRound);
+        
+        // Initialiser ou relancer le timer si le tour vient de changer
+        if (turnChanged || !window.impostorTimerInterval) {
+            if (window.impostorTimerInterval) clearInterval(window.impostorTimerInterval);
+            window.impostorCurrentTurn = currentTurnIndex;
+            window.impostorCurrentRound = gameData.currentRound;
+            window.impostorCurrentTime = gameData.roundTimer || 20;
+
+            window.impostorTimerInterval = setInterval(() => {
+                window.impostorCurrentTime--;
+                let tDisp = document.getElementById('impostor-timer-display');
+                if (tDisp) tDisp.innerText = window.impostorCurrentTime + 's';
+
+                if (window.impostorCurrentTime <= 0) {
+                    clearInterval(window.impostorTimerInterval);
+                    if (isMyTurn) {
+                        let input = document.getElementById('input-impostor-clue');
+                        if (input && input.value.trim() === '') {
+                            input.value = "(Temps écoulé)"; // Soumission auto
+                        }
+                        if (typeof submitImpostorClue === 'function') submitImpostorClue();
+                    }
+                }
+            }, 1000);
+        }
+
+        if (timerEl) {
+            timerEl.innerHTML = `Tour ${gameData.currentRound} / ${gameData.maxRounds} - <span id="impostor-timer-display" class="text-amber-400 font-black">${window.impostorCurrentTime}s</span>`;
+        }
+        
         let roundData = gameData.writingData ? gameData.writingData[gameData.currentRound] || {} : {};
         
-        // Création de la liste des joueurs en direct
         let playersListHtml = turnOrder.map((pName, idx) => {
             let status = "";
             let wordOrStatus = "";
@@ -2802,7 +2836,6 @@ function renderImpostorScreen(data) {
             `;
         }).join('');
 
-        // Affichage du champ de texte uniquement si c'est le tour du joueur
         let inputAreaHtml = "";
         if (isMyTurn) {
             inputAreaHtml = `
@@ -2823,13 +2856,11 @@ function renderImpostorScreen(data) {
         }
 
         mainArea.innerHTML = `
-            <h3 class="text-2xl font-black text-indigo-300 mb-2">Phase d'Écriture (Tour ${gameData.currentRound}/${gameData.maxRounds})</h3>
+            <h3 class="text-2xl font-black text-indigo-300 mb-2">Phase d'Écriture</h3>
             <p class="text-xs text-slate-400 mb-4">Chaque joueur écrit un mot à tour de rôle pour prouver son identité.</p>
-
             <div class="max-w-md mx-auto space-y-2 mb-4">
                 ${playersListHtml}
             </div>
-
             ${inputAreaHtml}
         `;
     }
@@ -2841,9 +2872,9 @@ function renderImpostorScreen(data) {
         if (gameData.writingData) {
             for (let r = 1; r <= gameData.maxRounds; r++) {
                 if (gameData.writingData[r]) {
-                    allCluesHtml += `<div class="text-xs font-bold text-indigo-400 mb-1">--- Tour ${r} ---</div>`;
+                    allCluesHtml += `<div class="text-sm font-bold text-indigo-400 mb-2 mt-4">--- Tour ${r} ---</div>`;
                     for (let [player, clue] of Object.entries(gameData.writingData[r])) {
-                        allCluesHtml += `<div class="p-2 bg-slate-900 rounded-lg mb-1 flex justify-between text-xs font-mono"><span class="text-slate-400">${player}:</span> <strong class="text-white">"${clue}"</strong></div>`;
+                        allCluesHtml += `<div class="p-3 bg-slate-900 rounded-xl mb-2 flex justify-between text-sm font-mono border border-slate-800"><span class="text-slate-400">${player}:</span> <strong class="text-white text-base">"${clue}"</strong></div>`;
                     }
                 }
             }
@@ -2852,13 +2883,16 @@ function renderImpostorScreen(data) {
         const isReadyVote = gameData.readyToVote && gameData.readyToVote[myName];
 
         mainArea.innerHTML = `
-            <h3 class="text-2xl font-black text-indigo-300 mb-2">Ouvrez le débat ! Discutez des indices écrits ci-dessous :</h3>
-            <div class="max-w-md mx-auto w-full bg-slate-950/80 border border-slate-800 p-4 rounded-2xl max-h-48 overflow-y-auto mb-6 text-left space-y-2">
+            <h3 class="text-2xl font-black text-indigo-300 mb-2">Ouvrez le débat !</h3>
+            <p class="text-sm text-slate-400 mb-4">Voici tous les indices écrits :</p>
+            <!-- Zone élargie pour lire sans scroll -->
+            <div class="max-w-3xl mx-auto w-full bg-slate-950/80 border border-slate-800 p-6 rounded-2xl overflow-y-auto mb-6 text-left space-y-2 min-h-[250px] shadow-inner">
                 ${allCluesHtml || '<span class="text-slate-500 italic">Aucun indice enregistré.</span>'}
             </div>
 
-            <button onclick="setImpostorReadyForVote()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyVote ? 'bg-emerald-500 text-slate-950' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
-                ${isReadyVote ? '<i class="fa-solid fa-check"></i> Prêt pour le vote' : 'Aller à la phase de vote'}
+            <!-- Bouton sécurisé avec sablier -->
+            <button ${isReadyVote ? 'disabled' : ''} onclick="setImpostorReadyForVote()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyVote ? 'bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white'}">
+                ${isReadyVote ? '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres...' : 'Aller à la phase de vote'}
             </button>
         `;
     }
@@ -2866,20 +2900,33 @@ function renderImpostorScreen(data) {
     else if (gameData.status === 'VOTE') {
         if (timerEl) timerEl.innerText = "Phase de Vote";
 
-        let playersList = Object.keys(gameData.roles || {});
-        let voteButtonsHtml = playersList.filter(p => p !== myName).map(p => `
-            <button onclick="submitImpostorVote('${p}')" class="p-3 bg-slate-900 hover:bg-red-500/20 border border-slate-700 hover:border-red-500 rounded-xl font-bold text-sm transition text-white">
-                Voter contre ${p}
-            </button>
-        `).join('');
+        let myVote = gameData.votes ? gameData.votes[myName] : null;
 
-        mainArea.innerHTML = `
-            <h3 class="text-2xl font-black text-red-400 mb-2">Qui est l'Imposteur ?</h3>
-            <p class="text-xs text-slate-400 mb-6">Cliquez sur le joueur que vous suspectez d'être l'imposteur ou Mr. White.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
-                ${voteButtonsHtml}
-            </div>
-        `;
+        // Attente dynamique de ceux qui n'ont pas voté
+        if (myVote) {
+            mainArea.innerHTML = `
+                <h3 class="text-3xl font-black text-emerald-400 mb-4"><i class="fa-solid fa-check-circle"></i> Vote enregistré</h3>
+                <p class="text-lg text-slate-300 mb-6">Vous avez voté contre <strong class="text-white">${myVote}</strong>.</p>
+                <div class="max-w-md mx-auto p-5 bg-slate-900 rounded-2xl border border-slate-700 text-amber-400 animate-pulse font-bold text-lg shadow-lg">
+                    <i class="fa-solid fa-hourglass-half"></i> En attente du vote des autres joueurs...
+                </div>
+            `;
+        } else {
+            let playersList = Object.keys(gameData.roles || {});
+            let voteButtonsHtml = playersList.filter(p => p !== myName).map(p => `
+                <button onclick="submitImpostorVote('${p}')" class="p-4 bg-slate-900 hover:bg-red-500/20 border border-slate-700 hover:border-red-500 rounded-xl font-bold text-base transition text-white shadow-md">
+                    Voter contre ${p}
+                </button>
+            `).join('');
+
+            mainArea.innerHTML = `
+                <h3 class="text-3xl font-black text-red-400 mb-2">Qui est l'Imposteur ?</h3>
+                <p class="text-sm text-slate-400 mb-8">Cliquez sur le joueur que vous suspectez d'être l'imposteur ou Mr. White.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+                    ${voteButtonsHtml}
+                </div>
+            `;
+        }
     }
     // --- PHASE 5 : RÉCAPITULATIF FINAL ---
     else if (gameData.status === 'SUMMARY') {
@@ -2889,7 +2936,7 @@ function renderImpostorScreen(data) {
         let rolesSummaryHtml = "";
         for (let [pName, info] of Object.entries(gameData.roles || {})) {
             rolesSummaryHtml += `
-                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between items-center text-xs">
+                <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl flex justify-between items-center text-sm shadow-sm">
                     <div>
                         <strong class="text-white">${pName}</strong> 
                         <span class="text-slate-400">(${info.role})</span>
@@ -2902,17 +2949,18 @@ function renderImpostorScreen(data) {
         const isReadyMenu = gameData.readyToMenu && gameData.readyToMenu[myName];
 
         mainArea.innerHTML = `
-            <h3 class="text-2xl font-black bg-gradient-to-r from-amber-300 to-yellow-500 bg-clip-text text-transparent mb-2">Récapitulatif de la Partie</h3>
-            <div class="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-indigo-300 font-bold text-sm mb-4">
+            <h3 class="text-3xl font-black bg-gradient-to-r from-amber-300 to-yellow-500 bg-clip-text text-transparent mb-2">Récapitulatif de la Partie</h3>
+            <div class="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl text-indigo-300 font-bold text-base mb-6 max-w-xl mx-auto">
                 ${winnerText}
             </div>
             
-            <div class="max-w-md mx-auto space-y-2 mb-6 text-left max-h-40 overflow-y-auto">
+            <div class="max-w-xl mx-auto space-y-2 mb-8 text-left max-h-64 overflow-y-auto pr-2">
                 ${rolesSummaryHtml}
             </div>
 
-            <button onclick="setImpostorReadyForMenu()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyMenu ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
-                ${isReadyMenu ? '<i class="fa-solid fa-check"></i> Prêt (En attente du menu)' : 'Retour au salon'}
+            <!-- Bouton sécurisé qui évite le blocage des autres -->
+            <button ${isReadyMenu ? 'disabled' : ''} onclick="setImpostorReadyForMenu()" class="w-full max-w-sm mx-auto py-3.5 rounded-xl font-bold uppercase transition-all shadow-lg ${isReadyMenu ? 'bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}">
+                ${isReadyMenu ? '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente du menu...' : 'Retour au salon'}
             </button>
         `;
     }
