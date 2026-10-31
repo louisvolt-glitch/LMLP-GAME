@@ -335,6 +335,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     renderImpostorScreen(data);
                 }
             }
+            // === AJOUT POUR LE RETOUR AU MENU DE TOUS LES JOUEURS ===
+            else if (data.status === 'LOBBY') {
+                const lobbyScreen = document.getElementById('screen-lobby');
+                if (lobbyScreen && lobbyScreen.classList.contains('hidden')) {
+                    if (typeof executeActualBackToLobby === 'function') {
+                        executeActualBackToLobby();
+                    }
+                }
+            }
 
             // --- 4. GESTION DU CHAT ---
             if (data.chatMessages) {
@@ -2444,8 +2453,12 @@ function startImpostorGame() {
     // 1. Choisir une paire de mots aléatoire parmi IMPOSTOR_PAIRS
     const randomPair = IMPOSTOR_PAIRS[Math.floor(Math.random() * IMPOSTOR_PAIRS.length)];
     
-    // 2. Mélanger les joueurs pour attribuer les rôles
-    let shuffledPlayers = [...playersArr].sort(() => Math.random() - 0.5);
+    // 2. Mélanger les joueurs pour attribuer les rôles (algorithme robuste Fisher-Yates)
+    let shuffledPlayers = [...playersArr];
+    for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+    }
     
     let roles = {};
     // Le premier est l'imposteur
@@ -2482,12 +2495,19 @@ function startImpostorGame() {
     const maxRounds = parseInt(impostorSettings.impostorRounds, 10) || 2;
     const timerVal = parseInt(impostorSettings.impostorTimer, 10) || 20;
 
+    // AJOUT CRUCIAL : On crée un ordre de tour et ON LE MÉLANGE SÉPARÉMENT
+    // Sinon l'Imposteur (qui est toujours l'index 0 de shuffledPlayers) jouerait systématiquement en premier !
+    let turnOrder = shuffledPlayers.filter(p => !p.isBot).map(p => p.name || p.pseudo);
+    for (let i = turnOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [turnOrder[i], turnOrder[j]] = [turnOrder[j], turnOrder[i]];
+    }
+
     const impostorGameState = {
         status: 'WORD_REVEAL', // Phases: WORD_REVEAL -> WRITING -> DISCUSSION -> VOTE -> SUMMARY
         pair: randomPair,
         roles: roles,
-        // AJOUT : On crée un ordre de tour (sans les bots) et on l'initialise à 0
-        turnOrder: shuffledPlayers.filter(p => !p.isBot).map(p => p.name || p.pseudo),
+        turnOrder: turnOrder,
         currentTurnIndex: 0,
         currentRound: 1,
         maxRounds: maxRounds,
