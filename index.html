@@ -1526,16 +1526,18 @@ function setupLobbyViewForUser() {
 
 function createRoom() {
     const username = document.getElementById('input-username').value.trim();
-    const roomCode = document.getElementById('input-room').value.trim().toUpperCase();
+    // On utilise 'let' au lieu de 'const' pour pouvoir générer et modifier la variable
+    let roomCode = document.getElementById('input-room').value.trim().toUpperCase();
 
     window.myPlayerKey = username;
 
-    if (!username || !roomCode) {
-        alert("Veuillez entrer un pseudo et un code de salon.");
+    // On bloque l'action UNIQUEMENT si le pseudo est vide
+    if (!username) {
+        alert("Veuillez entrer un pseudo.");
         return;
     }
 
-    // AJOUT : Générer un code automatiquement si le champ est vide
+    // Si le code de salon est vide, on le génère automatiquement
     if (!roomCode) {
         roomCode = generateRoomCode();
         document.getElementById('input-room').value = roomCode;
