@@ -368,6 +368,31 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 	if (typeof state !== 'undefined') {
                     		state.players = data.players;
                 	}
+
+                    // === TRANSFERT D'HÔTE AUTOMATIQUE (DÉCONNEXION) ===
+                    const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
+                    const currentHostName = data.host; // Défini lors de la création
+                    const hostExists = playersArr.some(p => p.name === currentHostName && !p.isBot);
+                    
+                    // Si l'hôte n'est plus dans la liste, on en élit un nouveau
+                    if (!hostExists && playersArr.length > 0 && currentHostName) {
+                        const humanPlayers = playersArr.filter(p => !p.isBot && p.name).sort((a, b) => a.name.localeCompare(b.name));
+                        if (humanPlayers.length > 0) {
+                            const newHost = humanPlayers[0];
+                            // Si je suis l'élu, je prends les droits et mets à jour Firebase
+                            if (window.myPlayerKey === newHost.name) {
+                                window.isHost = true;
+                                const updates = {};
+                                updates['host'] = newHost.name;
+                                updates[`players/${newHost.name}/isHost`] = true;
+                                window.mettreAJourSalonFirebase(codeSalon, updates);
+                                setupLobbyViewForUser();
+                                if (typeof addSystemMessage === 'function') addSystemMessage("L'Hôte précédent s'est déconnecté. Vous êtes le nouvel Hôte du salon.");
+                            }
+                        }
+                    }
+                    // ==================================================
+
                 	updateLobbyUI(); // Met à jour le compteur ET la grille pour l'Hôte et les Non-Hôtes
             	}
 
@@ -1389,18 +1414,11 @@ function listenToChat(codeSalon) {
             `).join('');
         }
 
-        function renderQuizChecklist() {
-            const checklistContainer = document.getElementById('quiz-categories-checklist');
-            if (!checklistContainer) return;
-            checklistContainer.innerHTML = Object.keys(QUIZ_CATEGORIES_DATA).map((key, idx) => {
-                const cat = QUIZ_CATEGORIES_DATA[key];
-                return `
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
-                        <input type="checkbox" value="${key}" class="quiz-cat-checkbox accent-indigo-500 rounded" ${idx === 0 ? 'checked' : ''}>
-                        <span>${cat.name}</span>
-                    </label>
-                `;
-            }).join('');
+function renderQuizChecklist() {
+            // Appelle la fonction corrigée contenant les événements onclick pour la mise à jour en direct
+            if (typeof initQuizCategoriesChecklist === 'function') {
+                initQuizCategoriesChecklist();
+            }
         }
 
 // Changement de mode par l'hôte
@@ -1829,6 +1847,14 @@ function updateLobbyUI() {
         const avatarColor = (p.avatar && p.avatar.color) ? p.avatar.color : 'text-gray-200';
         const isHostBadge = p.isHost ? '<span class="text-xs text-command-cyan font-mono">(Hôte)</span>' : '';
 
+        // --- NOUVEAU : BOUTON DE TRANSFERT MANUEL ---
+        let transferButton = '';
+        // Si je suis l'hôte, que ce n'est pas moi, et que ce n'est pas un bot :
+        if (window.isHost && !p.isHost && !p.isBot) {
+            const safeName = p.name.replace(/'/g, "\\'"); // Évite les bugs avec les apostrophes
+            transferButton = `<button onclick="transferHost('${safeName}')" class="ml-2 px-2 py-0.5 bg-command-cyan/10 hover:bg-command-cyan/30 text-command-cyan text-[10px] rounded border border-command-cyan/30 transition-all cursor-pointer"><i class="fa-solid fa-crown"></i> Transférer Hôte</button>`;
+        }
+
         return `
             <div class="bg-command-dark p-3 rounded-lg border ${borderClass} flex items-center justify-between transition-all">
                 <div class="flex items-center gap-3">
@@ -1836,8 +1862,7 @@ function updateLobbyUI() {
                         <i class="fa-solid ${avatarIcon}"></i>
                     </div>
                     <div>
-                        <!-- === MODIFICATION 2 : SUPPRESSION DU REPLI 'ANONYME' === -->
-                        <div class="font-bold text-sm text-gray-100">${p.name} ${isHostBadge}</div>
+                        <div class="font-bold text-sm text-gray-100 flex items-center flex-wrap">${p.name} <span class="ml-1 flex items-center gap-1">${isHostBadge} ${transferButton}</span></div>
                         <div class="text-xs font-mono ${statusColor}">${statusText}</div>
                     </div>
                 </div>
@@ -1863,6 +1888,25 @@ function updateLobbyUI() {
         setupLobbyViewForUser();
     }
 }
+
+window.transferHost = function(newHostName) {
+    if (!window.isHost || !state.roomCode) return;
+    if (confirm(`Voulez-vous vraiment transférer le rôle d'Hôte à ${newHostName} ? Vous deviendrez un simple opérateur.`)) {
+        const updates = {};
+        updates['host'] = newHostName;
+        updates[`players/${newHostName}/isHost`] = true;
+        updates[`players/${window.myPlayerKey}/isHost`] = false;
+        
+        window.isHost = false; // Je perds mes droits immédiatement
+        setupLobbyViewForUser(); // Met à jour mon affichage pour redevenir un invité normal
+        
+        window.mettreAJourSalonFirebase(state.roomCode, updates);
+        
+        if (typeof addSystemMessage === 'function') {
+            addSystemMessage(`Vous avez transféré le rôle d'Hôte à ${newHostName}.`);
+        }
+    }
+};
 
 	const GAME_DESCRIPTIONS = {
     		quiz: {
