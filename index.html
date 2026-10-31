@@ -586,7 +586,7 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                     <div>
                         <label class="block text-xs font-mono text-gray-400 uppercase mb-1">❓ Nombre de questions</label>
                         <input type="number" id="input-quiz-questions-count" min="3" max="30" value="10" 
-                               onchange="updateHostSettings()" 
+                               oninput="updateHostSettings()" 
                                class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
                     </div>
 
@@ -677,7 +677,7 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                 <div class="flex items-center justify-between border-b border-command-border pb-3 mb-4">
                     <h2 class="text-lg font-bold tracking-wider text-command-cyan flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        OPÉRATEURS CONNECTÉS (<span id="player-count">4</span>/8)
+                        OPÉRATEURS CONNECTÉS <span class="tracking-normal ml-1">(<span id="player-count">4</span>/8)</span>
                     </h2>
                     <span class="text-xs font-mono text-gray-400">SALLE D'ATTENTE ACTIVE</span>
                 </div>
@@ -1190,16 +1190,16 @@ document.addEventListener('DOMContentLoaded', initQuizCategoriesChecklist);
 
 	
 function initQuizCategoriesChecklist() {
-    const container = document.getElementById('quiz-categories-checklist');
-    if (!container || typeof categoriesMeta === 'undefined') return;
-    
-    container.innerHTML = categoriesMeta.map(cat => `
-        <label class="flex items-center gap-2 cursor-pointer hover:text-white select-none">
-            <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onchange="updateHostSettings()">
-            <span>${cat.name}</span>
-        </label>
-    `).join('');
-}
+            const container = document.getElementById('quiz-categories-checklist');
+            if (!container || typeof categoriesMeta === 'undefined') return;
+            
+            container.innerHTML = categoriesMeta.map(cat => `
+                <label class="flex items-center gap-2 cursor-pointer hover:text-white select-none">
+                    <input type="checkbox" value="${cat.key}" class="quiz-cat-checkbox accent-command-cyan" checked onclick="setTimeout(updateHostSettings, 10)">
+                    <span>${cat.name}</span>
+                </label>
+            `).join('');
+        }
 
         // Générateur intelligent de 100 questions par difficulté sans numéro dans l'énoncé et avec de vraies options variées         
             const pools = {
