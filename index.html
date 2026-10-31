@@ -441,6 +441,11 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             </div>
         </div>
 
+	<!-- NOUVEAU : Profil du Joueur dans le Header (S'affiche après connexion) -->
+        <div id="header-player-profile" class="hidden flex items-center gap-2 bg-command-dark px-4 py-1.5 rounded-full border border-command-cyan/50 glow-cyan">
+            <!-- Rempli dynamiquement -->
+        </div>
+
         <!-- Code de Session -->
         <div class="flex items-center gap-2 bg-command-dark px-3 py-1.5 rounded border border-command-border">
             <span class="text-xs text-gray-400 font-mono uppercase">Session:</span>
@@ -468,7 +473,7 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 mb-1 text-left">Code de Salon</label>
-                        <input type="text" id="input-room" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white uppercase tracking-widest text-center focus:outline-none focus:border-indigo-500 transition" placeholder="Ex: FULL1" maxlength="5">
+                        <input type="text" id="input-room" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white uppercase tracking-widest text-center focus:outline-none focus:border-indigo-500 transition" placeholder="Laisser vide pour générer, ou taper pour rejoindre" maxlength="5">
                     </div>
 
                     <div class="pt-2 space-y-3">
@@ -564,8 +569,8 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                     </select>
                 </div>
 
-                <!-- Réglage du Chrono -->
-                <div class="bg-command-dark p-3 rounded-lg border border-command-border">
+                <!-- Réglage du Chrono (Quiz) -->
+                <div id="host-settings-generic-timer" class="bg-command-dark p-3 rounded-lg border border-command-border">
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-xs font-mono text-gray-400 uppercase">⏱️ Temps par manche (sec)</label>
                         <span id="host-timer-val" class="font-mono text-command-cyan text-sm">20s</span>
@@ -1474,14 +1479,25 @@ function updateHostSettings() {
         }
 
         function updatePlayerProfile() {
+            // Profil de l'écran d'accueil (si existant)
             const profile = document.getElementById('player-profile');
-            if (!profile) return;
-            profile.innerHTML = `
-                <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-                    <i class="fa-solid ${state.avatar.icon} ${state.avatar.color} text-sm"></i>
-                    <span class="font-bold text-slate-200">${state.username}</span>
-                </div>
-            `;
+            if (profile) {
+                profile.innerHTML = `
+                    <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
+                        <i class="fa-solid ${state.avatar.icon} ${state.avatar.color} text-sm"></i>
+                        <span class="font-bold text-slate-200">${state.username}</span>
+                    </div>
+                `;
+            }
+
+            // Mise à jour de l'avatar dans le Header global
+            const headerProfile = document.getElementById('header-player-profile');
+            if (headerProfile && state.username && state.avatar) {
+                headerProfile.innerHTML = `
+                    <i class="fa-solid ${state.avatar.icon} ${state.avatar.color} text-lg drop-shadow-md"></i>
+                    <span class="font-bold text-gray-100 tracking-wider ml-1">${state.username}</span>
+                `;
+            }
         }
 
         function generateRoomCode() {
@@ -1517,6 +1533,12 @@ function createRoom() {
     if (!username || !roomCode) {
         alert("Veuillez entrer un pseudo et un code de salon.");
         return;
+    }
+
+    // AJOUT : Générer un code automatiquement si le champ est vide
+    if (!roomCode) {
+        roomCode = generateRoomCode();
+        document.getElementById('input-room').value = roomCode;
     }
 
     window.isHost = true;
@@ -1905,6 +1927,17 @@ function updateLobbyUI() {
 
     		updateLobbyUI();
 		updateHostSettings();
+
+	// NOUVEAU : Cacher le temps par manche générique si on n'est pas dans le Quiz
+        const genericTimerEl = document.getElementById('host-settings-generic-timer');
+        if (genericTimerEl) {
+            if (mode === 'quiz') {
+                genericTimerEl.classList.remove('hidden');
+            } else {
+                genericTimerEl.classList.add('hidden');
+            }
+        }	
+
 	}
 
         function startGame() {
@@ -3554,12 +3587,23 @@ function renderImpostorScreen(data) {
         }
 
         function showScreen(id) {
-            ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results'].forEach(s => {
+            // Ajout de petitsbac et petitsbac-vote pour bien les masquer
+            ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results', 'screen-petitsbac', 'screen-petitsbac-vote'].forEach(s => {
                 const el = document.getElementById(s);
                 if (el) el.classList.add('hidden');
             });
             const target = document.getElementById(id);
             if (target) target.classList.remove('hidden');
+
+            // Afficher le profil du Header seulement si on a quitté l'écran d'accueil
+            const headerProfile = document.getElementById('header-player-profile');
+            if (headerProfile) {
+                if (id === 'screen-home') {
+                    headerProfile.classList.add('hidden');
+                } else {
+                    headerProfile.classList.remove('hidden');
+                }
+            }
         }
 
 	// --- LOGIQUE DU PETIT BAC ---
