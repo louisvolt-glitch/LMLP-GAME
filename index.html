@@ -2970,9 +2970,13 @@ function startNextRound() {
                     "http://maps.google.com/mapfiles/ms/icons/ltblue-dot.png"
                 ];
 
+                let validGuesses = 0; // AJOUT 1 : Compteur de repères valides
+
                 Object.keys(guesses).forEach((pName, index) => {
                     let gData = guesses[pName];
                     if (gData && gData.guess) {
+                        validGuesses++; // On incrémente si le joueur a bien placé un repère
+                        
                         let guessLatLng = new google.maps.LatLng(gData.guess[0], gData.guess[1]);
                         bounds.extend(guessLatLng);
                         
@@ -2987,10 +2991,10 @@ function startNextRound() {
                             icon: pIcon,
                             label: {
                                 text: pName,
-                                color: "#111827", // Texte foncé pour bien contraster
+                                color: "#111827", 
                                 fontSize: "12px",
                                 fontWeight: "bold",
-                                className: "bg-white/80 px-1 rounded shadow-sm mt-8" // Fond légèrement transparent pour la lisibilité
+                                className: "bg-white/80 px-1 rounded shadow-sm mt-8" 
                             }
                         });
 
@@ -2999,13 +3003,30 @@ function startNextRound() {
                             geodesic: true,
                             strokeColor: pColor,
                             strokeOpacity: 0.9,
-                            strokeWeight: 3, // Trait un peu plus épais pour mieux voir la couleur
+                            strokeWeight: 3, 
                             map: state.summaryGoogleMap
                         });
                     }
                 });
 
-                state.summaryGoogleMap.fitBounds(bounds);
+                // AJOUT 2 : Logique de zoom conditionnel
+                if (validGuesses > 0) {
+                    // S'il y a des joueurs qui ont deviné, on cadre sur tous les points
+                    state.summaryGoogleMap.fitBounds(bounds);
+                    
+                    // (Sécurité) Empêcher la carte de trop zoomer si les repères sont tous très proches
+                    const listener = google.maps.event.addListener(state.summaryGoogleMap, "idle", function() { 
+                        if (state.summaryGoogleMap.getZoom() > 6) { 
+                            state.summaryGoogleMap.setZoom(6); 
+                        } 
+                        google.maps.event.removeListener(listener); 
+                    });
+                } else {
+                    // Si PERSONNE n'a deviné, on centre sur la cible avec un dé-zoom de niveau Continent (4)
+                    state.summaryGoogleMap.setCenter(targetLatLng);
+                    state.summaryGoogleMap.setZoom(4); 
+                }
+
             }, 300);
         }
 
