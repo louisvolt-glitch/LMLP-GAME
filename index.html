@@ -2834,7 +2834,7 @@ function startNextRound() {
                 minimapBox.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full text-center p-4 space-y-2">
                         <i class="fa-solid fa-hourglass-half text-amber-400 text-2xl animate-spin"></i>
-                        <span class="text-xs font-bold text-white">Repère validé (+${pts} pts).</span>
+                        <span class="text-xs font-bold text-white">Repère validé.</span>
                         <span class="text-[11px] text-slate-400">En attente des autres joueurs...</span>
                     </div>
                 `;
@@ -2939,25 +2939,48 @@ function startNextRound() {
                     icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
                 });
 
-                Object.keys(guesses).forEach(pName => {
+                // Définition d'une palette de couleurs et d'icônes pour différencier les joueurs
+                const playerColors = ['#FF3366', '#3388FF', '#33FF88', '#FFCC33', '#9933FF', '#FF8833', '#33FFFF'];
+                const iconUrls = [
+                    "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/purple-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/orange-dot.png",
+                    "http://maps.google.com/mapfiles/ms/icons/ltblue-dot.png"
+                ];
+
+                Object.keys(guesses).forEach((pName, index) => {
                     let gData = guesses[pName];
                     if (gData && gData.guess) {
                         let guessLatLng = new google.maps.LatLng(gData.guess[0], gData.guess[1]);
                         bounds.extend(guessLatLng);
+                        
+                        // Assigner une couleur unique basée sur l'index du joueur
+                        let pColor = playerColors[index % playerColors.length];
+                        let pIcon = iconUrls[index % iconUrls.length];
 
                         new google.maps.Marker({
                             position: guessLatLng,
                             map: state.summaryGoogleMap,
                             title: `${pName} (${gData.dist} km)`,
-                            icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                            icon: pIcon,
+                            label: {
+                                text: pName,
+                                color: "#111827", // Texte foncé pour bien contraster
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                className: "bg-white/80 px-1 rounded shadow-sm mt-8" // Fond légèrement transparent pour la lisibilité
+                            }
                         });
 
                         new google.maps.Polyline({
                             path: [targetLatLng, guessLatLng],
                             geodesic: true,
-                            strokeColor: '#FF3366',
-                            strokeOpacity: 0.7,
-                            strokeWeight: 2,
+                            strokeColor: pColor,
+                            strokeOpacity: 0.9,
+                            strokeWeight: 3, // Trait un peu plus épais pour mieux voir la couleur
                             map: state.summaryGoogleMap
                         });
                     }
@@ -4580,16 +4603,13 @@ window.backToLobby = function() {
     updates[`quizGame/lobbyVotes/${myKey}`] = true;
     window.update(window.ref(window.db, `salons/${roomCode}`), updates);
 
-    // 2. Désactiver le bouton et afficher un message d'attente sur l'écran de récap
-    const recapScreen = document.getElementById('screen-quiz-recap');
-    if (recapScreen) {
-        const btn = recapScreen.querySelector('button[onclick="backToLobby()"]');
-        if (btn) {
-            btn.disabled = true;
-            btn.className = "w-full bg-slate-700 text-slate-400 font-bold py-3 rounded-xl cursor-not-allowed";
-            btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres opérateurs...';
-        }
-    }
+    // 2. Désactiver TOUS les boutons Retour au Salon existants et afficher l'attente
+    const buttons = document.querySelectorAll('button[onclick="backToLobby()"]');
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.className = "w-full bg-slate-800 text-slate-400 font-bold py-3 rounded-xl cursor-not-allowed transition";
+        btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+    });
 };
 
 // Nouvelle fonction exécutée uniquement lorsque TOUS les joueurs ont voté
