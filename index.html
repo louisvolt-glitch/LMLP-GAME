@@ -396,11 +396,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 // ====================================================================
                 if (data.selectedMode === 'geoguessr' && data.geoGame && data.geoGame.guesses) {
                     const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-                    const humanPlayers = playersArr.filter(p => !p.isBot);
+                    
+                    // SÉCURITÉ 1 : Ignorer les entrées nulles/invalides générées par Firebase et exclure les bots
+                    const humanPlayers = playersArr.filter(p => p && !p.isBot);
                     const guesses = data.geoGame.guesses;
                     
-                    // Vérifie si TOUS les joueurs humains ont soumis leur repère
-                    const allDone = humanPlayers.length > 0 && humanPlayers.every(p => guesses[p.name || p.pseudo] && guesses[p.name || p.pseudo].submitted);
+                    // SÉCURITÉ 2 : Vérifier que le joueur et son nom existent avant de chercher dans guesses
+                    const allDone = humanPlayers.length > 0 && humanPlayers.every(p => {
+                        const playerName = p.name || p.pseudo;
+                        return playerName && guesses[playerName] && guesses[playerName].submitted;
+                    });
                     
                     const geoScreen = document.getElementById('screen-game-geoguessr');
                     
@@ -2834,15 +2839,26 @@ function startNextRound() {
                 if (!data) return;
 
                 let players = data.players || {};
-                let humanPlayers = Object.values(players).filter(p => !p.isBot);
+                
+                // SÉCURITÉ : Protéger contre les tableaux contenant des éléments null
+                let playersArr = Array.isArray(players) ? players : Object.values(players);
+                let humanPlayers = playersArr.filter(p => p && !p.isBot);
                 let guesses = (data.geoGame && data.geoGame.guesses) ? data.geoGame.guesses : {};
 
-                let allDone = humanPlayers.length > 0 && humanPlayers.every(p => guesses[p.name || p.pseudo] && guesses[p.name || p.pseudo].submitted);
+                let allDone = humanPlayers.length > 0 && humanPlayers.every(p => {
+                    const playerName = p.name || p.pseudo;
+                    return playerName && guesses[playerName] && guesses[playerName].submitted;
+                });
+                
+                const geoScreen = document.getElementById('screen-game-geoguessr');
 
-                if (allDone || humanPlayers.length === 0) {
+                // On s'assure qu'on ne déclenche la page de résumé que si on est bien sur la carte
+                if ((allDone || humanPlayers.length === 0) && geoScreen && !geoScreen.classList.contains('hidden')) {
                     let myKey = window.myPlayerKey || state.username;
                     let myData = guesses[myKey] || { dist: 20000, pts: 0 };
-                    showRoundSummary(myData.dist, myData.pts);
+                    if (typeof showRoundSummary === 'function') {
+                        showRoundSummary(myData.dist, myData.pts);
+                    }
                 }
             });
         }
