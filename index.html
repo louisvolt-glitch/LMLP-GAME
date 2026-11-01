@@ -2968,52 +2968,56 @@ function startNextRound() {
         }
 
         function nextRoundOrFinish() {
-            let myKey = window.myPlayerKey || state.username;
-            let roomCode = window.currentCodeSalon || state.roomCode;
+    let myKey = window.myPlayerKey || state.username;
+    let roomCode = window.currentCodeSalon || state.roomCode;
 
-            if (!roomCode) return;
+    // 1. Mettre à jour l'interface IMMÉDIATEMENT (avant la requête Firebase)
+    const btn = document.getElementById('next-round-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.className = "w-full bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition";
+        btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+    }
 
-            // 1. Enregistrer que le joueur est prêt pour la prochaine manche dans Firebase
-            const updates = {};
-            updates[`geoGame/readyForNextRound/${myKey}`] = true;
-            window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+    if (!roomCode) {
+        // Secours si testé en local sans salon Firebase
+        setTimeout(() => { executeActualNextRoundOrFinish(); }, 1500);
+        return;
+    }
 
-            // 2. Désactiver le bouton et afficher l'animation d'attente
-            const btn = document.getElementById('next-round-btn');
-            if (btn) {
-                btn.disabled = true;
-                btn.className = "w-full bg-slate-700 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed";
-                btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
-            }
-        }
+    // 2. Enregistrer que le joueur est prêt pour la prochaine manche dans Firebase
+    const updates = {};
+    updates[`geoGame/readyForNextRound/${myKey}`] = true;
+    window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+}
 
-        function executeActualNextRoundOrFinish() {
-            state.currentRound++;
-            
-            let roomCode = window.currentCodeSalon || state.roomCode;
-            if (roomCode && window.isHost) {
-                // L'hôte réinitialise les soumissions ET le statut "prêt" pour la nouvelle manche
-                const updates = {};
-                updates[`geoGame/guesses`] = null;
-                updates[`geoGame/readyForNextRound`] = null;
-                updates[`currentRound`] = state.currentRound;
-                window.update(window.ref(window.db, `salons/${roomCode}`), updates);
-            }
+function executeActualNextRoundOrFinish() {
+    state.currentRound++;
+    
+    let roomCode = window.currentCodeSalon || state.roomCode;
+    if (roomCode && window.isHost) {
+        // L'hôte réinitialise les soumissions ET le statut "prêt" pour la nouvelle manche
+        const updates = {};
+        updates[`geoGame/guesses`] = null;
+        updates[`geoGame/readyForNextRound`] = null;
+        updates[`currentRound`] = state.currentRound;
+        window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+    }
 
-            // Rétablir le bouton pour la prochaine fois
-            const btn = document.getElementById('next-round-btn');
-            if (btn) {
-                btn.disabled = false;
-                btn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg";
-                btn.innerHTML = 'Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
-            }
+    // Rétablir le bouton à son état normal pour la prochaine manche
+    const btn = document.getElementById('next-round-btn');
+    if (btn) {
+        btn.disabled = false;
+        btn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg";
+        btn.innerHTML = 'Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
+    }
 
-            if (state.currentRound >= state.settings.rounds) {
-                showFinalResults();
-            } else {
-                startNextRound();
-            }
-        }
+    if (state.currentRound >= state.settings.rounds) {
+        showFinalResults();
+    } else {
+        startNextRound();
+    }
+}
 
         // --- JEU DE L'IMPOSTEUR ---
         let impostorGameState = { pair: null, impostorId: null, revealed: false };
