@@ -964,6 +964,12 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 
             <div id="pano-container">
                 <div id="streetview-holder" class="w-full h-full"></div>
+                
+                <!-- NOUVEAU BOUTON : Retour au point initial -->
+                <button onclick="returnToGeoSpawn()" class="absolute top-4 left-4 z-10 bg-slate-900/90 hover:bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 shadow-lg text-xs font-bold transition flex items-center gap-2" title="Retourner au point de départ">
+                    <i class="fa-solid fa-location-crosshairs text-emerald-400"></i> Retour au départ
+                </button>
+
                 <div class="minimap-wrapper p-2 flex flex-col justify-between" id="minimap-box"
                      onmouseenter="setTimeout(() => { if(state.googleMapGuess) google.maps.event.trigger(state.googleMapGuess, 'resize'); }, 300)"
                      onmouseleave="setTimeout(() => { if(state.googleMapGuess) google.maps.event.trigger(state.googleMapGuess, 'resize'); }, 300)">
@@ -2796,11 +2802,22 @@ function startNextRound() {
             }, 1000);
         }
 
+// NOUVELLE FONCTION : Ramène le joueur au point initial
+        window.returnToGeoSpawn = function() {
+            if (state.nativePano && state.currentLocation && state.currentLocation.coords) {
+                state.nativePano.setPosition(new google.maps.LatLng(state.currentLocation.coords[0], state.currentLocation.coords[1]));
+            }
+        };
+
+        // FONCTION MODIFIÉE : Gestion de la validation du repère
         function submitGeoGuess() {
             clearInterval(state.geoTimerInterval);
             let target = state.currentLocation.coords;
-            let dist = state.userGuessCoords ? Math.round(google.maps.geometry.spherical.computeDistanceBetween(new google.maps.LatLng(target[0], target[1]), new google.maps.LatLng(state.userGuessCoords[0], state.userGuessCoords[1])) / 1000) : 20000;
-            let pts = Math.max(0, Math.round(5000 * Math.exp(-dist / 2000)));
+            
+            // Gérer le cas où le joueur n'a PAS mis de point (temps écoulé)
+            let hasGuessed = state.userGuessCoords !== null;
+            let dist = hasGuessed ? Math.round(google.maps.geometry.spherical.computeDistanceBetween(new google.maps.LatLng(target[0], target[1]), new google.maps.LatLng(state.userGuessCoords[0], state.userGuessCoords[1])) / 1000) : '?';
+            let pts = hasGuessed ? Math.max(0, Math.round(5000 * Math.exp(-dist / 2000))) : 0;
             
             let myKey = window.myPlayerKey || state.username;
             
@@ -2808,7 +2825,9 @@ function startNextRound() {
             if (!state.players) state.players = {};
             if (!state.players[myKey]) state.players[myKey] = { name: myKey, score: 0 };
             state.players[myKey].score = (state.players[myKey].score || 0) + pts;
-            state.players[myKey].lastGuess = state.userGuessCoords || target;
+            
+            // Si pas deviné, on force à null pour ne pas envoyer la vraie réponse
+            state.players[myKey].lastGuess = hasGuessed ? state.userGuessCoords : null;
             state.players[myKey].lastDist = dist;
             state.players[myKey].lastPts = pts;
 
@@ -2816,7 +2835,7 @@ function startNextRound() {
             if (roomCode && window.db) {
                 const guessPayload = {
                     score: state.players[myKey].score,
-                    guess: state.userGuessCoords || target,
+                    guess: hasGuessed ? state.userGuessCoords : null,
                     dist: dist,
                     pts: pts,
                     submitted: true
@@ -2840,7 +2859,7 @@ function startNextRound() {
                 `;
             }
 
-            // Vérifier si tous les joueurs ont soumis (si connectés sur Firebase, écouté via onValue dans la session)
+            // Vérifier si tous les joueurs ont soumis
             checkAllGeoGuessesSubmitted();
         }
 
