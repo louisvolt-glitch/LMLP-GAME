@@ -383,13 +383,19 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     } else if (selectedMode === 'petitsbac') {
                         const bacScreen = document.getElementById('screen-petitsbac');
                         if (bacScreen) bacScreen.classList.remove('hidden'); 
-                    }
+                    } else if (selectedMode === 'codenames') {
+    			const cnScreen = document.getElementById('screen-codenames');
+    			if (cnScreen) cnScreen.classList.remove('hidden');
+		    }
                 }
 
                 // AJOUT CRUCIAL : Exécuter la mise à jour de l'écran Imposteur à CHAQUE changement de données
                 if (data.selectedMode === 'impostor' && typeof renderImpostorScreen === 'function') {
                     renderImpostorScreen(data);
                 }
+		if (data.selectedMode === 'codenames' && typeof renderCodenamesScreen === 'function') {
+    			renderCodenamesScreen(data);
+		}
 
                 // ====================================================================
                 // CORRECTION BUG GEOGUESSR : Détecter quand tous les joueurs ont validé globalement
@@ -692,6 +698,10 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                         <option value="geoguessr">GeoGuessr</option>
                         <option value="anomaly">Anomalies 3D</option>
                         <option value="petitsbac">Petit Bac</option>
+			<option value="memory">Jeu de Mémoire (Équipe)</option>
+    			<option value="codenames">Codenames (Équipe)</option>
+    			<option value="combien">Combien tu peux ?</option>
+    			<option value="cine">Cinématophile</option>
                     </select>
                 </div>
 
@@ -730,7 +740,7 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                     </div>
                 </div>
 
-<!-- Options spécifiques GeoGuessr -->
+		<!-- Options spécifiques GeoGuessr -->
                 <div id="host-settings-geo" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
                     <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options GeoGuessr</div>
                     <div>
@@ -796,6 +806,39 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         			<input type="number" id="setting-impostor-rounds" min="1" max="5" value="2" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
     			</div>
 		</div>
+
+		<!-- Options Jeu de Mémoire -->
+<div id="host-settings-memory" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Mémoire</div>
+    <div>
+        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps d'observation (sec)</label>
+        <input type="number" id="setting-memory-view-timer" min="3" max="15" value="6" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    </div>
+</div>
+
+<!-- Options Codenames -->
+<div id="host-settings-codenames" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Codenames</div>
+    <p class="text-[11px] text-slate-400">Jeu en 2 équipes (Rouge vs Bleue). Attribution automatique des Maîtres-Espions.</p>
+</div>
+
+<!-- Options Combien tu peux -->
+<div id="host-settings-combien" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Combien tu peux</div>
+    <div>
+        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps de citation (sec)</label>
+        <input type="number" id="setting-combien-timer" min="30" max="120" value="60" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    </div>
+</div>
+
+<!-- Options Cinématophile -->
+<div id="host-settings-cine" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
+    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Cinématophile</div>
+    <div>
+        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Durée max par affiche (sec)</label>
+        <input type="number" id="setting-cine-timer" min="15" max="60" value="30" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    </div>
+</div>
 
         <div class="pt-4 border-t border-command-border text-center">
             <button onclick="launchGame()" class="w-full bg-command-cyan text-command-dark font-bold py-2.5 rounded-lg font-mono text-sm hover:bg-opacity-90 transition glow-cyan">
@@ -1097,6 +1140,70 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         <button onclick="submitVotes()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black py-3.5 rounded-xl uppercase tracking-wider transition shadow-xl shrink-0">
             Valider mes Votes
         </button>
+    </div>
+</main>
+
+<!-- ECRAN JEU DE MÉMOIRE -->
+<main id="screen-memory" class="hidden flex-1 flex flex-col space-y-4">
+    <div class="glass p-4 rounded-2xl flex justify-between items-center">
+        <span class="font-bold text-cyan-400 text-sm"><i class="fa-solid fa-brain"></i> Jeu de Mémoire - Équipe</span>
+        <span id="memory-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">10s</span>
+    </div>
+    <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-4xl mx-auto w-full text-center">
+        <div id="memory-instruction" class="text-lg font-bold text-indigo-300">Mémorisez ces images...</div>
+        <div id="memory-grid" class="grid grid-cols-3 md:grid-cols-4 gap-4 w-full max-w-2xl"></div>
+    </div>
+</main>
+
+<!-- ECRAN CODENAMES -->
+<main id="screen-codenames" class="hidden flex-1 flex flex-col space-y-4">
+    <div class="glass p-4 rounded-2xl flex justify-between items-center">
+        <span class="font-bold text-red-400 text-sm" id="codenames-turn-indicator"><i class="fa-solid fa-user-secret"></i> Codenames - Tour de l'Équipe Rouge</span>
+        <div class="flex gap-4 font-mono font-bold text-sm">
+            <span class="text-red-400">Rouge : <strong id="score-red">9</strong></span>
+            <span class="text-blue-400">Bleue : <strong id="score-blue">8</strong></span>
+        </div>
+    </div>
+    <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-4 max-w-5xl mx-auto w-full">
+        <div id="codenames-clue-box" class="p-3 bg-slate-900 rounded-xl border border-slate-700 text-xs text-slate-300 w-full text-center">
+            Indice du Maître-Espion : <strong id="codenames-current-clue" class="text-amber-400 text-sm">En attente de l'indice... (Indice : 0)</strong>
+        </div>
+        <div id="codenames-grid" class="grid grid-cols-5 gap-3 w-full"></div>
+    </div>
+</main>
+
+<!-- ECRAN COMBIEN TU PEUX ? -->
+<main id="screen-combien" class="hidden flex-1 flex flex-col space-y-4">
+    <div class="glass p-4 rounded-2xl flex justify-between items-center">
+        <span class="font-bold text-amber-400 text-sm"><i class="fa-solid fa-gavel"></i> Phase d'Enchères</span>
+        <span id="combien-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">30s</span>
+    </div>
+    <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-2xl mx-auto w-full text-center">
+        <h3 id="combien-question" class="text-xl font-black text-white">Combien tu peux citer de... ?</h3>
+        <div class="p-4 bg-slate-900 border border-slate-700 rounded-2xl w-full space-y-3">
+            <div class="text-xs text-slate-400">Enchère actuelle la plus haute : <strong id="highest-bid" class="text-emerald-400 text-base">0</strong> par <span id="highest-bidder" class="text-white font-bold">Personne</span></div>
+            <div class="flex gap-2">
+                <input type="number" id="input-bid" min="1" max="50" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-mono text-lg" placeholder="Votre mise...">
+                <button onclick="placeBid()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition">Enchérir</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ECRAN CINÉMATOPHILE -->
+<main id="screen-cine" class="hidden flex-1 flex flex-col space-y-4">
+    <div class="glass p-4 rounded-2xl flex justify-between items-center">
+        <span class="font-bold text-pink-400 text-sm"><i class="fa-solid fa-film"></i> Cinématophile - Dépixelisation</span>
+        <span id="cine-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">30s</span>
+    </div>
+    <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-3xl mx-auto w-full text-center">
+        <div id="cine-image-container" class="relative w-64 h-96 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
+            <img id="cine-poster" src="" class="w-full h-full object-cover filter blur-xl transition-all duration-1000" alt="Affiche mystère">
+        </div>
+        <div class="flex gap-2 w-full max-w-md">
+            <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold" placeholder="Nom du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
+            <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition">Deviner</button>
+        </div>
     </div>
 </main>
 
@@ -2193,7 +2300,15 @@ window.transferHost = function(newHostName) {
 		document.getElementById('screen-lobby').classList.add('hidden');
         	document.getElementById('screen-petitsbac').classList.remove('hidden');
         	startPetitsBacGame();
-            }
+            } else if (state.selectedMode === 'memory') {
+		startMemoryGame();
+    	    } else if (state.selectedMode === 'codenames') {
+		startCodenamesGame();
+    	    } else if (state.selectedMode === 'combien') {
+		startCombienGame();
+            } else if (state.selectedMode === 'cine') {
+		startCineGame();
+	    }
         }
 
 function startQuizMode() {
@@ -4862,6 +4977,317 @@ function executeActualBackToLobby() {
 
     showScreen('screen-lobby');
     updateLobbyUI();
+}
+
+// --- 2. JEU DE MÉMOIRE ---
+function startMemoryGame() {
+    showScreen('screen-memory');
+    const grid = document.getElementById('memory-grid');
+    const instruction = document.getElementById('memory-instruction');
+    const themes = [
+        ["🍎", "🍌", "🍇", "🍓"],
+        ["⚽", "🏀", "🏈", "🎾"],
+        ["🚗", "✈️", "🚀", "⛵"]
+    ];
+    let currentTheme = themes[Math.floor(Math.random() * themes.length)];
+    let decoyTheme = ["🐶", "🐱", "🦊", "🐼", "⭐", "⚡", "🔥", "💎"];
+    
+    // Phase 1 : Affichage des images à mémoriser pour le joueur de l'équipe
+    instruction.innerText = "Mémorisez ces images de référence !";
+    grid.innerHTML = currentTheme.map(img => `<div class="p-6 bg-slate-900 border border-slate-700 rounded-2xl text-4xl">${img}</div>`).join('');
+
+    let time = 6;
+    const timerEl = document.getElementById('memory-timer');
+    
+    let memoInterval = setInterval(() => {
+        time--;
+        timerEl.innerText = time + 's';
+        if (time <= 0) {
+            clearInterval(memoInterval);
+            // Phase 2 : Grille mixte (Vraies + Nouvelles) pour l'autre coéquipier
+            instruction.innerText = "Cliquez sur les vraies images mémorisées (+1 / -1) !";
+            let mixedGrid = [...currentTheme, ...decoyTheme.sort(() => 0.5 - Math.random()).slice(0, 4)].sort(() => 0.5 - Math.random());
+            
+            grid.innerHTML = mixedGrid.map(img => `
+                <div onclick="checkMemoryClick(this, '${img}', '${currentTheme.join()}')" class="p-6 bg-slate-900 border border-slate-700 rounded-2xl text-4xl cursor-pointer hover:border-indigo-500 transition select-none">
+                    ❓
+                </div>
+            `).join('');
+        }
+    }, 1000);
+}
+
+function checkMemoryClick(element, img, correctStr) {
+    if (element.dataset.clicked) return;
+    element.dataset.clicked = "true";
+    element.innerText = img;
+    
+    let isCorrect = correctStr.includes(img);
+    if (isCorrect) {
+        element.className = "p-6 bg-emerald-500/20 border-2 border-emerald-500 rounded-2xl text-4xl text-emerald-300";
+        let myKey = window.myPlayerKey || state.username;
+        if (state.players[myKey]) state.players[myKey].score = (state.players[myKey].score || 0) + 1;
+    } else {
+        element.className = "p-6 bg-red-500/20 border-2 border-red-500 rounded-2xl text-4xl text-red-300";
+        let myKey = window.myPlayerKey || state.username;
+        if (state.players[myKey]) state.players[myKey].score = Math.max(0, (state.players[myKey].score || 0) - 1);
+    }
+}
+
+// --- 3. CODENAMES ---
+function startCodenamesGame() {
+    if (!window.isHost) return;
+
+    let playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
+    playersArr = playersArr.filter(p => p && !p.isBot && p.name);
+
+    if (playersArr.length < 2) {
+        alert("Il faut au moins 2 joueurs (1 Maître-Espion, 1 Opérateur) !");
+        return;
+    }
+
+    // Mélange et attribution des équipes
+    let shuffled = [...playersArr].sort(() => 0.5 - Math.random());
+    let roles = {};
+    let mid = Math.ceil(shuffled.length / 2);
+    
+    shuffled.forEach((p, idx) => {
+        let team = idx < mid ? 'red' : 'blue';
+        let isSpymaster = (idx === 0 || idx === mid); // Le 1er de chaque équipe est Maître-Espion
+        roles[p.name] = { team: team, isSpymaster: isSpymaster };
+    });
+
+    const dictionary = [
+        "AGENT", "EUROPE", "AVION", "MINE", "FEU", "NOTE", "BOMBE", "ROI", "LUNE", "CARTE", 
+        "MIEL", "OR", "TEMPLE", "MARS", "SCIANT", "TOUR", "POISSON", "GHOST", "CHEF", "PAIX", 
+        "TABLE", "POMME", "CHAPEAU", "SALON", "BLANC", "PLAGE", "NINJA", "ROUGE", "MAGIE", "BOIS", 
+        "BATEAU", "CHAT", "VERRE", "PIED", "COEUR", "GLACE", "MUR", "TISSU", "LION", "POCHE",
+        "ARC", "SABLE", "PAPIER", "VENT", "PORTE", "ETOILE", "LUNETTES", "VOITURE", "CLE", "FER"
+    ];
+    let selectedWords = dictionary.sort(() => 0.5 - Math.random()).slice(0, 25);
+
+    // Distribution des identités (Rouge commence avec 9 mots)
+    let types = [
+        ...Array(9).fill('red'),
+        ...Array(8).fill('blue'),
+        ...Array(7).fill('neutral'),
+        'assassin'
+    ].sort(() => 0.5 - Math.random());
+
+    let gridWords = selectedWords.map((w, idx) => ({
+        word: w,
+        type: types[idx],
+        revealed: false
+    }));
+
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (roomCode && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(roomCode, {
+            status: 'IN_GAME',
+            selectedMode: 'codenames',
+            codenamesGame: {
+                words: gridWords,
+                roles: roles,
+                currentTurn: 'red',
+                redLeft: 9,
+                blueLeft: 8,
+                currentClue: "",
+                currentCount: 1,
+                status: "PLAYING"
+            }
+        });
+    }
+}
+
+// Fonction de rendu (appelée à chaque changement Firebase)
+window.renderCodenamesScreen = function(data) {
+    const gameData = data.codenamesGame;
+    if (!gameData) return;
+
+    const myName = window.myPlayerKey || state.username;
+    const myRole = gameData.roles[myName] || { team: 'spectator', isSpymaster: false };
+    const isMyTurn = (myRole.team === gameData.currentTurn);
+    
+    // UI Scores et Tour
+    const turnIndicator = document.getElementById('codenames-turn-indicator');
+    if (gameData.status !== "PLAYING") {
+        const isRedWin = gameData.status === 'RED_WIN';
+        turnIndicator.innerHTML = `<i class="fa-solid fa-trophy"></i> Victoire de l'équipe ${isRedWin ? 'ROUGE' : 'BLEUE'} !`;
+        turnIndicator.className = `font-bold text-sm ${isRedWin ? 'text-red-400' : 'text-blue-400'}`;
+    } else {
+        const isRedTurn = gameData.currentTurn === 'red';
+        turnIndicator.innerHTML = `<i class="fa-solid fa-user-secret"></i> Tour de l'Équipe ${isRedTurn ? 'Rouge' : 'Bleue'}`;
+        turnIndicator.className = `font-bold text-sm ${isRedTurn ? 'text-red-400' : 'text-blue-400'}`;
+    }
+
+    document.getElementById('score-red').innerText = gameData.redLeft;
+    document.getElementById('score-blue').innerText = gameData.blueLeft;
+
+    // UI Boîte d'indices
+    const clueBox = document.getElementById('codenames-clue-box');
+    if (gameData.status !== "PLAYING") {
+        clueBox.innerHTML = window.isHost ? `<button onclick="backToLobby()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded">Retour au Salon</button>` : `En attente de l'hôte...`;
+    } else if (isMyTurn && myRole.isSpymaster && !gameData.currentClue) {
+        clueBox.innerHTML = `
+            <div class="flex items-center justify-center gap-2">
+                <input type="text" id="cn-clue-word" placeholder="Indice (1 mot)..." class="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white text-sm">
+                <input type="number" id="cn-clue-count" min="0" max="9" value="1" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white text-sm w-16 text-center">
+                <button onclick="submitCodenamesClue()" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-emerald-500 transition shadow">Transmettre</button>
+            </div>
+        `;
+    } else if (isMyTurn && !myRole.isSpymaster && gameData.currentClue) {
+        clueBox.innerHTML = `
+            Indice actuel : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${gameData.currentClue} (${gameData.currentCount})</strong>
+            <button onclick="passCodenamesTurn()" class="ml-4 bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded text-xs font-bold transition shadow">Fin de tour</button>
+        `;
+    } else {
+        const clueText = gameData.currentClue ? `${gameData.currentClue} (${gameData.currentCount})` : "En attente du Maître-Espion...";
+        clueBox.innerHTML = `Indice en cours : <strong class="text-amber-400 text-sm uppercase tracking-wider">${clueText}</strong>`;
+    }
+
+    // Génération de la Grille
+    const grid = document.getElementById('codenames-grid');
+    grid.innerHTML = gameData.words.map((w, idx) => {
+        let bgClass = "bg-slate-900 border-slate-700 text-white"; 
+        let cursorClass = "";
+        let clickAttr = "";
+
+        if (w.revealed) {
+            if (w.type === 'red') bgClass = "bg-red-600 border-red-500 text-white opacity-50";
+            else if (w.type === 'blue') bgClass = "bg-blue-600 border-blue-500 text-white opacity-50";
+            else if (w.type === 'assassin') bgClass = "bg-black border-slate-800 text-red-600 opacity-50";
+            else bgClass = "bg-amber-100 border-amber-300 text-slate-800 opacity-50";
+        } else {
+            if (myRole.isSpymaster) {
+                if (w.type === 'red') bgClass = "bg-red-900/30 border-red-700/50 text-red-300";
+                else if (w.type === 'blue') bgClass = "bg-blue-900/30 border-blue-700/50 text-blue-300";
+                else if (w.type === 'assassin') bgClass = "bg-slate-950 border-slate-700 text-slate-400";
+                else bgClass = "bg-amber-900/30 border-amber-700/50 text-amber-200";
+            } else if (isMyTurn && gameData.currentClue && gameData.status === "PLAYING") {
+                cursorClass = "cursor-pointer hover:border-indigo-400 hover:bg-slate-800";
+                clickAttr = `onclick="clickCodenamesWord(${idx})"`;
+            }
+        }
+
+        return `
+            <div ${clickAttr} class="p-2 sm:p-4 ${bgClass} border rounded-xl text-center font-bold text-xs sm:text-sm transition select-none flex items-center justify-center h-16 sm:h-20 ${cursorClass} ${w.revealed ? '' : 'shadow-md'}">
+                ${w.word}
+            </div>
+        `;
+    }).join('');
+};
+
+window.submitCodenamesClue = function() {
+    const word = document.getElementById('cn-clue-word').value.trim();
+    const count = parseInt(document.getElementById('cn-clue-count').value);
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    
+    if (!word || !roomCode) return;
+    window.mettreAJourSalonFirebase(roomCode, {
+        "codenamesGame/currentClue": word,
+        "codenamesGame/currentCount": count
+    });
+};
+
+window.clickCodenamesWord = function(idx) {
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (!roomCode) return;
+    
+    window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+        let gameData = data.codenamesGame;
+        if (!gameData || gameData.status !== "PLAYING") return;
+        
+        let wordObj = gameData.words[idx];
+        if (wordObj.revealed) return; 
+        
+        wordObj.revealed = true;
+        let currentTeam = gameData.currentTurn;
+        let nextTurn = currentTeam;
+        let status = "PLAYING";
+
+        if (wordObj.type === 'assassin') {
+            status = currentTeam === 'red' ? 'BLUE_WIN' : 'RED_WIN';
+        } else if (wordObj.type === currentTeam) {
+            if (currentTeam === 'red') {
+                gameData.redLeft--;
+                if (gameData.redLeft <= 0) status = 'RED_WIN';
+            } else {
+                gameData.blueLeft--;
+                if (gameData.blueLeft <= 0) status = 'BLUE_WIN';
+            }
+        } else {
+            // Mauvais choix : le tour passe à l'autre équipe
+            if (wordObj.type === (currentTeam === 'red' ? 'blue' : 'red')) {
+                if (currentTeam === 'red') {
+                    gameData.blueLeft--;
+                    if (gameData.blueLeft <= 0) status = 'BLUE_WIN';
+                } else {
+                    gameData.redLeft--;
+                    if (gameData.redLeft <= 0) status = 'RED_WIN';
+                }
+            }
+            nextTurn = currentTeam === 'red' ? 'blue' : 'red';
+            gameData.currentClue = "";
+        }
+
+        gameData.currentTurn = nextTurn;
+        gameData.status = status;
+
+        window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
+    });
+};
+
+window.passCodenamesTurn = function() {
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (!roomCode) return;
+    
+    window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+        let gameData = data.codenamesGame;
+        if (!gameData || gameData.status !== "PLAYING") return;
+        
+        gameData.currentTurn = gameData.currentTurn === 'red' ? 'blue' : 'red';
+        gameData.currentClue = "";
+        window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
+    });
+};
+
+// --- 4. COMBIEN TU PEUX ? ---
+function startCombienGame() {
+    showScreen('screen-combien');
+    document.getElementById('combien-question').innerText = "Combien tu peux citer de pays commençant par la lettre M ?";
+}
+
+function placeBid() {
+    const val = parseInt(document.getElementById('input-bid').value);
+    if (!val) return;
+    document.getElementById('highest-bid').innerText = val;
+    document.getElementById('highest-bidder').innerText = window.myPlayerKey || state.username;
+}
+
+// --- 5. CINÉMATOPHILE ---
+function startCineGame() {
+    showScreen('screen-cine');
+    const poster = document.getElementById('cine-poster');
+    // Affiche exemple de film
+    poster.src = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80";
+    
+    // Dépixelisation progressive via la diminution du flou
+    let blurLevel = 24;
+    let blurInterval = setInterval(() => {
+        blurLevel -= 2;
+        if (blurLevel >= 0) {
+            poster.style.filter = `blur(${blurLevel}px)`;
+        } else {
+            clearInterval(blurInterval);
+        }
+    }, 1500);
+}
+
+function submitCineGuess() {
+    const input = document.getElementById('input-cine-guess');
+    if (!input || !input.value.trim()) return;
+    alert(`Proposition enregistrée : ${input.value}`);
+    input.value = "";
 }
 
     </script>
