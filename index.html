@@ -4647,7 +4647,7 @@ window.backToLobby = function() {
     const buttons = document.querySelectorAll('button[onclick="backToLobby()"]');
     buttons.forEach(btn => {
         btn.disabled = true;
-        btn.className = "w-full bg-slate-800 text-slate-400 font-bold py-3 rounded-xl cursor-not-allowed transition";
+        btn.className = "w-full bg-slate-800 text-slate-400 font-bold  py-3 rounded-xl cursor-not-allowed transition";
         btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
     });
 };
