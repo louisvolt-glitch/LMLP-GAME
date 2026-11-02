@@ -1996,6 +1996,13 @@ window.launchGame = function() {
             return;
         }
 
+	if (selectedMode === 'codenames') {
+            if (typeof startCodenamesGame === 'function') {
+                startCodenamesGame();
+            }
+            return;
+        }
+
 	let activeLocations = [];
         const geoRounds = parseInt(document.getElementById('setting-rounds')?.value || 5, 10);
         const geoTimer = parseInt(document.getElementById('setting-timer')?.value || 45, 10);
