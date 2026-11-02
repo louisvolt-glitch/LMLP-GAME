@@ -393,8 +393,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (data.selectedMode === 'impostor' && typeof renderImpostorScreen === 'function') {
                     renderImpostorScreen(data);
                 }
-		if (data.selectedMode === 'codenames' && typeof renderCodenamesScreen === 'function') {
-    			renderCodenamesScreen(data);
+		if (data.selectedMode === 'codenames' && typeof window.renderCodenamesScreen === 'function') {
+    			window.renderCodenamesScreen(data);
 		}
 
                 // ====================================================================
@@ -5112,7 +5112,7 @@ window.renderCodenamesScreen = function(data) {
     if (!gameData) return;
 
     const myName = window.myPlayerKey || state.username;
-    const myRole = gameData.roles[myName] || { team: 'spectator', isSpymaster: false };
+    const myRole = (gameData.roles && gameData.roles[myName]) ? gameData.roles[myName] : { team: 'spectator', isSpymaster: false };
     const isMyTurn = (myRole.team === gameData.currentTurn);
     
     // UI Scores et Tour
@@ -5154,7 +5154,8 @@ window.renderCodenamesScreen = function(data) {
 
     // Génération de la Grille
     const grid = document.getElementById('codenames-grid');
-    grid.innerHTML = gameData.words.map((w, idx) => {
+    const wordsArray = Array.isArray(gameData.words) ? gameData.words : Object.values(gameData.words || {});
+    grid.innerHTML = wordsArray.map((w, idx) => {
         let bgClass = "bg-slate-900 border-slate-700 text-white"; 
         let cursorClass = "";
         let clickAttr = "";
