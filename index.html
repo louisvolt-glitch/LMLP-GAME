@@ -5242,10 +5242,12 @@ window.renderCodenamesScreen = function(data) {
         const isRedWin = gameData.status === 'RED_WIN';
         const pts = gameData.pointsWon || 1000;
         clueBox.innerHTML = `
-            <div class="text-lg font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-2">
+            <div class="text-xl font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-4">
                 🏆 L'équipe ${isRedWin ? 'Rouge' : 'Bleue'} remporte la victoire et +${pts} points !
             </div>
-            ${window.isHost ? `<button onclick="backToLobby()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded shadow">Retour au Salon</button>` : `<span class="text-slate-400 text-xs">En attente de l'hôte...</span>`}
+            <button onclick="backToLobby()" class="w-full max-w-sm mx-auto py-3 rounded-xl font-bold uppercase transition-all shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white text-base">
+                Retour au Salon
+            </button>
         `;
     } else if (isMyTurn && myRole.isSpymaster && !gameData.currentClue) {
         clueBox.innerHTML = `
@@ -5284,7 +5286,8 @@ window.renderCodenamesScreen = function(data) {
             else if (w.type === 'assassin') bgClass = "bg-black border-slate-800 text-red-600 opacity-50";
             else bgClass = "bg-amber-100 border-amber-300 text-slate-800 opacity-50";
         } else {
-            if (myRole.isSpymaster) {
+            // Afficher les couleurs si le joueur est espion OU si la partie est terminée
+            if (myRole.isSpymaster || gameData.status !== "PLAYING") {
                 if (w.type === 'red') bgClass = "bg-red-900/30 border-red-700/50 text-red-300";
                 else if (w.type === 'blue') bgClass = "bg-blue-900/30 border-blue-700/50 text-blue-300";
                 else if (w.type === 'assassin') bgClass = "bg-slate-950 border-slate-700 text-slate-400";
