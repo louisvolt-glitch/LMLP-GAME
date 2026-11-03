@@ -4949,6 +4949,8 @@ window.backToLobby = function() {
 
     if (!roomCode) return;
 
+    window.hasVotedForLobby = true;
+
     // 1. Enregistrer le vote du joueur dans Firebase
     const updates = {};
     updates[`quizGame/lobbyVotes/${myKey}`] = true;
@@ -4971,15 +4973,17 @@ function executeActualBackToLobby() {
     if (lobby) lobby.classList.remove('hidden');
     
     // 2. Réinitialiser la progression du Quiz localement
-    if (typeof state !== 'undefined' && state.quizGame) {
-        state.quizGame.currentIndex = 0;
-        state.quizGame.answersLog = [];
-        state.quizGame.currentRoundAnswers = {};
-        state.quizGame.lobbyVotes = {};
-    }
+if (typeof state !== 'undefined' && state.quizGame) {
+    state.quizGame.currentIndex = 0;
+    state.quizGame.answersLog = [];
+    state.quizGame.currentRoundAnswers = {};
+    state.quizGame.lobbyVotes = {};
+}
 
-    // 3. Réinitialiser la variable locale 'isReady'
-    isReady = false;
+window.hasVotedForLobby = false; // <-- AJOUT : Réinitialise pour la prochaine partie
+
+// 3. Réinitialiser la variable locale 'isReady'
+isReady = false;
 
     const btn = document.getElementById('deploy-btn');
     const statusText = document.getElementById('ready-status-text');
@@ -5243,7 +5247,7 @@ window.renderCodenamesScreen = function(data) {
         const pts = gameData.pointsWon || 1000;
         
         // Vérifie si le joueur local a déjà voté pour le retour au salon
-        const hasVoted = data.quizGame && data.quizGame.lobbyVotes && data.quizGame.lobbyVotes[myName];
+const hasVoted = window.hasVotedForLobby || (data.quizGame && data.quizGame.lobbyVotes && data.quizGame.lobbyVotes[myName]);
 
         clueBox.innerHTML = `
             <div class="text-xl font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-4">
