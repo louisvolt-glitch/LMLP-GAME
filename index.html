@@ -2220,68 +2220,71 @@ window.transferHost = function(newHostName) {
     		}
 	};
 
-        function selectGameMode(mode) {
-    		state.selectedMode = mode;
-   		['quiz', 'impostor', 'geoguessr', 'anomaly', 'petitsbac'].forEach(m => {
-        		const card = document.getElementById(`card-mode-${m}`);
-        		if (!card) return;
-        		const badge = card.querySelector('.mode-badge');
-        		if (m === mode) {
-            			card.classList.remove('border-slate-800/80', 'bg-slate-900/50');
-            			card.classList.add('border-indigo-500', 'bg-indigo-500/10', 'shadow-lg', 'shadow-indigo-500/20');
-            			if (badge) badge.classList.remove('hidden');
-        		} else {
-            			card.classList.remove('border-indigo-500', 'bg-indigo-500/10', 'shadow-lg', 'shadow-indigo-500/20');
-            			card.classList.add('border-slate-800/80', 'bg-slate-900/50');
-            			if (badge) badge.classList.add('hidden');
-        		}
-    		});
-
-    		// ⭐ AJOUT : Mise à jour dynamique du panneau de description
-    		const infoTitle = document.getElementById('game-info-title');
-    		const infoDesc = document.getElementById('game-info-desc');
-    		if (GAME_DESCRIPTIONS[mode] && infoTitle && infoDesc) {
-        		infoTitle.innerHTML = `<i class="fa-solid fa-circle-info text-indigo-400"></i> ${GAME_DESCRIPTIONS[mode].title}`;
-        		infoDesc.innerHTML = GAME_DESCRIPTIONS[mode].desc;
-   		 }
-
-		if (mode === 'petitsbac') {
-    			document.getElementById('game-info-title').innerHTML = '<i class="fa-solid fa-pen-nib text-cyan-400"></i> Mode Petit Bac';
-    			document.getElementById('game-info-desc').innerText = 'Trouvez un mot par catégorie commençant par la lettre imposée avant la fin du temps. Les mots uniques rapportent plus de points !';
-		}
-
-		['quiz', 'impostor', 'geoguessr', 'anomaly', 'petitsbac'].forEach(m => {
-    			// Adapter l'ID si le bloc s'appelle 'host-settings-geo' pour geoguessr
-    			const settingId = m === 'geoguessr' ? 'host-settings-geo' : `host-settings-${m}`;
-    			const settingsEl = document.getElementById(settingId);
+function selectGameMode(mode) {
+    state.selectedMode = mode;
     
-    			if (settingsEl) {
-        			if (m === state.selectedMode) {
-            				settingsEl.classList.remove('hidden');
-        			} else {
-            				settingsEl.classList.add('hidden');
-        			}
-    			}
-		});
+    // On inclut TOUS les modes ici pour que les menus s'affichent
+    const allModes = ['quiz', 'impostor', 'geoguessr', 'anomaly', 'petitsbac', 'memory', 'codenames', 'combien', 'cine'];
 
-    		updateLobbyUI();
-		updateHostSettings();
+    allModes.forEach(m => {
+        const card = document.getElementById(`card-mode-${m}`);
+        if (!card) return;
+        const badge = card.querySelector('.mode-badge');
+        if (m === mode) {
+            card.classList.remove('border-slate-800/80', 'bg-slate-900/50');
+            card.classList.add('border-indigo-500', 'bg-indigo-500/10', 'shadow-lg', 'shadow-indigo-500/20');
+            if (badge) badge.classList.remove('hidden');
+        } else {
+            card.classList.remove('border-indigo-500', 'bg-indigo-500/10', 'shadow-lg', 'shadow-indigo-500/20');
+            card.classList.add('border-slate-800/80', 'bg-slate-900/50');
+            if (badge) badge.classList.add('hidden');
+        }
+    });
 
-	// NOUVEAU : Cacher le temps par manche générique si on n'est pas dans le Quiz
-        const genericTimerEl = document.getElementById('host-settings-generic-timer');
-        if (genericTimerEl) {
-            if (mode === 'quiz') {
-                genericTimerEl.classList.remove('hidden');
+    if (mode === 'petitsbac') {
+        const title = document.getElementById('game-info-title');
+        const desc = document.getElementById('game-info-desc');
+        if(title) title.innerHTML = '<i class="fa-solid fa-pen-nib text-cyan-400"></i> Mode Petit Bac';
+        if(desc) desc.innerText = 'Trouvez un mot par catégorie commençant par la lettre imposée avant la fin du temps. Les mots uniques rapportent plus de points !';
+    } else if (typeof GAME_DESCRIPTIONS !== 'undefined' && GAME_DESCRIPTIONS[mode]) {
+        const infoTitle = document.getElementById('game-info-title');
+        const infoDesc = document.getElementById('game-info-desc');
+        if (infoTitle && infoDesc) {
+            infoTitle.innerHTML = `<i class="fa-solid fa-circle-info text-indigo-400"></i> ${GAME_DESCRIPTIONS[mode].title}`;
+            infoDesc.innerHTML = GAME_DESCRIPTIONS[mode].desc;
+        }
+    }
+
+    allModes.forEach(m => {
+        const settingId = m === 'geoguessr' ? 'host-settings-geo' : `host-settings-${m}`;
+        const settingsEl = document.getElementById(settingId);
+        
+        if (settingsEl) {
+            if (m === state.selectedMode) {
+                settingsEl.classList.remove('hidden');
             } else {
-                genericTimerEl.classList.add('hidden');
+                settingsEl.classList.add('hidden');
             }
-        }	
+        }
+    });
 
-	if (mode === 'codenames' && typeof initCodenamesDragDrop === 'function') {
-        	setTimeout(initCodenamesDragDrop, 100);
-    	}
+    updateLobbyUI();
+    updateHostSettings();
 
-	}
+    const genericTimerEl = document.getElementById('host-settings-generic-timer');
+    if (genericTimerEl) {
+        if (mode === 'quiz') {
+            genericTimerEl.classList.remove('hidden');
+        } else {
+            genericTimerEl.classList.add('hidden');
+        }
+    }	
+
+    // Initialise le Drag & Drop si Codenames est sélectionné
+    if (mode === 'codenames' && typeof initCodenamesDragDrop === 'function') {
+        setTimeout(initCodenamesDragDrop, 100);
+    }
+}
 
         function startGame() {
             state.players.forEach(p => { p.score = 0; p.maxStage = 0; });
@@ -5138,7 +5141,6 @@ function startCodenamesGame() {
     const redOps = document.getElementById('cn-red-op')?.children;
     const blueOps = document.getElementById('cn-blue-op')?.children;
 
-    // Vérifier si une configuration manuelle est en place via le Drag & Drop
     let manualConfigured = (redSpy && redSpy.length > 0) || (blueSpy && blueSpy.length > 0) || (redOps && redOps.length > 0) || (blueOps && blueOps.length > 0);
 
     if (manualConfigured) {
@@ -5148,26 +5150,24 @@ function startCodenamesGame() {
         if (redOps) Array.from(redOps).forEach(el => roles[el.dataset.name] = { team: 'red', isSpymaster: false });
         if (blueOps) Array.from(blueOps).forEach(el => roles[el.dataset.name] = { team: 'blue', isSpymaster: false });
         
-        // Tout joueur non-placé devient Spectateur
         playersArr.forEach(p => {
             if (!roles[p.name]) roles[p.name] = { team: 'spectator', isSpymaster: false };
         });
     } else {
-        // Option "Auto" (corrigée pour ne plus mettre 2 espions à 2 joueurs)
         let shuffled = [...playersArr].sort(() => 0.5 - Math.random());
-        let mid = Math.ceil(shuffled.length / 2);
         
-        shuffled.forEach((p, idx) => {
-            let team = idx < mid ? 'red' : 'blue';
-            let isSpymaster = false;
-            
-            if (shuffled.length === 2) {
-                isSpymaster = (idx === 0); // 1 espion unique pour la partie
-            } else {
-                isSpymaster = (idx === 0 || idx === mid);
-            }
-            roles[p.name] = { team: team, isSpymaster: isSpymaster };
-        });
+        // CORRECTION: À 2 joueurs, on les force dans l'équipe Rouge (coop)
+        if (shuffled.length === 2) {
+            roles[shuffled[0].name] = { team: 'red', isSpymaster: true };
+            roles[shuffled[1].name] = { team: 'red', isSpymaster: false };
+        } else {
+            let mid = Math.ceil(shuffled.length / 2);
+            shuffled.forEach((p, idx) => {
+                let team = idx < mid ? 'red' : 'blue';
+                let isSpymaster = (idx === 0 || idx === mid);
+                roles[p.name] = { team: team, isSpymaster: isSpymaster };
+            });
+        }
     }
 
     const dictionary = [
