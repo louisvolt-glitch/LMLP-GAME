@@ -816,18 +816,37 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     </div>
 </div>
 
-<!-- Options Codenames -->
+<!-- Options Codenames (Avec Drag & Drop) -->
 <div id="host-settings-codenames" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
-    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Codenames</div>
-    <p class="text-[11px] text-slate-400">Jeu en 2 équipes (Rouge vs Bleue). Attribution automatique des Maîtres-Espions.</p>
-</div>
-
-<!-- Options Combien tu peux -->
-<div id="host-settings-combien" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
-    <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Combien tu peux</div>
-    <div>
-        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Temps de citation (sec)</label>
-        <input type="number" id="setting-combien-timer" min="30" max="120" value="60" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    <div class="flex justify-between items-center mb-1">
+        <div class="text-xs font-mono text-command-cyan uppercase font-bold">Équipes Codenames</div>
+        <button onclick="initCodenamesDragDrop()" class="bg-command-cyan/20 hover:bg-command-cyan/40 text-command-cyan border border-command-cyan/50 px-2 py-1 rounded text-[10px] transition font-bold"><i class="fa-solid fa-rotate"></i> Rafraîchir</button>
+    </div>
+    <p class="text-[10px] text-slate-400">Glissez-déposez les joueurs pour créer vos équipes.</p>
+    
+    <!-- Zone de joueurs (Pool) -->
+    <div class="bg-command-card border border-dashed border-command-border p-2 rounded min-h-[45px] flex flex-wrap gap-2" id="cn-pool" ondrop="drop(event, 'pool')" ondragover="allowDrop(event)">
+        <!-- Joueurs injectés en JS -->
+    </div>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+        <!-- Equipe Rouge -->
+        <div class="bg-red-950/30 border border-red-900/50 p-2 rounded">
+            <div class="text-[10px] text-red-400 font-bold uppercase mb-1">Maître-Espion (1)</div>
+            <div class="min-h-[35px] bg-red-900/20 rounded border border-red-500/20 p-1 flex flex-col gap-1" id="cn-red-spy" ondrop="drop(event, 'red-spy')" ondragover="allowDrop(event)"></div>
+            
+            <div class="text-[10px] text-red-400 font-bold uppercase mb-1 mt-2">Devineur(s)</div>
+            <div class="min-h-[35px] bg-red-900/20 rounded border border-red-500/20 p-1 flex flex-col gap-1" id="cn-red-op" ondrop="drop(event, 'red-op')" ondragover="allowDrop(event)"></div>
+        </div>
+        
+        <!-- Equipe Bleue -->
+        <div class="bg-blue-950/30 border border-blue-900/50 p-2 rounded">
+            <div class="text-[10px] text-blue-400 font-bold uppercase mb-1">Maître-Espion (1)</div>
+            <div class="min-h-[35px] bg-blue-900/20 rounded border border-blue-500/20 p-1 flex flex-col gap-1" id="cn-blue-spy" ondrop="drop(event, 'blue-spy')" ondragover="allowDrop(event)"></div>
+            
+            <div class="text-[10px] text-blue-400 font-bold uppercase mb-1 mt-2">Devineur(s)</div>
+            <div class="min-h-[35px] bg-blue-900/20 rounded border border-blue-500/20 p-1 flex flex-col gap-1" id="cn-blue-op" ondrop="drop(event, 'blue-op')" ondragover="allowDrop(event)"></div>
+        </div>
     </div>
 </div>
 
@@ -2257,6 +2276,10 @@ window.transferHost = function(newHostName) {
                 genericTimerEl.classList.add('hidden');
             }
         }	
+
+	if (mode === 'codenames' && typeof initCodenamesDragDrop === 'function') {
+        	setTimeout(initCodenamesDragDrop, 100);
+    	}
 
 	}
 
@@ -4986,6 +5009,61 @@ function executeActualBackToLobby() {
     updateLobbyUI();
 }
 
+// --- LOGIQUE DRAG & DROP CODENAMES ---
+window.initCodenamesDragDrop = function() {
+    if (!window.isHost) return;
+    const pool = document.getElementById('cn-pool');
+    if (!pool) return;
+    
+    let playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
+    playersArr = playersArr.filter(p => p && !p.isBot && p.name);
+    
+    // Réinitialise les boîtes
+    document.getElementById('cn-red-spy').innerHTML = '';
+    document.getElementById('cn-red-op').innerHTML = '';
+    document.getElementById('cn-blue-spy').innerHTML = '';
+    document.getElementById('cn-blue-op').innerHTML = '';
+    pool.innerHTML = '';
+    
+    // Ajoute les joueurs disponibles dans le Pool
+    playersArr.forEach(p => {
+        const safeName = p.name.replace(/'/g, "\\'");
+        pool.innerHTML += `<div id="drag-${safeName}" draggable="true" ondragstart="drag(event)" data-name="${p.name}" class="text-xs font-bold bg-slate-700 hover:bg-slate-600 text-white px-2 py-1.5 rounded cursor-grab border border-slate-500 select-none shadow-sm flex items-center gap-2"><i class="fa-solid fa-user text-indigo-300"></i> ${p.name}</div>`;
+    });
+};
+
+window.allowDrop = function(ev) {
+    ev.preventDefault();
+};
+
+window.drag = function(ev) {
+    ev.dataTransfer.setData("text", ev.target.id);
+};
+
+window.drop = function(ev, targetZone) {
+    ev.preventDefault();
+    const data = ev.dataTransfer.getData("text");
+    const draggedElement = document.getElementById(data);
+    if (!draggedElement) return;
+
+    // Trouver la vraie boîte de destination même si on lâche sur un autre joueur
+    let targetContainer = ev.target;
+    while(targetContainer && !targetContainer.id.startsWith('cn-')) {
+        targetContainer = targetContainer.parentElement;
+    }
+    if (!targetContainer) return;
+
+    // Bloquer à 1 seul joueur dans les cases Maître-Espion
+    if (targetZone === 'red-spy' || targetZone === 'blue-spy') {
+        if (targetContainer.children.length >= 1) {
+            // Renvoie le joueur actuel dans le pool avant de le remplacer
+            document.getElementById('cn-pool').appendChild(targetContainer.children[0]);
+        }
+    }
+    
+    targetContainer.appendChild(draggedElement);
+};
+
 // --- 2. JEU DE MÉMOIRE ---
 function startMemoryGame() {
     showScreen('screen-memory');
@@ -5053,16 +5131,44 @@ function startCodenamesGame() {
         return;
     }
 
-    // Mélange et attribution des équipes
-    let shuffled = [...playersArr].sort(() => 0.5 - Math.random());
     let roles = {};
-    let mid = Math.ceil(shuffled.length / 2);
-    
-    shuffled.forEach((p, idx) => {
-        let team = idx < mid ? 'red' : 'blue';
-        let isSpymaster = (idx === 0 || idx === mid); // Le 1er de chaque équipe est Maître-Espion
-        roles[p.name] = { team: team, isSpymaster: isSpymaster };
-    });
+
+    const redSpy = document.getElementById('cn-red-spy')?.children;
+    const blueSpy = document.getElementById('cn-blue-spy')?.children;
+    const redOps = document.getElementById('cn-red-op')?.children;
+    const blueOps = document.getElementById('cn-blue-op')?.children;
+
+    // Vérifier si une configuration manuelle est en place via le Drag & Drop
+    let manualConfigured = (redSpy && redSpy.length > 0) || (blueSpy && blueSpy.length > 0) || (redOps && redOps.length > 0) || (blueOps && blueOps.length > 0);
+
+    if (manualConfigured) {
+        if (redSpy && redSpy.length > 0) roles[redSpy[0].dataset.name] = { team: 'red', isSpymaster: true };
+        if (blueSpy && blueSpy.length > 0) roles[blueSpy[0].dataset.name] = { team: 'blue', isSpymaster: true };
+        
+        if (redOps) Array.from(redOps).forEach(el => roles[el.dataset.name] = { team: 'red', isSpymaster: false });
+        if (blueOps) Array.from(blueOps).forEach(el => roles[el.dataset.name] = { team: 'blue', isSpymaster: false });
+        
+        // Tout joueur non-placé devient Spectateur
+        playersArr.forEach(p => {
+            if (!roles[p.name]) roles[p.name] = { team: 'spectator', isSpymaster: false };
+        });
+    } else {
+        // Option "Auto" (corrigée pour ne plus mettre 2 espions à 2 joueurs)
+        let shuffled = [...playersArr].sort(() => 0.5 - Math.random());
+        let mid = Math.ceil(shuffled.length / 2);
+        
+        shuffled.forEach((p, idx) => {
+            let team = idx < mid ? 'red' : 'blue';
+            let isSpymaster = false;
+            
+            if (shuffled.length === 2) {
+                isSpymaster = (idx === 0); // 1 espion unique pour la partie
+            } else {
+                isSpymaster = (idx === 0 || idx === mid);
+            }
+            roles[p.name] = { team: team, isSpymaster: isSpymaster };
+        });
+    }
 
     const dictionary = [
         "AGENT", "EUROPE", "AVION", "MINE", "FEU", "NOTE", "BOMBE", "ROI", "LUNE", "CARTE", 
@@ -5073,7 +5179,6 @@ function startCodenamesGame() {
     ];
     let selectedWords = dictionary.sort(() => 0.5 - Math.random()).slice(0, 25);
 
-    // Distribution des identités (Rouge commence avec 9 mots)
     let types = [
         ...Array(9).fill('red'),
         ...Array(8).fill('blue'),
