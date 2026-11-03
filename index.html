@@ -696,12 +696,12 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                         <option value="quiz">Quiz Culture G</option>
                         <option value="impostor">Jeu de l'Imposteur</option>
                         <option value="geoguessr">GeoGuessr</option>
-                        <option value="anomaly">Anomalies 3D</option>
-                        <option value="petitsbac">Petit Bac</option>
-			<option value="memory">Jeu de Mémoire (Équipe)</option>
-    			<option value="codenames">Codenames (Équipe)</option>
-    			<option value="combien">Combien tu peux ?</option>
-    			<option value="cine">Cinématophile</option>
+                        <option value="anomaly">Anomalies (IN WORK)</option>
+                        <option value="petitsbac">Petit Bac (IN WORK)</option>
+			<option value="memory">Jeu de Mémoire (IN WORK)</option>
+    			<option value="codenames">Codenames</option>
+    			<option value="combien">Combien tu peux ? (IN WORK)</option>
+    			<option value="cine">Cinématophile (IN WORK)</option>
                     </select>
                 </div>
 
@@ -5241,13 +5241,18 @@ window.renderCodenamesScreen = function(data) {
     if (gameData.status !== "PLAYING") {
         const isRedWin = gameData.status === 'RED_WIN';
         const pts = gameData.pointsWon || 1000;
+        
+        // Vérifie si le joueur local a déjà voté pour le retour au salon
+        const hasVoted = data.quizGame && data.quizGame.lobbyVotes && data.quizGame.lobbyVotes[myName];
+
         clueBox.innerHTML = `
             <div class="text-xl font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-4">
                 🏆 L'équipe ${isRedWin ? 'Rouge' : 'Bleue'} remporte la victoire et +${pts} points !
             </div>
-            <button onclick="backToLobby()" class="w-full max-w-sm mx-auto py-3 rounded-xl font-bold uppercase transition-all shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white text-base">
-                Retour au Salon
-            </button>
+            ${hasVoted 
+                ? '<button disabled class="w-full max-w-sm mx-auto py-3 bg-slate-800 text-slate-400 rounded-xl font-bold uppercase transition cursor-not-allowed text-base"><i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...</button>'
+                : '<button onclick="backToLobby()" class="w-full max-w-sm mx-auto py-3 rounded-xl font-bold uppercase transition-all shadow-lg bg-indigo-600 hover:bg-indigo-500 text-white text-base">Retour au Salon</button>'
+            }
         `;
     } else if (isMyTurn && myRole.isSpymaster && !gameData.currentClue) {
         clueBox.innerHTML = `
