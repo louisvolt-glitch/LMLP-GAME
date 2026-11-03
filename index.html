@@ -333,6 +333,55 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     if (modDisp) {
                         modDisp.innerHTML = modulesStr; 
                     }
+
+                    // --- NOUVEAU : Mise à jour du Briefing de Mission (Règles et Effectif) ---
+                    const briefingDesc = document.getElementById('non-host-game-description');
+                    const briefingMin = document.getElementById('non-host-min-players');
+                    
+                    if (briefingDesc && briefingMin) {
+                        const briefings = {
+                            'quiz': {
+                                desc: "Répondez à des questions chronométrées parmi 20 catégories. Accumulez des points selon votre rapidité et la difficulté choisie.",
+                                min: 1
+                            },
+                            'impostor': {
+                                desc: "Tous reçoivent un mot secret, sauf l'imposteur. Débattez pour démasquer l'intrus, ou bluffez habilement pour survivre incognito.",
+                                min: 3
+                            },
+                            'geoguessr': {
+                                desc: "Parachutage aléatoire sur Street View. Analysez votre environnement visuel et placez votre repère sur la carte du monde le plus précisément possible.",
+                                min: 1
+                            },
+                            'anomaly': {
+                                desc: "Observez un couloir 3D infini. Si vous détectez une anomalie, faites demi-tour immédiatement. Si tout est normal, avancez vers la sortie.",
+                                min: 1
+                            },
+                            'petitsbac': {
+                                desc: "Trouvez un mot par catégorie commençant obligatoirement par la lettre imposée. Soyez originaux pour marquer le maximum de points.",
+                                min: 2
+                            },
+                            'codenames': {
+                                desc: "Le Maître-Espion donne un mot-indice unique. Son équipe doit deviner les mots correspondants sur la grille en évitant de tomber sur l'assassin.",
+                                min: 4
+                            },
+                            'memory': {
+                                desc: "Mémorisez la disposition des images affichées. Guidez ensuite votre équipe pour retrouver les bonnes cibles parmi les pièges.",
+                                min: 2
+                            },
+                            'combien': {
+                                desc: "Surenchérissez pour prouver que vous pouvez citer le plus d'éléments sur un thème. Forcez vos adversaires à l'erreur.",
+                                min: 2
+                            },
+                            'cine': {
+                                desc: "Une affiche de film floutée devient progressivement nette. Soyez le plus rapide à reconnaître et écrire le nom du film.",
+                                min: 1
+                            }
+                        };
+
+                        const currentBrief = briefings[data.selectedMode] || briefings['quiz'];
+                        briefingDesc.innerHTML = currentBrief.desc;
+                        briefingMin.innerText = `${currentBrief.min} Opérateur(s) min.`;
+                    }
                 }
             }
 
@@ -660,13 +709,29 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
                     </div>
                 </div>
 
-                <!-- Modules / Catégories -->
+                <!-- Modules / Catégories (DÉJÀ EXISTANT) -->
                 <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border">
                     <div class="text-xs text-gray-400 uppercase font-mono mb-2 flex items-center gap-1.5">
                         <span>📦</span> Ravitaillement (Modules)
                     </div>
                     <div id="non-host-modules-display" class="text-xs text-gray-300 font-sans bg-command-card px-2.5 py-1 rounded border border-command-border inline-block">
                         Culture Générale & Tech
+                    </div>
+                </div>
+
+                <!-- NOUVEAU : Briefing de Mission (Règles & Joueurs) -->
+                <div class="bg-command-dark/80 p-3.5 rounded-lg border border-command-border mt-5">
+                    <div class="text-xs text-gray-400 uppercase font-mono mb-2 flex items-center gap-1.5">
+                        <span>📜</span> Briefing (Règles)
+                    </div>
+                    <div id="non-host-game-description" class="text-[13px] text-gray-300 font-sans leading-snug mb-3">
+                        En attente des paramètres de l'hôte...
+                    </div>
+                    <div class="flex items-center justify-between border-t border-command-border/60 pt-2">
+                        <span class="text-[10px] text-gray-400 uppercase font-mono">Effectif Requis :</span>
+                        <span id="non-host-min-players" class="text-[11px] font-bold text-command-cyan px-2 py-0.5 rounded bg-command-cyan/10 border border-command-cyan/20 shadow-[0_0_8px_rgba(0,240,255,0.15)]">
+                            1 Opérateur(s) min.
+                        </span>
                     </div>
                 </div>
             </div>
@@ -689,21 +754,130 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             </div>
 
             <div class="space-y-4">
-                <!-- Choix du Mode -->
-                <div class="bg-command-dark p-3 rounded-lg border border-command-border">
-                    <label class="block text-xs font-mono text-gray-400 uppercase mb-1">🎯 Sélectionner le Mode</label>
-                    <select id="select-game-mode" onchange="selectGameMode(this.value)" class="w-full bg-command-card border border-command-border text-gray-100 font-mono text-sm rounded p-2 focus:outline-none focus:border-command-cyan">
-                        <option value="quiz">Quiz Culture G</option>
-                        <option value="impostor">Jeu de l'Imposteur</option>
-                        <option value="geoguessr">GeoGuessr</option>
-                        <option value="anomaly">Anomalies (IN WORK)</option>
-                        <option value="petitsbac">Petit Bac (IN WORK)</option>
-			<option value="memory">Jeu de Mémoire (IN WORK)</option>
-    			<option value="codenames">Codenames</option>
-    			<option value="combien">Combien tu peux ? (IN WORK)</option>
-    			<option value="cine">Cinématophile (IN WORK)</option>
-                    </select>
-                </div>
+                <!-- Choix du Mode (Interface Avancée) -->
+<div class="bg-command-dark p-3 rounded-lg border border-command-border">
+    <label class="block text-xs font-mono text-gray-400 uppercase mb-2 flex justify-between items-center">
+        <span>🎯 Sélectionner la Mission</span>
+        <span class="text-[10px] bg-command-cyan/10 text-command-cyan px-2 py-0.5 rounded border border-command-cyan/30">Grille Tactique</span>
+    </label>
+    
+    <!-- Input caché pour conserver la compatibilité exacte avec launchGame() et updateHostSettings() -->
+    <input type="hidden" id="select-game-mode" value="quiz">
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[320px] overflow-y-auto pr-1">
+        
+        <!-- CARTE QUIZ -->
+        <div id="card-mode-quiz" onclick="selectGameMode('quiz')" class="relative cursor-pointer bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/20 p-3 rounded-xl border flex flex-col gap-1 transition-all group">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🌍</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Quiz Culture G</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Défiez vos connaissances avec 20 catégories et multiplicateurs de risques.</p>
+            <span class="mode-badge absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+
+        <!-- CARTE IMPOSTEUR -->
+        <div id="card-mode-impostor" onclick="selectGameMode('impostor')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🥷</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Imposteur</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Débat, bluff et trahison. Trouvez l'intrus ou cachez-vous dans la masse.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+
+        <!-- CARTE GEOGUESSR -->
+        <div id="card-mode-geoguessr" onclick="selectGameMode('geoguessr')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🗺️</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">GeoGuessr</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Parachutage à l'aveugle. Observez l'environnement et placez votre repère.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+        
+        <!-- CARTE CODENAMES -->
+        <div id="card-mode-codenames" onclick="selectGameMode('codenames')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🕵️</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Codenames</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Guidez vos agents à l'aide d'un seul mot-indice. Évitez l'assassin !</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+
+        <!-- CARTE ANOMALIES -->
+        <div id="card-mode-anomaly" onclick="selectGameMode('anomaly')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">👁️</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Anomalies 3D</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Couloir infini : repérez les changements d'environnement pour avancer.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+
+        <!-- CARTE PETIT BAC -->
+        <div id="card-mode-petitsbac" onclick="selectGameMode('petitsbac')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">✏️</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Petit Bac</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Une lettre, plusieurs catégories. Soyez originaux pour marquer gros.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+        </div>
+        
+        <!-- CARTE MÉMOIRE -->
+        <div id="card-mode-memory" onclick="selectGameMode('memory')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🧠</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Mémoire</h3>
+                <span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Mémorisez les images puis guidez votre équipe à l'aveugle.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">...</span>
+        </div>
+        
+        <!-- CARTE COMBIEN TU PEUX -->
+        <div id="card-mode-combien" onclick="selectGameMode('combien')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🔨</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Enchères</h3>
+                <span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Surenchérissez ou forcez l'adversaire à prouver ses affirmations.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">...</span>
+        </div>
+
+        <!-- CARTE CINÉMATOPHILE -->
+        <div id="card-mode-cine" onclick="selectGameMode('cine')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🎬</span>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Cinématophile</h3>
+                <span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">Affiche floutée. Soyez le premier à reconnaître le film.</p>
+            <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">...</span>
+        </div>
+    </div>
+</div>
 
                 <!-- Réglage du Chrono (Quiz) -->
                 <div id="host-settings-generic-timer" class="bg-command-dark p-3 rounded-lg border border-command-border">
@@ -2223,6 +2397,9 @@ window.transferHost = function(newHostName) {
 function selectGameMode(mode) {
     state.selectedMode = mode;
     
+    const modeInput = document.getElementById('select-game-mode');
+    if (modeInput) modeInput.value = mode;
+
     // On inclut TOUS les modes ici pour que les menus s'affichent
     const allModes = ['quiz', 'impostor', 'geoguessr', 'anomaly', 'petitsbac', 'memory', 'codenames', 'combien', 'cine'];
 
