@@ -5129,9 +5129,9 @@ function startCodenamesGame() {
     let playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
     playersArr = playersArr.filter(p => p && !p.isBot && p.name);
 
-    if (playersArr.length < 2) {
-        alert("Il faut au moins 2 joueurs (1 Maître-Espion, 1 Opérateur) !");
-        return;
+    if (playersArr.length < 4) {
+    alert("Il faut au moins 4 joueurs (2 Maîtres-Espions, 2 Opérateurs) !");
+    return;
     }
 
     let roles = {};
@@ -5195,19 +5195,20 @@ function startCodenamesGame() {
     const roomCode = window.currentCodeSalon || state.roomCode;
     if (roomCode && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(roomCode, {
-            status: 'IN_GAME',
-            selectedMode: 'codenames',
-            codenamesGame: {
-                words: gridWords,
-                roles: roles,
-                currentTurn: 'red',
-                redLeft: 9,
-                blueLeft: 8,
-                currentClue: "",
-                currentCount: 1,
-                status: "PLAYING"
-            }
-        });
+    status: 'IN_GAME',
+    selectedMode: 'codenames',
+    codenamesGame: {
+        words: gridWords,
+        roles: roles,
+        currentTurn: 'red',
+        redLeft: 9,
+        blueLeft: 8,
+        currentClue: "",
+        currentCount: 1,
+        guessesMade: 0, // <-- NOUVEAU : Suivi des essais
+        status: "PLAYING"
+    }
+});
     }
 }
 
@@ -5238,7 +5239,14 @@ window.renderCodenamesScreen = function(data) {
     // UI Boîte d'indices
     const clueBox = document.getElementById('codenames-clue-box');
     if (gameData.status !== "PLAYING") {
-        clueBox.innerHTML = window.isHost ? `<button onclick="backToLobby()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded">Retour au Salon</button>` : `En attente de l'hôte...`;
+        const isRedWin = gameData.status === 'RED_WIN';
+        const pts = gameData.pointsWon || 1000;
+        clueBox.innerHTML = `
+            <div class="text-lg font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-2">
+                🏆 L'équipe ${isRedWin ? 'Rouge' : 'Bleue'} remporte la victoire et +${pts} points !
+            </div>
+            ${window.isHost ? `<button onclick="backToLobby()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded shadow">Retour au Salon</button>` : `<span class="text-slate-400 text-xs">En attente de l'hôte...</span>`}
+        `;
     } else if (isMyTurn && myRole.isSpymaster && !gameData.currentClue) {
         clueBox.innerHTML = `
             <div class="flex items-center justify-center gap-2">
@@ -5248,8 +5256,13 @@ window.renderCodenamesScreen = function(data) {
             </div>
         `;
     } else if (isMyTurn && !myRole.isSpymaster && gameData.currentClue) {
+        let maxGuesses = gameData.currentCount + 1;
+        let guessesLeft = maxGuesses - (gameData.guessesMade || 0);
+        let bonusText = (gameData.guessesMade === gameData.currentCount) ? " (Essai bonus !)" : "";
+
         clueBox.innerHTML = `
             Indice actuel : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${gameData.currentClue} (${gameData.currentCount})</strong>
+            <span class="text-xs text-slate-300 ml-2">Coups restants : <b class="text-white">${guessesLeft}</b>${bonusText}</span>
             <button onclick="passCodenamesTurn()" class="ml-4 bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded text-xs font-bold transition shadow">Fin de tour</button>
         `;
     } else {
@@ -5298,7 +5311,8 @@ window.submitCodenamesClue = function() {
     if (!word || !roomCode) return;
     window.mettreAJourSalonFirebase(roomCode, {
         "codenamesGame/currentClue": word,
-        "codenamesGame/currentCount": count
+        "codenamesGame/currentCount": count,
+        "codenamesGame/guessesMade": 0 // <-- NOUVEAU
     });
 };
 
@@ -5318,9 +5332,13 @@ window.clickCodenamesWord = function(idx) {
         let nextTurn = currentTeam;
         let status = "PLAYING";
 
+        // Ajoute un essai au compteur
+        gameData.guessesMade = (gameData.guessesMade || 0) + 1;
+
         if (wordObj.type === 'assassin') {
             status = currentTeam === 'red' ? 'BLUE_WIN' : 'RED_WIN';
         } else if (wordObj.type === currentTeam) {
+            // Bonne réponse
             if (currentTeam === 'red') {
                 gameData.redLeft--;
                 if (gameData.redLeft <= 0) status = 'RED_WIN';
@@ -5328,8 +5346,15 @@ window.clickCodenamesWord = function(idx) {
                 gameData.blueLeft--;
                 if (gameData.blueLeft <= 0) status = 'BLUE_WIN';
             }
+            
+            // Si le max d'essais est atteint (Nombre de l'espion + 1 bonus), le tour passe
+            if (status === "PLAYING" && gameData.guessesMade > gameData.currentCount) {
+                nextTurn = currentTeam === 'red' ? 'blue' : 'red';
+                gameData.currentClue = "";
+                gameData.guessesMade = 0;
+            }
         } else {
-            // Mauvais choix : le tour passe à l'autre équipe
+            // Mauvais choix : fin de tour immédiate
             if (wordObj.type === (currentTeam === 'red' ? 'blue' : 'red')) {
                 if (currentTeam === 'red') {
                     gameData.blueLeft--;
@@ -5341,12 +5366,29 @@ window.clickCodenamesWord = function(idx) {
             }
             nextTurn = currentTeam === 'red' ? 'blue' : 'red';
             gameData.currentClue = "";
+            gameData.guessesMade = 0;
         }
 
         gameData.currentTurn = nextTurn;
         gameData.status = status;
 
-        window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
+        // Distribuer les points en cas de victoire
+        if (status === 'RED_WIN' || status === 'BLUE_WIN') {
+            let winningTeam = status === 'RED_WIN' ? 'red' : 'blue';
+            let pointsWon = 1000;
+            gameData.pointsWon = pointsWon; // Pour l'affichage UI
+            
+            let updates = { codenamesGame: gameData };
+            Object.keys(gameData.roles || {}).forEach(pName => {
+                if (gameData.roles[pName].team === winningTeam) {
+                    let currentScore = data.players[pName]?.score || 0;
+                    updates[`players/${pName}/score`] = currentScore + pointsWon;
+                }
+            });
+            window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+        } else {
+            window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
+        }
     });
 };
 
@@ -5360,6 +5402,7 @@ window.passCodenamesTurn = function() {
         
         gameData.currentTurn = gameData.currentTurn === 'red' ? 'blue' : 'red';
         gameData.currentClue = "";
+        gameData.guessesMade = 0; // <-- NOUVEAU
         window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
     });
 };
