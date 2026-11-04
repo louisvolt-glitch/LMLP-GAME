@@ -215,7 +215,7 @@ function renderCineScreen(data) {
             if (allReady) {
                 const roomCode = window.currentCodeSalon || state.roomCode;
                 if (gameData.currentRound >= gameData.maxRounds) {
-                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+                    window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
                     if (typeof showFinalResults === 'function') showFinalResults();
                 } else {
                     const resetPlayerStatus = {};
