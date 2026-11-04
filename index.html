@@ -5531,6 +5531,9 @@ function renderCineScreen(data) {
     const gameData = data.cineGame;
     if (!gameData) return;
     
+    // Stockage global temporaire pour actualiser le statut net en direct dans l'intervalle
+    window.latestCineGameData = gameData;
+
     if (document.getElementById('screen-cine').classList.contains('hidden')) {
         showScreen('screen-cine');
     }
@@ -5549,7 +5552,7 @@ function renderCineScreen(data) {
     const playerStatusMap = gameData.playerStatus || {};
     const myStatus = playerStatusMap[myName] || { solved: false };
 
-    // Rendu de la barre de statut des joueurs en bas
+    // Rendu de la barre de statut des joueurs en continu (visible en permanence pour tous)
     if (statusBar && data.players) {
         const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
         statusBar.innerHTML = playersArr.filter(p => p && !p.isBot).map(p => {
@@ -5591,7 +5594,7 @@ function renderCineScreen(data) {
                 window.cineTimeLeft = gameData.timer || 90;
                 
                 const getPixelSize = (timeLeft, isSolved) => {
-                    if (isSolved) return 1; // Netteté parfaite individuelle
+                    if (isSolved) return 1; // Netteté parfaite immédiate dès que trouvé
                     let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
                     return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
                 };
@@ -5620,7 +5623,11 @@ function renderCineScreen(data) {
                     window.cineTimeLeft--;
                     timerDisplay.innerText = window.cineTimeLeft + 's';
 
-                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, playerStatusMap[myName]?.solved));
+                    // Lecture dynamique du statut mis à jour pour basculer l'affiche en net instantanément
+                    const latestStatusMap = (window.latestCineGameData && window.latestCineGameData.playerStatus) || {};
+                    const isNowSolved = latestStatusMap[myName]?.solved || false;
+
+                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, isNowSolved));
 
                     if (window.cineTimeLeft <= 0) {
                         clearInterval(cineTimerInterval);
