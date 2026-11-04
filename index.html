@@ -5782,11 +5782,13 @@ window.submitCineGuess = function() {
             window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
                 window.rejoindreSalonFirebaseGet(roomCode, (freshData) => {
                     const players = freshData.players || {};
-                    const humanPlayers = Object.values(players).filter(p => p && !p.isBot);
-                    const playerStatus = freshData.cineGame.playerStatus || {};
+                    const playersArr = Array.isArray(players) ? players : Object.values(players);
+                    const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+                    const playerStatus = freshData.cineGame?.playerStatus || {};
                     
                     const allFound = humanPlayers.length > 0 && humanPlayers.every(p => playerStatus[p.name || p.pseudo]?.solved);
-                    if (allFound && window.isHost) {
+                    // N'importe quel joueur peut déclencher la fin de manche dès que tout le monde a trouvé
+                    if (allFound && freshData.cineGame?.status === 'PLAYING') {
                         window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
                     }
                 });
@@ -5801,23 +5803,38 @@ window.submitCineGuess = function() {
 
 window.nextCineRound = function() {
     const roomCode = window.currentCodeSalon || state.roomCode;
-    if (!roomCode || !window.isHost) return;
+    const myName = window.myPlayerKey || state.username;
+    if (!roomCode) return;
     
-    window.rejoindreSalonFirebaseGet(roomCode, (data) => {
-        const gameData = data.cineGame;
-        if (!gameData) return;
-        
-        if (gameData.currentRound >= gameData.maxRounds) {
-            window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
-            showFinalResults();
-        } else {
-            window.mettreAJourSalonFirebase(roomCode, {
-                'cineGame/status': 'PLAYING',
-                'cineGame/currentRound': gameData.currentRound + 1,
-                'cineGame/playerStatus': null,
-                'cineGame/winner': null
-            });
-        }
+    window.hasVotedCineNext = true;
+    const updates = {};
+    updates[`cineGame/readyForNext/${myName}`] = true;
+    
+    window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+        window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+            const gameData = data.cineGame;
+            const players = data.players || {};
+            const playersArr = Array.isArray(players) ? players : Object.values(players);
+            const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+            const readyMap = gameData?.readyForNext || {};
+            
+            const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
+            
+            if (allReady) {
+                if (gameData.currentRound >= gameData.maxRounds) {
+                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+                    showFinalResults();
+                } else {
+                    window.mettreAJourSalonFirebase(roomCode, {
+                        'cineGame/status': 'PLAYING',
+                        'cineGame/currentRound': gameData.currentRound + 1,
+                        'cineGame/playerStatus': null,
+                        'cineGame/readyForNext': null,
+                        'cineGame/winner': null
+                    });
+                }
+            }
+        });
     });
 };
 
