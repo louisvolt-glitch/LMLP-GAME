@@ -14,7 +14,6 @@ function renderCineScreen(data) {
     const gameData = data.cineGame;
     if (!gameData) return;
     
-    // Stockage global temporaire pour actualiser le statut net en direct dans l'intervalle
     window.latestCineGameData = gameData;
 
     if (document.getElementById('screen-cine').classList.contains('hidden')) {
@@ -35,13 +34,11 @@ function renderCineScreen(data) {
     const playerStatusMap = gameData.playerStatus || {};
     const myStatus = playerStatusMap[myName] || { solved: false };
 
-    // Rendu de la barre de statut des joueurs en continu (visible en permanence pour tous)
     if (statusBar && data.players) {
         const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
         statusBar.innerHTML = playersArr.filter(p => p && !p.isBot).map(p => {
             const pName = p.name || p.pseudo;
             const pStat = playerStatusMap[pName] || { solved: false };
-            const badgeColor = pStat.solved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-400 border-slate-700';
             let icon = '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
             let badgeColore = 'bg-slate-900 text-slate-400 border-slate-700';
             
@@ -49,7 +46,7 @@ function renderCineScreen(data) {
                 badgeColore = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
                 icon = '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
             } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
-                badgeColore = 'bg-red-500/20 text-red-300 border-red-500/40';
+                badgeColore = 'bg-red-500/20 text-red-300 border-red-700';
                 icon = '<i class="fa-solid fa-xmark text-red-400"></i> Temps écoulé';
             }
             return `<div class="px-3 py-1.5 rounded-lg border ${badgeColore} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
@@ -67,11 +64,10 @@ function renderCineScreen(data) {
 
         nextBtn.classList.add('hidden');
         
-        // On force le rechargement si la manche ou le film a changé
         if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
             window.cineCurrentMovieTitle = currentMovie.title;
             window.cineCurrentMovieRound = gameData.currentRound;
-            window.hasVotedCineNext = false; // Réinitialise l'état de vote local pour la manche suivante
+            window.hasVotedCineNext = false; // Réinitialisation propre du vote pour la nouvelle manche
             
             if (!myStatus.solved) document.getElementById('input-cine-guess').value = '';
             
@@ -89,16 +85,14 @@ function renderCineScreen(data) {
 
                 window.cineTimeLeft = gameData.timer || 90;
                 
-                // Forcer explicitement les gros pixels dès le démarrage de la manche
-                drawPixelatedPoster(cineCurrentImg, 60);
-                
+                // CORRECTION BUG 1 : Forcer les gros pixels (60px) dès la première frame d'initialisation
                 const getPixelSize = (timeLeft, isSolved) => {
-                    if (isSolved) return 1; // Netteté parfaite immédiate dès que trouvé
+                    if (isSolved) return 1;
                     let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
                     return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
                 };
                 
-                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, myStatus.solved));
+                drawPixelatedPoster(cineCurrentImg, myStatus.solved ? 1 : 60);
 
                 const fullText = currentMovie.storyText || "Le texte narratif de ce film n'a pas encore été configuré dans les données.";
                 let currentCharIndex = 0;
@@ -122,7 +116,6 @@ function renderCineScreen(data) {
                     window.cineTimeLeft--;
                     timerDisplay.innerText = window.cineTimeLeft + 's';
 
-                    // Lecture dynamique du statut mis à jour pour basculer l'affiche en net instantanément
                     const latestStatusMap = (window.latestCineGameData && window.latestCineGameData.playerStatus) || {};
                     const isNowSolved = latestStatusMap[myName]?.solved || false;
 
@@ -132,7 +125,6 @@ function renderCineScreen(data) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
                         if (window.isHost) {
-                            // Marquer automatiquement les joueurs non-trouvés comme "Temps écoulé"
                             window.rejoindreSalonFirebaseGet(window.currentCodeSalon, (latestData) => {
                                 const pStatuses = latestData.cineGame?.playerStatus || {};
                                 const players = latestData.players || {};
@@ -198,7 +190,6 @@ function renderCineScreen(data) {
     }
 }
 
-// Fonction moteur pour dessiner l'image avec des "gros" pixels
 function drawPixelatedPoster(img, pixelSize) {
     const canvas = document.getElementById('cine-canvas');
     if (!canvas) return;
@@ -227,7 +218,6 @@ function drawPixelatedPoster(img, pixelSize) {
     ctx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
 }
 
-// Outil pour nettoyer les accents et caractères spéciaux
 function normalizeGuess(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -270,7 +260,6 @@ window.submitCineGuess = function() {
                     const playerStatus = freshData.cineGame?.playerStatus || {};
                     
                     const allFound = humanPlayers.length > 0 && humanPlayers.every(p => playerStatus[p.name || p.pseudo]?.solved);
-                    // N'importe quel joueur peut déclencher la fin de manche dès que tout le monde a trouvé
                     if (allFound && freshData.cineGame?.status === 'PLAYING') {
                         window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
                     }
@@ -289,9 +278,9 @@ window.nextCineRound = function() {
     const myName = window.myPlayerKey || state.username;
     if (!roomCode) return;
     
+    // CORRECTION BUG 2 : Verrouillage immédiat du vote local pour éviter les doubles clics
     window.hasVotedCineNext = true;
     
-    // Désactiver immédiatement le bouton localement pour éviter les double-clics
     const nextBtn = document.getElementById('cine-next-btn');
     if (nextBtn) {
         nextBtn.disabled = true;
@@ -303,14 +292,12 @@ window.nextCineRound = function() {
     updates[`cineGame/readyForNext/${myName}`] = true;
     
     window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-        // Vérification immédiate de l'état global du salon
         window.rejoindreSalonFirebaseGet(roomCode, (data) => {
             checkAndTriggerNextCineRound(data, roomCode);
         });
     });
 };
 
-// Fonction utilitaire centralisée pour valider si tout le monde est prêt
 function checkAndTriggerNextCineRound(data, roomCode) {
     const gameData = data.cineGame;
     if (!gameData || gameData.status !== 'ROUND_OVER') return;
@@ -322,9 +309,7 @@ function checkAndTriggerNextCineRound(data, roomCode) {
     
     const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
     
-    // Si tout le monde est prêt, on déclenche le changement de manche ou la fin de partie
     if (allReady) {
-        // Empêcher les déclenchements multiples en vérifiant si le statut n'a pas déjà basculé
         if (gameData.status === 'ROUND_OVER') {
             if (gameData.currentRound >= gameData.maxRounds) {
                 window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
