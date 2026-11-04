@@ -1044,9 +1044,9 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         <input type="number" id="setting-cine-rounds" min="1" max="15" value="5" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
     </div>
     <div>
-        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Durée max par affiche (sec)</label>
-        <input type="number" id="setting-cine-timer" min="15" max="60" value="30" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
-    </div>
+    <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Durée max par affiche (sec)</label>
+    <input type="number" id="setting-cine-timer" min="15" max="180" value="90" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+</div>
 </div>
 
         <div class="pt-4 border-t border-command-border text-center">
@@ -5518,7 +5518,7 @@ function placeBid() {
 
 // --- 5. CINÉMATOPHILE ---
 let cineTimerInterval = null;
-let windowCineTextInterval = null; // Nouveau timer pour le texte
+let windowCineTextInterval = null;
 let cineCurrentImg = new Image();
 cineCurrentImg.crossOrigin = "Anonymous";
 
@@ -5526,7 +5526,6 @@ function renderCineScreen(data) {
     const gameData = data.cineGame;
     if (!gameData) return;
     
-    // S'assure d'être sur le bon écran
     if (document.getElementById('screen-cine').classList.contains('hidden')) {
         showScreen('screen-cine');
     }
@@ -5539,18 +5538,40 @@ function renderCineScreen(data) {
     const nextBtn = document.getElementById('cine-next-btn');
     const timerDisplay = document.getElementById('cine-timer');
     const storyBox = document.getElementById('cine-story-box');
+    const statusBar = document.getElementById('cine-players-status-bar');
+
+    const myName = window.myPlayerKey || state.username;
+    const playerStatusMap = gameData.playerStatus || {};
+    const myStatus = playerStatusMap[myName] || { solved: false };
+
+    // Affichage du statut des joueurs en bas
+    if (statusBar && data.players) {
+        const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
+        statusBar.innerHTML = playersArr.filter(p => p && !p.isBot).map(p => {
+            const pName = p.name || p.pseudo;
+            const pStat = playerStatusMap[pName] || { solved: false };
+            const badgeColor = pStat.solved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-400 border-slate-700';
+            const icon = pStat.solved ? '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !' : '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
+            return `<div class="px-3 py-1.5 rounded-lg border ${badgeColor} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
+        }).join('');
+    }
 
     if (gameData.status === 'PLAYING') {
         winnerBox.classList.add('hidden');
-        inputArea.classList.remove('hidden');
+        
+        // Si le joueur a trouvé, on masque la zone de saisie et on affiche un message de succès personnel
+        if (myStatus.solved) {
+            inputArea.classList.add('hidden');
+        } else {
+            inputArea.classList.remove('hidden');
+        }
+
         nextBtn.classList.add('hidden');
         
-        // Nouvelle manche détectée (nouveau film)
         if (window.cineCurrentMovieTitle !== currentMovie.title) {
             window.cineCurrentMovieTitle = currentMovie.title;
-            document.getElementById('input-cine-guess').value = '';
+            if (!myStatus.solved) document.getElementById('input-cine-guess').value = '';
             
-            // Nettoyage impératif de l'ancien intervalle global et texte
             if (cineTimerInterval) clearInterval(cineTimerInterval);
             if (windowCineTextInterval) clearInterval(windowCineTextInterval);
             
@@ -5563,20 +5584,19 @@ function renderCineScreen(data) {
                 if (isInitialized) return;
                 isInitialized = true;
 
-                window.cineTimeLeft = gameData.timer;
+                window.cineTimeLeft = gameData.timer || 90;
                 
-                const getPixelSize = (timeLeft) => {
-    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / gameData.timer)));
-    // Courbe plus douce et progressive pour faciliter la lecture anticipée
-    return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
-};
+                const getPixelSize = (timeLeft, isSolved) => {
+                    if (isSolved) return 1; // Netteté parfaite uniquement pour ce joueur
+                    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
+                    return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
+                };
                 
-                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, myStatus.solved));
 
-                // Lancement de l'effet d'écriture machine à écrire
                 const fullText = currentMovie.storyText || "Le texte narratif de ce film n'a pas encore été configuré dans les données.";
                 let currentCharIndex = 0;
-                const typingSpeed = Math.max(20, Math.floor((gameData.timer * 1000) / fullText.length));
+                const typingSpeed = Math.max(20, Math.floor(((gameData.timer || 90) * 1000) / fullText.length));
 
                 windowCineTextInterval = setInterval(() => {
                     if (currentCharIndex <= fullText.length) {
@@ -5592,20 +5612,19 @@ function renderCineScreen(data) {
                     }
                 }, typingSpeed);
 
-                // Chronomètre global
                 cineTimerInterval = setInterval(() => {
                     window.cineTimeLeft--;
                     timerDisplay.innerText = window.cineTimeLeft + 's';
 
-                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, playerStatusMap[myName]?.solved));
 
+                    // Vérification fin de temps (90s écoulées)
                     if (window.cineTimeLeft <= 0) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
                         if (window.isHost) {
                             window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-                                'cineGame/status': 'ROUND_OVER',
-                                'cineGame/winner': 'Personne'
+                                'cineGame/status': 'ROUND_OVER'
                             });
                         }
                     }
@@ -5618,28 +5637,33 @@ function renderCineScreen(data) {
             if (cineCurrentImg.complete && cineCurrentImg.naturalWidth > 0) {
                 initPosterGame();
             }
+        } else {
+            // Mettre à jour dynamiquement l'affichage si le statut de résolution vient de changer
+            const getPixelSize = (timeLeft, isSolved) => {
+                if (isSolved) return 1;
+                let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
+                return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
+            };
+            if (window.cineTimeLeft !== undefined) {
+                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, myStatus.solved));
+            }
         }
     } else if (gameData.status === 'ROUND_OVER') {
         clearInterval(cineTimerInterval);
         if (windowCineTextInterval) clearInterval(windowCineTextInterval);
         
-        drawPixelatedPoster(cineCurrentImg, 1); 
+        drawPixelatedPoster(cineCurrentImg, 1); // Tout le monde voit l'image nette à la fin
         window.cineCurrentMovieTitle = null; 
         
-        // Afficher tout le texte d'un coup à la fin de la manche
         if (storyBox) storyBox.innerHTML = currentMovie.storyText || "";
         
         inputArea.classList.add('hidden');
         winnerBox.classList.remove('hidden');
         
-        if (gameData.winner === 'Personne') {
-            winnerBox.innerHTML = `Temps écoulé ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
-            winnerBox.className = "w-full max-w-md p-4 bg-red-500/20 border border-red-500 rounded-xl text-red-300 font-bold mb-4 shadow-lg";
-        } else {
-            winnerBox.innerHTML = `🎉 <strong class="text-white">${gameData.winner}</strong> a trouvé ! C'était : <strong class="text-white">${currentMovie.title}</strong>`;
-            winnerBox.className = "w-full max-w-md p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl text-emerald-300 font-bold mb-4 shadow-lg";
-        }
+        winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
+        winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
+        // Le bouton pour passer à la prochaine manche apparaît pour l'hôte
         if (window.isHost) {
             nextBtn.classList.remove('hidden');
             if (gameData.currentRound >= gameData.maxRounds) {
@@ -5692,7 +5716,6 @@ window.submitCineGuess = function() {
     const roomCode = window.currentCodeSalon || state.roomCode;
     if (!roomCode) return;
     
-    // Lire la base en direct pour valider
     window.rejoindreSalonFirebaseGet(roomCode, (data) => {
         const gameData = data.cineGame;
         if (!gameData || gameData.status !== 'PLAYING') return;
@@ -5709,18 +5732,29 @@ window.submitCineGuess = function() {
         
         if (isCorrect) {
             const myName = window.myPlayerKey || state.username;
-            const pts = 100 + (window.cineTimeLeft * 15); // Bonus de rapidité
+            // Score plus haut selon la vitesse (temps restant)
+            const pts = 500 + ((window.cineTimeLeft || 0) * 20);
             
             let currentScore = data.players[myName]?.score || 0;
             
-            // Ferme le tour (met fin à la boucle pour tous les autres joueurs)
-            window.mettreAJourSalonFirebase(roomCode, {
-                'cineGame/status': 'ROUND_OVER',
-                'cineGame/winner': myName,
-                [`players/${myName}/score`]: currentScore + pts
+            const updates = {};
+            updates[`cineGame/playerStatus/${myName}`] = { solved: true, timeFound: window.cineTimeLeft };
+            updates[`players/${myName}/score`] = currentScore + pts;
+            
+            window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+                window.rejoindreSalonFirebaseGet(roomCode, (freshData) => {
+                    const players = freshData.players || {};
+                    const humanPlayers = Object.values(players).filter(p => p && !p.isBot);
+                    const playerStatus = freshData.cineGame.playerStatus || {};
+                    
+                    // Si TOUS les joueurs ont trouvé, on termine la manche immédiatement
+                    const allFound = humanPlayers.length > 0 && humanPlayers.every(p => playerStatus[p.name || p.pseudo]?.solved);
+                    if (allFound && window.isHost) {
+                        window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
+                    }
+                });
             });
         } else {
-            // Effet d'erreur visuel
             input.classList.add('border-red-500');
             input.value = "";
             setTimeout(() => input.classList.remove('border-red-500'), 500);
