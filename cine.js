@@ -170,7 +170,9 @@ function renderCineScreen(data) {
             }
         }
     } else if (gameData.status === 'ROUND_OVER') {
+
         clearInterval(cineTimerInterval);
+
         if (windowCineTextInterval) clearInterval(windowCineTextInterval);
         
         drawPixelatedPoster(cineCurrentImg, 1);
@@ -191,6 +193,7 @@ function renderCineScreen(data) {
         
         const hasVotedNext = window.hasVotedCineNext || (gameData.readyForNext && gameData.readyForNext[myName]);
         
+        // 1. Affichage du bouton pour CHAQUE joueur
         if (hasVotedNext) {
             nextBtn.disabled = true;
             nextBtn.className = "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
@@ -198,7 +201,38 @@ function renderCineScreen(data) {
         } else {
             nextBtn.disabled = false;
             nextBtn.className = "w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition";
-            nextBtn.innerHTML = gameData.currentRound >= gameData.maxRounds ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>' : 'Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
+            nextBtn.innerHTML = gameData.currentRound >= gameData.maxRounds ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>' : 'Prêt pour la suite <i class="fa-solid fa-check ml-2"></i>';
+        }
+
+        // 2. NOUVEAU : L'hôte vérifie ICI si tout le monde est prêt
+        if (window.isHost) {
+            const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+            const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+            const readyMap = gameData.readyForNext || {};
+            
+            const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
+            
+            if (allReady) {
+                const roomCode = window.currentCodeSalon || state.roomCode;
+                if (gameData.currentRound >= gameData.maxRounds) {
+                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+                    if (typeof showFinalResults === 'function') showFinalResults();
+                } else {
+                    const resetPlayerStatus = {};
+                    humanPlayers.forEach(p => {
+                        const pName = p.name || p.pseudo;
+                        resetPlayerStatus[pName] = { solved: false, timedOut: false };
+                    });
+
+                    window.mettreAJourSalonFirebase(roomCode, {
+                        'cineGame/status': 'PLAYING',
+                        'cineGame/currentRound': gameData.currentRound + 1,
+                        'cineGame/playerStatus': resetPlayerStatus,
+                        'cineGame/readyForNext': null, // On réinitialise les votes
+                        'cineGame/winner': null
+                    });
+                }
+            }
         }
     }
 }
@@ -284,7 +318,7 @@ window.submitCineGuess = function() {
             setTimeout(() => input.classList.remove('border-red-500'), 500);
         }
     });
-};
+}
 
 window.nextCineRound = function() {
     const roomCode = window.currentCodeSalon || state.roomCode;
@@ -302,46 +336,5 @@ window.nextCineRound = function() {
 
     const updates = {};
     updates[`cineGame/readyForNext/${myName}`] = true;
-    
-    // <-- CORRECTION : On envoie simplement la mise à jour à Firebase. Le Listener de GAME3 s'occupera du reste.
     window.update(window.ref(window.db, `salons/${roomCode}`), updates);
-};
-
-function checkAndTriggerNextCineRound(data, roomCode) {
-    const gameData = data.cineGame;
-    if (!gameData || gameData.status !== 'ROUND_OVER') return;
-    
-    const players = data.players || {};
-    const playersArr = Array.isArray(players) ? players : Object.values(players);
-    const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
-    const readyMap = gameData.readyForNext || {};
-    
-    const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
-    
-    if (allReady) {
-        if (gameData.status === 'ROUND_OVER') {
-            if (window.isHost) { // <-- CORRECTION CRUCIALE : Seul l'hôte effectue la transition pour tous
-                if (gameData.currentRound >= gameData.maxRounds) {
-                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
-                    if (typeof showFinalResults === 'function') showFinalResults();
-                } else {
-                    const resetPlayerStatus = {};
-                    const resetReadyForNext = {};
-                    humanPlayers.forEach(p => {
-                        const pName = p.name || p.pseudo;
-                        resetPlayerStatus[pName] = { solved: false, timedOut: false };
-                        resetReadyForNext[pName] = false;
-                    });
-
-                    window.mettreAJourSalonFirebase(roomCode, {
-                        'cineGame/status': 'PLAYING',
-                        'cineGame/currentRound': gameData.currentRound + 1,
-                        'cineGame/playerStatus': resetPlayerStatus,
-                        'cineGame/readyForNext': resetReadyForNext,
-                        'cineGame/winner': null
-                    });
-                }
-            }
-        }
-    }
 }
