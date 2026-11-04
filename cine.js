@@ -67,8 +67,12 @@ function renderCineScreen(data) {
 
         nextBtn.classList.add('hidden');
         
-        if (window.cineCurrentMovieTitle !== currentMovie.title) {
+        // On force le rechargement si la manche ou le film a changé
+        if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
             window.cineCurrentMovieTitle = currentMovie.title;
+            window.cineCurrentMovieRound = gameData.currentRound;
+            window.hasVotedCineNext = false; // Réinitialise l'état de vote local pour la manche suivante
+            
             if (!myStatus.solved) document.getElementById('input-cine-guess').value = '';
             
             if (cineTimerInterval) clearInterval(cineTimerInterval);
@@ -84,6 +88,9 @@ function renderCineScreen(data) {
                 isInitialized = true;
 
                 window.cineTimeLeft = gameData.timer || 90;
+                
+                // Forcer explicitement les gros pixels dès le démarrage de la manche
+                drawPixelatedPoster(cineCurrentImg, 60);
                 
                 const getPixelSize = (timeLeft, isSolved) => {
                     if (isSolved) return 1; // Netteté parfaite immédiate dès que trouvé
@@ -167,7 +174,6 @@ function renderCineScreen(data) {
         if (windowCineTextInterval) clearInterval(windowCineTextInterval);
         
         drawPixelatedPoster(cineCurrentImg, 1);
-        window.cineCurrentMovieTitle = null; 
         
         if (storyBox) storyBox.innerHTML = currentMovie.storyText || "";
         
@@ -177,7 +183,6 @@ function renderCineScreen(data) {
         winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
         winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
-        // Le bouton s'affiche pour TOUT LE MONDE
         nextBtn.classList.remove('hidden');
         const hasVotedNext = window.hasVotedCineNext || (gameData.readyForNext && gameData.readyForNext[myName]);
         
