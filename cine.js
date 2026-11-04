@@ -55,19 +55,25 @@ function renderCineScreen(data) {
 
     if (gameData.status === 'PLAYING') {
         winnerBox.classList.add('hidden');
+        winnerBox.style.display = 'none';
         
         if (myStatus.solved) {
             inputArea.classList.add('hidden');
+            inputArea.style.display = 'none';
         } else {
             inputArea.classList.remove('hidden');
+            inputArea.style.display = '';
         }
 
         nextBtn.classList.add('hidden');
+        nextBtn.style.display = 'none';
         
         if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
             window.cineCurrentMovieTitle = currentMovie.title;
             window.cineCurrentMovieRound = gameData.currentRound;
-            window.hasVotedCineNext = false; // Réinitialisation propre du vote pour la nouvelle manche
+            window.hasVotedCineNext = false;
+            
+            winnerBox.innerHTML = ''; // Nettoyage de la réponse précédente
             
             if (!myStatus.solved) document.getElementById('input-cine-guess').value = '';
             
@@ -85,7 +91,6 @@ function renderCineScreen(data) {
 
                 window.cineTimeLeft = gameData.timer || 90;
                 
-                // CORRECTION BUG 1 : Forcer les gros pixels (60px) dès la première frame d'initialisation
                 const getPixelSize = (timeLeft, isSolved) => {
                     if (isSolved) return 1;
                     let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
@@ -170,12 +175,17 @@ function renderCineScreen(data) {
         if (storyBox) storyBox.innerHTML = currentMovie.storyText || "";
         
         inputArea.classList.add('hidden');
+        inputArea.style.display = 'none';
+        
         winnerBox.classList.remove('hidden');
+        winnerBox.style.display = '';
         
         winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
         winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
         nextBtn.classList.remove('hidden');
+        nextBtn.style.display = '';
+        
         const hasVotedNext = window.hasVotedCineNext || (gameData.readyForNext && gameData.readyForNext[myName]);
         
         if (hasVotedNext) {
@@ -278,7 +288,6 @@ window.nextCineRound = function() {
     const myName = window.myPlayerKey || state.username;
     if (!roomCode) return;
     
-    // CORRECTION BUG 2 : Verrouillage immédiat du vote local pour éviter les doubles clics
     window.hasVotedCineNext = true;
     
     const nextBtn = document.getElementById('cine-next-btn');
@@ -315,11 +324,19 @@ function checkAndTriggerNextCineRound(data, roomCode) {
                 window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
                 showFinalResults();
             } else {
+                const resetPlayerStatus = {};
+                const resetReadyForNext = {};
+                humanPlayers.forEach(p => {
+                    const pName = p.name || p.pseudo;
+                    resetPlayerStatus[pName] = { solved: false, timedOut: false };
+                    resetReadyForNext[pName] = false;
+                });
+
                 window.mettreAJourSalonFirebase(roomCode, {
                     'cineGame/status': 'PLAYING',
                     'cineGame/currentRound': gameData.currentRound + 1,
-                    'cineGame/playerStatus': null,
-                    'cineGame/readyForNext': null,
+                    'cineGame/playerStatus': resetPlayerStatus,
+                    'cineGame/readyForNext': resetReadyForNext,
                     'cineGame/winner': null
                 });
             }
