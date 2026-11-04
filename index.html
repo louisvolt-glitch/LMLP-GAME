@@ -398,9 +398,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
                 if (data.selectedMode === 'cine' && data.cineGame) {
-            renderCineScreen(data);
-        }
-}
+            		renderCineScreen(data);
+        	}
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
@@ -453,6 +452,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         }
                     }
                 }
+	    }
 
                 // AJOUT CRUCIAL : Exécuter la mise à jour de l'écran Imposteur à CHAQUE changement de données
                 if (data.selectedMode === 'impostor' && typeof renderImpostorScreen === 'function') {
