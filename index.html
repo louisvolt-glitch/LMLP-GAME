@@ -1412,11 +1412,16 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             <canvas id="cine-canvas" class="w-full h-full object-cover" style="image-rendering: pixelated;"></canvas>
         </div>
         
-        <!-- Boîte de victoire -->
-        <div id="cine-winner-box" class="hidden w-full max-w-md p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl text-emerald-300 font-bold"></div>
+ 	<!-- Boîte de victoire -->
+	<div id="cine-winner-box" class="hidden w-full max-w-md p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl text-emerald-300 font-bold"></div>
 
-        <!-- Zone de saisie -->
-        <div class="flex gap-2 w-full max-w-md" id="cine-input-area">
+		<!-- NOUVEAU : Boîte d'indice textuel progressif -->
+	<div id="cine-hint-box" class="hidden w-full max-w-md p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-mono text-center">
+		    💡 Indice : Chargement...
+	</div>
+
+	<!-- Zone de saisie -->
+	<div class="flex gap-2 w-full max-w-md" id="cine-input-area">
             <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold uppercase" placeholder="Titre du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
             <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg">Deviner</button>
         </div>
@@ -5569,21 +5574,33 @@ function renderCineScreen(data) {
                 drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
 
                 cineTimerInterval = setInterval(() => {
-                    window.cineTimeLeft--;
-                    timerDisplay.innerText = window.cineTimeLeft + 's';
-                    
-                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+    window.cineTimeLeft--;
+    timerDisplay.innerText = window.cineTimeLeft + 's';
 
-                    if (window.cineTimeLeft <= 0) {
-                        clearInterval(cineTimerInterval);
-                        if (window.isHost) {
-                            window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-                                'cineGame/status': 'ROUND_OVER',
-                                'cineGame/winner': 'Personne'
-                            });
-                        }
-                    }
-                }, 1000);
+    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+
+    // NOUVEAU : Afficher l'indice lorsque la moitié du temps est écoulée
+    const hintBox = document.getElementById('cine-hint-box');
+    const halfTime = Math.floor(gameData.timer / 2);
+    if (window.cineTimeLeft <= halfTime && hintBox) {
+        hintBox.classList.remove('hidden');
+        const titleLength = currentMovie.title.replace(/[^a-zA-Z0-9]/g, '').length;
+        const firstLetter = currentMovie.title.charAt(0).toUpperCase();
+        hintBox.innerHTML = `💡 Indice : Titre de ${titleLength} caractères (Commence par '${firstLetter}')`;
+    } else if (hintBox) {
+        hintBox.classList.add('hidden');
+    }
+
+    if (window.cineTimeLeft <= 0) {
+        clearInterval(cineTimerInterval);
+        if (window.isHost) {
+            window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+                'cineGame/status': 'ROUND_OVER',
+                'cineGame/winner': 'Personne'
+            });
+        }
+    }
+}, 1000);
             };
 
             // FIX: Attacher l'événement .onload AVANT de définir le .src
