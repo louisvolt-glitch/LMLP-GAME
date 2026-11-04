@@ -54,7 +54,7 @@ function renderCineScreen(data) {
     }
 
     if (gameData.status === 'PLAYING') {
-        winnerBox.classList.add('hidden');
+        winnerBox.className = 'hidden'; // <-- CORRECTION : Écrase les classes CSS ajoutées lors du ROUND_OVER
         winnerBox.style.display = 'none';
         
         if (myStatus.solved) {
@@ -80,10 +80,13 @@ function renderCineScreen(data) {
             if (cineTimerInterval) clearInterval(cineTimerInterval);
             if (windowCineTextInterval) clearInterval(windowCineTextInterval);
             
+            // <-- CORRECTION : Annule le chargement de l'ancienne image pour éviter les intervalles fantômes
+            if (cineCurrentImg) cineCurrentImg.onload = null;
+
             cineCurrentImg = new Image();
             cineCurrentImg.crossOrigin = "Anonymous";
-
-            let isInitialized = false; 
+            
+            let isInitialized = false;
 
             const initPosterGame = () => {
                 if (isInitialized) return;
@@ -300,11 +303,8 @@ window.nextCineRound = function() {
     const updates = {};
     updates[`cineGame/readyForNext/${myName}`] = true;
     
-    window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-        window.rejoindreSalonFirebaseGet(roomCode, (data) => {
-            checkAndTriggerNextCineRound(data, roomCode);
-        });
-    });
+    // <-- CORRECTION : On envoie simplement la mise à jour à Firebase. Le Listener de GAME3 s'occupera du reste.
+    window.update(window.ref(window.db, `salons/${roomCode}`), updates);
 };
 
 function checkAndTriggerNextCineRound(data, roomCode) {
@@ -320,25 +320,27 @@ function checkAndTriggerNextCineRound(data, roomCode) {
     
     if (allReady) {
         if (gameData.status === 'ROUND_OVER') {
-            if (gameData.currentRound >= gameData.maxRounds) {
-                window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
-                showFinalResults();
-            } else {
-                const resetPlayerStatus = {};
-                const resetReadyForNext = {};
-                humanPlayers.forEach(p => {
-                    const pName = p.name || p.pseudo;
-                    resetPlayerStatus[pName] = { solved: false, timedOut: false };
-                    resetReadyForNext[pName] = false;
-                });
+            if (window.isHost) { // <-- CORRECTION CRUCIALE : Seul l'hôte effectue la transition pour tous
+                if (gameData.currentRound >= gameData.maxRounds) {
+                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+                    if (typeof showFinalResults === 'function') showFinalResults();
+                } else {
+                    const resetPlayerStatus = {};
+                    const resetReadyForNext = {};
+                    humanPlayers.forEach(p => {
+                        const pName = p.name || p.pseudo;
+                        resetPlayerStatus[pName] = { solved: false, timedOut: false };
+                        resetReadyForNext[pName] = false;
+                    });
 
-                window.mettreAJourSalonFirebase(roomCode, {
-                    'cineGame/status': 'PLAYING',
-                    'cineGame/currentRound': gameData.currentRound + 1,
-                    'cineGame/playerStatus': resetPlayerStatus,
-                    'cineGame/readyForNext': resetReadyForNext,
-                    'cineGame/winner': null
-                });
+                    window.mettreAJourSalonFirebase(roomCode, {
+                        'cineGame/status': 'PLAYING',
+                        'cineGame/currentRound': gameData.currentRound + 1,
+                        'cineGame/playerStatus': resetPlayerStatus,
+                        'cineGame/readyForNext': resetReadyForNext,
+                        'cineGame/winner': null
+                    });
+                }
             }
         }
     }
