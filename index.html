@@ -389,8 +389,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
-                // CORRECTION : Évite le split screen. On ne force l'affichage 
-                // du nouvel écran que si le joueur se trouve encore dans le lobby.
+                if (data.selectedMode === 'cine' && typeof renderCineScreen === 'function') {
+                    renderCineScreen(data);
+                }
+
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
 
@@ -435,7 +437,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     } else if (selectedMode === 'codenames') {
     			const cnScreen = document.getElementById('screen-codenames');
     			if (cnScreen) cnScreen.classList.remove('hidden');
-		    }
+		    } else if (selectedMode === 'cine') {
+                        const cineScreen = document.getElementById('screen-cine');
+                        if (cineScreen) {
+                            cineScreen.classList.remove('hidden');
+                        }
+                    }
                 }
 
                 // AJOUT CRUCIAL : Exécuter la mise à jour de l'écran Imposteur à CHAQUE changement de données
@@ -445,6 +452,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		if (data.selectedMode === 'codenames' && typeof window.renderCodenamesScreen === 'function') {
     			window.renderCodenamesScreen(data);
 		}
+		if (data.selectedMode === 'cine' && typeof renderCineScreen === 'function') {
+                    renderCineScreen(data);
+                }
 
                 // ====================================================================
                 // CORRECTION BUG GEOGUESSR : Détecter quand tous les joueurs ont validé globalement
@@ -1028,8 +1038,12 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 <div id="host-settings-cine" class="hidden bg-command-dark p-3 rounded-lg border border-command-border space-y-3">
     <div class="text-xs font-mono text-command-cyan uppercase font-bold">Options Cinématophile</div>
     <div>
+        <label class="block text-xs font-mono text-gray-400 uppercase mb-1">🔄 Nombre de manches</label>
+        <input type="number" id="setting-cine-rounds" min="1" max="15" value="5" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+    </div>
+    <div>
         <label class="block text-xs font-mono text-gray-400 uppercase mb-1">⏱️ Durée max par affiche (sec)</label>
-        <input type="number" id="setting-cine-timer" min="15" max="60" value="30" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
+        <input type="number" id="setting-cine-timer" min="15" max="60" value="30" onchange="updateHostSettings()" class="w-full bg-command-card border border-command-border rounded p-1.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-command-cyan">
     </div>
 </div>
 
@@ -1386,17 +1400,30 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 <!-- ECRAN CINÉMATOPHILE -->
 <main id="screen-cine" class="hidden flex-1 flex flex-col space-y-4">
     <div class="glass p-4 rounded-2xl flex justify-between items-center">
-        <span class="font-bold text-pink-400 text-sm"><i class="fa-solid fa-film"></i> Cinématophile - Dépixelisation</span>
+        <span class="font-bold text-pink-400 text-sm" id="cine-round-indicator"><i class="fa-solid fa-film"></i> Cinématophile</span>
         <span id="cine-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">30s</span>
     </div>
     <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-3xl mx-auto w-full text-center">
-        <div id="cine-image-container" class="relative w-64 h-96 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
-            <img id="cine-poster" src="" class="w-full h-full object-cover filter blur-xl transition-all duration-1000" alt="Affiche mystère">
+        
+        <div id="cine-image-container" class="relative w-[420px] h-[630px] max-w-full rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
+            <!-- Canvas pour l'effet de pixels durs -->
+            <canvas id="cine-canvas" class="w-full h-full object-cover" style="image-rendering: pixelated;"></canvas>
         </div>
-        <div class="flex gap-2 w-full max-w-md">
-            <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold" placeholder="Nom du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
-            <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition">Deviner</button>
+        
+        <!-- Boîte de victoire -->
+        <div id="cine-winner-box" class="hidden w-full max-w-md p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl text-emerald-300 font-bold"></div>
+
+        <!-- Zone de saisie -->
+        <div class="flex gap-2 w-full max-w-md" id="cine-input-area">
+            <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold uppercase" placeholder="Titre du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
+            <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg">Deviner</button>
         </div>
+        
+        <!-- Bouton Manche Suivante (Réservé à l'hôte) -->
+        <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
+            Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>
+        </button>
+
     </div>
 </main>
 
@@ -1517,6 +1544,127 @@ document.addEventListener('DOMContentLoaded', initQuizCategoriesChecklist);
             { id: "alien", icon: "fa-user-astronaut", color: "text-indigo-400" },
             { id: "gamepad", icon: "fa-gamepad", color: "text-pink-400" }
         ];
+
+	const CINE_MOVIES = [
+    // Sci-Fi / Fantasy
+    { title: "Star Wars", aliases: ["star wars", "la guerre des etoiles", "un nouvel espoir"], poster: "./affiches/star_wars.jpg" },
+    { title: "Le Seigneur des Anneaux", aliases: ["le seigneur des anneaux", "lord of the rings", "la communaute de l'anneau"], poster: "./affiches/lotr.jpg" },
+    { title: "Harry Potter", aliases: ["harry potter", "harry potter a l'ecole des sorciers"], poster: "./affiches/harry_potter.jpg" },
+    { title: "Matrix", aliases: ["matrix", "the matrix"], poster: "./affiches/matrix.jpg" },
+    { title: "Avatar", aliases: ["avatar"], poster: "./affiches/avatar.jpg" },
+    { title: "Inception", aliases: ["inception"], poster: "./affiches/inception.jpg" },
+    { title: "Jurassic Park", aliases: ["jurassic park", "le parc jurassique"], poster: "./affiches/jurassic_park.jpg" },
+    { title: "Retour vers le futur", aliases: ["retour vers le futur", "back to the future"], poster: "./affiches/retour_vers_le_futur.jpg" },
+    { title: "E.T. l'extra-terrestre", aliases: ["et", "e.t.", "e.t. l'extra-terrestre"], poster: "./affiches/et.jpg" },
+    { title: "Interstellar", aliases: ["interstellar"], poster: "./affiches/interstellar.jpg" },
+    { title: "Alien", aliases: ["alien", "alien le huitieme passager"], poster: "./affiches/alien.jpg" },
+    { title: "Blade Runner", aliases: ["blade runner"], poster: "./affiches/blade_runner.jpg" },
+    { title: "Terminator 2", aliases: ["terminator 2", "terminator", "le jugement dernier"], poster: "./affiches/terminator2.jpg" },
+    { title: "Le Cinquième Élément", aliases: ["le cinquieme element", "the fifth element"], poster: "./affiches/cinquieme_element.jpg" },
+    { title: "Dune", aliases: ["dune"], poster: "./affiches/dune.jpg" },
+
+    // Super-Héros / Action
+    { title: "Spider-Man", aliases: ["spider man", "spiderman", "spider-man"], poster: "./affiches/spiderman.jpg" },
+    { title: "The Dark Knight", aliases: ["the dark knight", "batman", "le chevalier noir"], poster: "./affiches/dark_knight.jpg" },
+    { title: "Avengers", aliases: ["avengers", "les avengers", "marvels the avengers"], poster: "./affiches/avengers.jpg" },
+    { title: "Iron Man", aliases: ["iron man", "ironman"], poster: "./affiches/iron_man.jpg" },
+    { title: "Deadpool", aliases: ["deadpool"], poster: "./affiches/deadpool.jpg" },
+    { title: "Gladiator", aliases: ["gladiator", "gladiateur"], poster: "./affiches/gladiator.jpg" },
+    { title: "Die Hard", aliases: ["die hard", "piege de cristal"], poster: "./affiches/die_hard.jpg" },
+    { title: "Mad Max: Fury Road", aliases: ["mad max", "mad max fury road", "fury road"], poster: "./affiches/mad_max.jpg" },
+    { title: "John Wick", aliases: ["john wick"], poster: "./affiches/john_wick.jpg" },
+    { title: "Indiana Jones", aliases: ["indiana jones", "les aventuriers de l'arche perdue"], poster: "./affiches/indiana_jones.jpg" },
+    { title: "James Bond: Casino Royale", aliases: ["james bond", "casino royale", "007"], poster: "./affiches/casino_royale.jpg" },
+    { title: "Mission: Impossible", aliases: ["mission impossible", "mission: impossible"], poster: "./affiches/mission_impossible.jpg" },
+    { title: "Léon", aliases: ["leon", "the professional"], poster: "./affiches/leon.jpg" },
+    { title: "Top Gun", aliases: ["top gun"], poster: "./affiches/top_gun.jpg" },
+
+    // Animation
+    { title: "Le Roi Lion", aliases: ["le roi lion", "the lion king"], poster: "./affiches/roi_lion.jpg" },
+    { title: "Toy Story", aliases: ["toy story"], poster: "./affiches/toy_story.jpg" },
+    { title: "Shrek", aliases: ["shrek"], poster: "./affiches/shrek.jpg" },
+    { title: "Le Monde de Nemo", aliases: ["le monde de nemo", "finding nemo", "nemo"], poster: "./affiches/nemo.jpg" },
+    { title: "Ratatouille", aliases: ["ratatouille"], poster: "./affiches/ratatouille.jpg" },
+    { title: "La Reine des Neiges", aliases: ["la reine des neiges", "frozen"], poster: "./affiches/reine_des_neiges.jpg" },
+    { title: "Mulan", aliases: ["mulan"], poster: "./affiches/mulan.jpg" },
+    { title: "Aladdin", aliases: ["aladdin", "aladin"], poster: "./affiches/aladdin.jpg" },
+    { title: "Spider-Man: New Generation", aliases: ["spider man new generation", "spiderverse", "spider-man into the spider-verse"], poster: "./affiches/spiderverse.jpg" },
+    { title: "Le Voyage de Chihiro", aliases: ["le voyage de chihiro", "spirited away", "chihiro"], poster: "./affiches/chihiro.jpg" },
+    { title: "Monstres et Cie", aliases: ["monstres et cie", "monsters inc"], poster: "./affiches/monstres_et_cie.jpg" },
+    { title: "Wall-E", aliases: ["wall e", "wall-e", "walle"], poster: "./affiches/wall_e.jpg" },
+    { title: "Là-haut", aliases: ["la haut", "up", "là-haut"], poster: "./affiches/la_haut.jpg" },
+    { title: "Kung Fu Panda", aliases: ["kung fu panda"], poster: "./affiches/kung_fu_panda.jpg" },
+    { title: "Moi, moche et méchant", aliases: ["moi moche et mechant", "despicable me", "les minions"], poster: "./affiches/moi_moche_et_mechant.jpg" },
+
+    // Drame / Romance / Historique
+    { title: "Titanic", aliases: ["titanic"], poster: "./affiches/titanic.jpg" },
+    { title: "Forrest Gump", aliases: ["forrest gump"], poster: "./affiches/forrest_gump.jpg" },
+    { title: "La Ligne Verte", aliases: ["la ligne verte", "the green mile"], poster: "./affiches/ligne_verte.jpg" },
+    { title: "Les Évadés", aliases: ["les evades", "the shawshank redemption"], poster: "./affiches/les_evades.jpg" },
+    { title: "Le Parrain", aliases: ["le parrain", "the godfather"], poster: "./affiches/parrain.jpg" },
+    { title: "Pulp Fiction", aliases: ["pulp fiction"], poster: "./affiches/pulp_fiction.jpg" },
+    { title: "Fight Club", aliases: ["fight club"], poster: "./affiches/fight_club.jpg" },
+    { title: "Will Hunting", aliases: ["will hunting", "good will hunting"], poster: "./affiches/will_hunting.jpg" },
+    { title: "Le Truman Show", aliases: ["le truman show", "the truman show", "truman show"], poster: "./affiches/truman_show.jpg" },
+    { title: "La Liste de Schindler", aliases: ["la liste de schindler", "schindler's list"], poster: "./affiches/liste_de_schindler.jpg" },
+    { title: "Intouchables", aliases: ["intouchables", "les intouchables"], poster: "./affiches/intouchables.jpg" },
+    { title: "Le Cercle des Poètes Disparus", aliases: ["le cercle des poetes disparus", "dead poets society"], poster: "./affiches/poetes_disparus.jpg" },
+    { title: "Rocky", aliases: ["rocky", "rocky balboa"], poster: "./affiches/rocky.jpg" },
+    { title: "Joker", aliases: ["joker"], poster: "./affiches/joker.jpg" },
+
+    // Comédie
+    { title: "Astérix et Obélix : Mission Cléopâtre", aliases: ["asterix et obelix", "mission cleopatre", "asterix et obelix mission cleopatre"], poster: "./affiches/asterix.jpg" },
+    { title: "Les Visiteurs", aliases: ["les visiteurs"], poster: "./affiches/les_visiteurs.jpg" },
+    { title: "Le Dîner de Cons", aliases: ["le diner de cons", "diner de cons"], poster: "./affiches/diner_de_cons.jpg" },
+    { title: "Very Bad Trip", aliases: ["very bad trip", "the hangover"], poster: "./affiches/very_bad_trip.jpg" },
+    { title: "Maman, j'ai raté l'avion", aliases: ["maman j'ai rate l'avion", "home alone"], poster: "./affiches/home_alone.jpg" },
+    { title: "The Mask", aliases: ["the mask", "le masque"], poster: "./affiches/the_mask.jpg" },
+    { title: "American Pie", aliases: ["american pie"], poster: "./affiches/american_pie.jpg" },
+    { title: "Rasta Rockett", aliases: ["rasta rockett", "cool runnings"], poster: "./affiches/rasta_rockett.jpg" },
+    { title: "La Grande Vadrouille", aliases: ["la grande vadrouille"], poster: "./affiches/grande_vadrouille.jpg" },
+    { title: "Les Bronzés font du ski", aliases: ["les bronzes font du ski", "les bronzes"], poster: "./affiches/bronzes.jpg" },
+    { title: "La Cité de la Peur", aliases: ["la cite de la peur", "cite de la peur"], poster: "./affiches/cite_de_la_peur.jpg" },
+    { title: "OSS 117 : Le Caire, nid d'espions", aliases: ["oss 117", "le caire nid d'espions"], poster: "./affiches/oss117.jpg" },
+
+    // Horreur / Thriller
+    { title: "Shining", aliases: ["shining", "the shining"], poster: "./affiches/shining.jpg" },
+    { title: "L'Exorciste", aliases: ["l'exorciste", "the exorcist", "exorciste"], poster: "./affiches/exorciste.jpg" },
+    { title: "Scream", aliases: ["scream"], poster: "./affiches/scream.jpg" },
+    { title: "Halloween", aliases: ["halloween"], poster: "./affiches/halloween.jpg" },
+    { title: "Les Dents de la Mer", aliases: ["les dents de la mer", "jaws"], poster: "./affiches/jaws.jpg" },
+    { title: "Ça", aliases: ["ca", "it"], poster: "./affiches/ca.jpg" },
+    { title: "Seven", aliases: ["seven", "se7en"], poster: "./affiches/seven.jpg" },
+    { title: "Le Silence des Agneaux", aliases: ["le silence des agneaux", "the silence of the lambs"], poster: "./affiches/silence_des_agneaux.jpg" },
+    { title: "Psychose", aliases: ["psychose", "psycho"], poster: "./affiches/psychose.jpg" },
+    { title: "Sixième Sens", aliases: ["sixieme sens", "the sixth sense"], poster: "./affiches/sixieme_sens.jpg" },
+    { title: "Saw", aliases: ["saw"], poster: "./affiches/saw.jpg" },
+    { title: "Conjuring", aliases: ["conjuring", "les dossiers warren", "the conjuring"], poster: "./affiches/conjuring.jpg" },
+    { title: "Get Out", aliases: ["get out"], poster: "./affiches/get_out.jpg" },
+    
+    // Divers / Cultes
+    { title: "Kill Bill", aliases: ["kill bill", "kill bill vol 1"], poster: "./affiches/kill_bill.jpg" },
+    { title: "V pour Vendetta", aliases: ["v pour vendetta", "v for vendetta"], poster: "./affiches/vendetta.jpg" },
+    { title: "Snatch", aliases: ["snatch", "tu braques ou tu raques"], poster: "./affiches/snatch.jpg" },
+    { title: "Scarface", aliases: ["scarface"], poster: "./affiches/scarface.jpg" },
+    { title: "Orange Mécanique", aliases: ["orange mecanique", "a clockwork orange"], poster: "./affiches/orange_mecanique.jpg" },
+    { title: "Le Fabuleux Destin d'Amélie Poulain", aliases: ["amelie poulain", "le fabuleux destin d'amelie poulain", "amelie"], poster: "./affiches/amelie_poulain.jpg" },
+    { title: "Edward aux mains d'argent", aliases: ["edward aux mains d'argent", "edward scissorhands"], poster: "./affiches/edward.jpg" },
+    { title: "Charlie et la Chocolaterie", aliases: ["charlie et la chocolaterie", "charlie and the chocolate factory"], poster: "./affiches/charlie_chocolaterie.jpg" },
+    { title: "Le Labyrinthe de Pan", aliases: ["le labyrinthe de pan", "pan's labyrinth"], poster: "./affiches/labyrinthe_de_pan.jpg" },
+    { title: "Braveheart", aliases: ["braveheart"], poster: "./affiches/braveheart.jpg" },
+    { title: "Il faut sauver le soldat Ryan", aliases: ["il faut sauver le soldat ryan", "saving private ryan", "le soldat ryan"], poster: "./affiches/soldat_ryan.jpg" },
+    { title: "Slumdog Millionaire", aliases: ["slumdog millionaire"], poster: "./affiches/slumdog.jpg" },
+    { title: "Drive", aliases: ["drive"], poster: "./affiches/drive.jpg" },
+    { title: "Parasite", aliases: ["parasite"], poster: "./affiches/parasite.jpg" },
+    { title: "Oppenheimer", aliases: ["oppenheimer"], poster: "./affiches/oppenheimer.jpg" },
+    { title: "Barbie", aliases: ["barbie"], poster: "./affiches/barbie.jpg" },
+    { title: "Dune : Deuxième Partie", aliases: ["dune 2", "dune deuxieme partie", "dune part two", "dune part 2", "dune 2ème partie"], poster: "./affiches/dune2.jpg" }
+];
+
+	CINE_MOVIES.forEach(movie => {
+    const img = new Image();
+    img.src = movie.poster;
+});
 
         const IMPOSTOR_PAIRS = [
             { citizen: "Pomme", impostor: "Poire" }, { citizen: "Avion", impostor: "Hélicoptère" },
@@ -1912,6 +2060,10 @@ function updateHostSettings() {
     const pbRounds = document.getElementById('setting-petitsbac-rounds')?.value || 3;
     const pbTimer = document.getElementById('setting-petitsbac-timer')?.value || 60;
 
+    // Ajoutez ces lignes dans updateHostSettings()
+	const cineRounds = document.getElementById('setting-cine-rounds')?.value || 5;
+	const cineTimer = document.getElementById('setting-cine-timer')?.value || 30;
+
     window.mettreAJourSalonFirebase(state.roomCode, {
         selectedMode: selectedMode,
         settings: {
@@ -1927,7 +2079,9 @@ function updateHostSettings() {
             anomalyTheme: anomalyTheme, // NOUVEAU
             pbCategories: parseInt(pbCategories, 10),
             pbRounds: parseInt(pbRounds, 10),
-            pbTimer: parseInt(pbTimer, 10)
+            pbTimer: parseInt(pbTimer, 10),
+	    cineRounds: parseInt(cineRounds, 10),
+	    cineTimer: parseInt(cineTimer, 10)
         },
         updatedAt: Date.now()
     });
@@ -2137,11 +2291,11 @@ window.launchGame = function() {
             return;
         }
 
+	window.currentCodeSalon = roomCode;
+
         // VÉRIFICATION : Tous les joueurs doivent être prêts
         let playersRaw = window.state.players || {};
         let playersArr = Array.isArray(playersRaw) ? playersRaw : Object.values(playersRaw);
-        
-        // On exclut les bots de la vérification
         let humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
         
         const allReady = humanPlayers.every(p => p.isReady === true);
@@ -2196,14 +2350,45 @@ window.launchGame = function() {
             return;
         }
 
-	let activeLocations = [];
-        const geoRounds = parseInt(document.getElementById('setting-rounds')?.value || 5, 10);
-        const geoTimer = parseInt(document.getElementById('setting-timer')?.value || 45, 10);
+	if (selectedMode === 'cine') {
+        const cineRounds = parseInt(document.getElementById('setting-cine-rounds')?.value || 5, 10);
+        const cineTimer = parseInt(document.getElementById('setting-cine-timer')?.value || 30, 10);
+        
+        let pool = [...CINE_MOVIES].sort(() => Math.random() - 0.5).slice(0, cineRounds);
+        
+        // Assurez-vous que l'objet updatePayload inclut bien cineGame
+        const updatePayload = {
+            status: 'IN_GAME',
+            selectedMode: 'cine',
+            settings: {
+                cineRounds: cineRounds,
+                cineTimer: cineTimer
+            },
+            cineGame: {
+                status: 'PLAYING',
+                currentRound: 1,
+                maxRounds: cineRounds,
+                timer: cineTimer,
+                movies: pool,
+                winner: null
+            },
+            startedAt: Date.now()
+        };
 
-        if (selectedMode === 'geoguessr') {
-            let pool = [...GLOBAL_UNIQUE_POOL].sort(() => Math.random() - 0.5);
-            activeLocations = pool.slice(0, geoRounds);
+        if (typeof window.mettreAJourSalonFirebase === 'function') {
+            window.mettreAJourSalonFirebase(roomCode, updatePayload);
         }
+        return;
+    }
+
+    let activeLocations = [];
+    const geoRounds = parseInt(document.getElementById('setting-rounds')?.value || 5, 10);
+    const geoTimer = parseInt(document.getElementById('setting-timer')?.value || 45, 10);
+
+    if (selectedMode === 'geoguessr') {
+        let pool = [...GLOBAL_UNIQUE_POOL].sort(() => Math.random() - 0.5);
+        activeLocations = pool.slice(0, geoRounds);
+    }
 
         const updatePayload = {
             status: 'IN_GAME',
@@ -4644,7 +4829,7 @@ function renderImpostorScreen(data) {
                 }
 
                 state.anomalyData.renderer.render(scene, camera);
-                state.anomalyData.animId = requestAnimationFrame(renderLoop);THEMES_CONFIG
+                state.anomalyData.animId = requestAnimationFrame(renderLoop);
             }
             renderLoop();
         }
@@ -5610,30 +5795,208 @@ function placeBid() {
 }
 
 // --- 5. CINÉMATOPHILE ---
-function startCineGame() {
-    showScreen('screen-cine');
-    const poster = document.getElementById('cine-poster');
-    // Affiche exemple de film
-    poster.src = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80";
+let cineTimerInterval = null;
+let cineCurrentImg = new Image();
+cineCurrentImg.crossOrigin = "Anonymous";
+
+function renderCineScreen(data) {
+    const gameData = data.cineGame;
+    if (!gameData) return;
     
-    // Dépixelisation progressive via la diminution du flou
-    let blurLevel = 24;
-    let blurInterval = setInterval(() => {
-        blurLevel -= 2;
-        if (blurLevel >= 0) {
-            poster.style.filter = `blur(${blurLevel}px)`;
-        } else {
-            clearInterval(blurInterval);
+    // S'assure d'être sur le bon écran
+    if (document.getElementById('screen-cine').classList.contains('hidden')) {
+        showScreen('screen-cine');
+    }
+
+    const currentMovie = gameData.movies[gameData.currentRound - 1];
+    document.getElementById('cine-round-indicator').innerHTML = `<i class="fa-solid fa-film"></i> Cinématophile - Manche ${gameData.currentRound}/${gameData.maxRounds}`;
+    
+    const winnerBox = document.getElementById('cine-winner-box');
+    const inputArea = document.getElementById('cine-input-area');
+    const nextBtn = document.getElementById('cine-next-btn');
+    const timerDisplay = document.getElementById('cine-timer');
+
+    if (gameData.status === 'PLAYING') {
+        winnerBox.classList.add('hidden');
+        inputArea.classList.remove('hidden');
+        nextBtn.classList.add('hidden');
+        
+        // Nouvelle manche détectée (nouveau film)
+        if (window.cineCurrentMovieTitle !== currentMovie.title) {
+            window.cineCurrentMovieTitle = currentMovie.title;
+            document.getElementById('input-cine-guess').value = '';
+            
+            // Nettoyage impératif de l'ancien intervalle pour éviter les accélérations de chrono
+            if (cineTimerInterval) {
+                clearInterval(cineTimerInterval);
+            }
+            
+            // Recréation propre de l'objet Image à chaque manche pour contourner le cache navigateur
+            cineCurrentImg = new Image();
+            cineCurrentImg.crossOrigin = "Anonymous";
+
+            let isInitialized = false; // Drapeau de sécurité pour empêcher la double exécution
+
+            const initPosterGame = () => {
+                if (isInitialized) return;
+                isInitialized = true;
+
+                window.cineTimeLeft = gameData.timer;
+                
+                // Fonction utilitaire calculant la taille des pixels avec bornage (évite le NaN)
+                const getPixelSize = (timeLeft) => {
+                    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / gameData.timer)));
+                    return Math.max(8, Math.floor(120 * Math.pow(1 - progress, 1.2) + 8 * progress));
+                };
+                
+                // Dessiner immédiatement la première frame pixelisée
+                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+
+                cineTimerInterval = setInterval(() => {
+                    window.cineTimeLeft--;
+                    timerDisplay.innerText = window.cineTimeLeft + 's';
+                    
+                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
+
+                    if (window.cineTimeLeft <= 0) {
+                        clearInterval(cineTimerInterval);
+                        if (window.isHost) {
+                            window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+                                'cineGame/status': 'ROUND_OVER',
+                                'cineGame/winner': 'Personne'
+                            });
+                        }
+                    }
+                }, 1000);
+            };
+
+            // FIX: Attacher l'événement .onload AVANT de définir le .src
+            cineCurrentImg.onload = initPosterGame;
+            cineCurrentImg.src = currentMovie.poster;
+
+            // Sécurité cache : se déclenche uniquement si l'image est 100% chargée localement
+            if (cineCurrentImg.complete && cineCurrentImg.naturalWidth > 0) {
+                initPosterGame();
+            }
         }
-    }, 1500);
+    } else if (gameData.status === 'ROUND_OVER') {
+        clearInterval(cineTimerInterval);
+        drawPixelatedPoster(cineCurrentImg, 1); // Révèle l'affiche nette sans pixels
+        window.cineCurrentMovieTitle = null; 
+        
+        inputArea.classList.add('hidden');
+        winnerBox.classList.remove('hidden');
+        
+        if (gameData.winner === 'Personne') {
+            winnerBox.innerHTML = `Temps écoulé ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
+            winnerBox.className = "w-full max-w-md p-4 bg-red-500/20 border border-red-500 rounded-xl text-red-300 font-bold mb-4 shadow-lg";
+        } else {
+            winnerBox.innerHTML = `🎉 <strong class="text-white">${gameData.winner}</strong> a trouvé ! C'était : <strong class="text-white">${currentMovie.title}</strong>`;
+            winnerBox.className = "w-full max-w-md p-4 bg-emerald-500/20 border border-emerald-500 rounded-xl text-emerald-300 font-bold mb-4 shadow-lg";
+        }
+
+        if (window.isHost) {
+            nextBtn.classList.remove('hidden');
+            if (gameData.currentRound >= gameData.maxRounds) {
+                nextBtn.innerHTML = 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>';
+            }
+        }
+    }
 }
 
-function submitCineGuess() {
+// Fonction moteur pour dessiner l'image avec des "gros" pixels
+function drawPixelatedPoster(img, pixelSize) {
+    const canvas = document.getElementById('cine-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    // Définir la résolution interne de base (taille typique affiche TMDB)
+    canvas.width = 400; 
+    canvas.height = 600;
+    
+    if (pixelSize <= 1) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return;
+    }
+
+    // Le secret de la pixelisation : On dessine l'image en tout petit, puis on l'agrandit
+    const smallWidth = canvas.width / pixelSize;
+    const smallHeight = canvas.height / pixelSize;
+    
+    ctx.imageSmoothingEnabled = false; // Désactive l'anti-aliasing pour garder les bords carrés
+    ctx.drawImage(img, 0, 0, smallWidth, smallHeight);
+    ctx.drawImage(canvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
+}
+
+// Outil pour nettoyer les accents et caractères spéciaux
+function normalizeGuess(str) {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+window.submitCineGuess = function() {
     const input = document.getElementById('input-cine-guess');
     if (!input || !input.value.trim()) return;
-    alert(`Proposition enregistrée : ${input.value}`);
-    input.value = "";
-}
+    
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (!roomCode) return;
+    
+    // Lire la base en direct pour valider
+    window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+        const gameData = data.cineGame;
+        if (!gameData || gameData.status !== 'PLAYING') return;
+
+        const currentMovie = gameData.movies[gameData.currentRound - 1];
+        const guess = normalizeGuess(input.value);
+        
+        let isCorrect = (normalizeGuess(currentMovie.title) === guess);
+        if (currentMovie.aliases) {
+            currentMovie.aliases.forEach(alias => {
+                if (normalizeGuess(alias) === guess) isCorrect = true;
+            });
+        }
+        
+        if (isCorrect) {
+            const myName = window.myPlayerKey || state.username;
+            const pts = 100 + (window.cineTimeLeft * 15); // Bonus de rapidité
+            
+            let currentScore = data.players[myName]?.score || 0;
+            
+            // Ferme le tour (met fin à la boucle pour tous les autres joueurs)
+            window.mettreAJourSalonFirebase(roomCode, {
+                'cineGame/status': 'ROUND_OVER',
+                'cineGame/winner': myName,
+                [`players/${myName}/score`]: currentScore + pts
+            });
+        } else {
+            // Effet d'erreur visuel
+            input.classList.add('border-red-500');
+            input.value = "";
+            setTimeout(() => input.classList.remove('border-red-500'), 500);
+        }
+    });
+};
+
+window.nextCineRound = function() {
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (!roomCode || !window.isHost) return;
+    
+    window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+        const gameData = data.cineGame;
+        if (!gameData) return;
+        
+        if (gameData.currentRound >= gameData.maxRounds) {
+            window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+            showFinalResults();
+        } else {
+            window.mettreAJourSalonFirebase(roomCode, {
+                'cineGame/status': 'PLAYING',
+                'cineGame/currentRound': gameData.currentRound + 1,
+                'cineGame/winner': null
+            });
+        }
+    });
+};
 
     </script>
 </body>
