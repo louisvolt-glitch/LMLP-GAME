@@ -1403,25 +1403,30 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
 <main id="screen-cine" class="hidden flex-1 flex flex-col space-y-4">
     <div class="glass p-4 rounded-2xl flex justify-between items-center">
         <span class="font-bold text-pink-400 text-sm" id="cine-round-indicator"><i class="fa-solid fa-film"></i> Cinématophile</span>
-        <span id="cine-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">30s</span>
+        <span id="cine-timer" class="font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded-xl text-amber-400">90s</span>
     </div>
     <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-6xl mx-auto w-full text-center">
         
         <div class="flex flex-col md:flex-row w-full gap-6 items-center md:items-stretch justify-center mb-4">
-    <!-- Zone de texte narratif à gauche (hauteur liée à l'affiche) -->
-    <div class="flex-[2] w-full flex flex-col bg-slate-900/80 border border-slate-700 p-6 rounded-2xl text-left shadow-inner h-[400px] md:h-[510px] overflow-y-auto">
-        <div id="cine-story-box" class="text-slate-300 font-sans text-base md:text-lg leading-relaxed whitespace-pre-line"></div>
-    </div>
-    <!-- Affiche à droite -->
-    <div id="cine-image-container" class="relative w-[260px] md:w-[340px] shrink-0 h-[400px] md:h-[510px] rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
-        <canvas id="cine-canvas" class="w-full h-full object-cover" style="image-rendering: pixelated;"></canvas>
-    </div>
-</div>
+            <!-- Zone de texte narratif à gauche -->
+            <div class="flex-[2] w-full flex flex-col bg-slate-900/80 border border-slate-700 p-6 rounded-2xl text-left shadow-inner h-[400px] md:h-[510px] overflow-y-auto">
+                <div id="cine-story-box" class="text-slate-300 font-sans text-base md:text-lg leading-relaxed whitespace-pre-line"></div>
+            </div>
+            <!-- Affiche à droite -->
+            <div id="cine-image-container" class="relative w-[260px] md:w-[340px] shrink-0 h-[400px] md:h-[510px] rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
+                <canvas id="cine-canvas" class="w-full h-full object-cover" style="image-rendering: pixelated;"></canvas>
+            </div>
+        </div>
 
-	<!-- Zone de saisie -->
-	<div class="flex gap-2 w-full max-w-md" id="cine-input-area">
+        <!-- Zone de saisie -->
+        <div class="flex gap-2 w-full max-w-md" id="cine-input-area">
             <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold uppercase" placeholder="Titre du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
             <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg">Deviner</button>
+        </div>
+
+        <!-- Statut des joueurs en bas -->
+        <div id="cine-players-status-bar" class="flex flex-wrap gap-3 justify-center items-center w-full max-w-4xl bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
+            <!-- Rempli dynamiquement -->
         </div>
 
         <!-- Zone d'affichage du vainqueur / Résultat -->
@@ -5544,7 +5549,7 @@ function renderCineScreen(data) {
     const playerStatusMap = gameData.playerStatus || {};
     const myStatus = playerStatusMap[myName] || { solved: false };
 
-    // Affichage du statut des joueurs en bas
+    // Rendu de la barre de statut des joueurs en bas
     if (statusBar && data.players) {
         const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
         statusBar.innerHTML = playersArr.filter(p => p && !p.isBot).map(p => {
@@ -5559,7 +5564,6 @@ function renderCineScreen(data) {
     if (gameData.status === 'PLAYING') {
         winnerBox.classList.add('hidden');
         
-        // Si le joueur a trouvé, on masque la zone de saisie et on affiche un message de succès personnel
         if (myStatus.solved) {
             inputArea.classList.add('hidden');
         } else {
@@ -5587,7 +5591,7 @@ function renderCineScreen(data) {
                 window.cineTimeLeft = gameData.timer || 90;
                 
                 const getPixelSize = (timeLeft, isSolved) => {
-                    if (isSolved) return 1; // Netteté parfaite uniquement pour ce joueur
+                    if (isSolved) return 1; // Netteté parfaite individuelle
                     let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
                     return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
                 };
@@ -5618,7 +5622,6 @@ function renderCineScreen(data) {
 
                     drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, playerStatusMap[myName]?.solved));
 
-                    // Vérification fin de temps (90s écoulées)
                     if (window.cineTimeLeft <= 0) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
@@ -5638,7 +5641,6 @@ function renderCineScreen(data) {
                 initPosterGame();
             }
         } else {
-            // Mettre à jour dynamiquement l'affichage si le statut de résolution vient de changer
             const getPixelSize = (timeLeft, isSolved) => {
                 if (isSolved) return 1;
                 let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
@@ -5652,7 +5654,7 @@ function renderCineScreen(data) {
         clearInterval(cineTimerInterval);
         if (windowCineTextInterval) clearInterval(windowCineTextInterval);
         
-        drawPixelatedPoster(cineCurrentImg, 1); // Tout le monde voit l'image nette à la fin
+        drawPixelatedPoster(cineCurrentImg, 1);
         window.cineCurrentMovieTitle = null; 
         
         if (storyBox) storyBox.innerHTML = currentMovie.storyText || "";
@@ -5663,7 +5665,6 @@ function renderCineScreen(data) {
         winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
         winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
-        // Le bouton pour passer à la prochaine manche apparaît pour l'hôte
         if (window.isHost) {
             nextBtn.classList.remove('hidden');
             if (gameData.currentRound >= gameData.maxRounds) {
@@ -5679,7 +5680,6 @@ function drawPixelatedPoster(img, pixelSize) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     
-    // Définir la résolution interne de base (taille typique affiche TMDB)
     canvas.width = 400; 
     canvas.height = 600;
     
@@ -5690,18 +5690,17 @@ function drawPixelatedPoster(img, pixelSize) {
     }
 
     const smallWidth = Math.max(1, Math.floor(canvas.width / pixelSize));
-const smallHeight = Math.max(1, Math.floor(canvas.height / pixelSize));
+    const smallHeight = Math.max(1, Math.floor(canvas.height / pixelSize));
 
-// Création d'un canvas temporaire pour éviter l'erreur InvalidStateError
-const tempCanvas = document.createElement('canvas');
-tempCanvas.width = smallWidth;
-tempCanvas.height = smallHeight;
-const tempCtx = tempCanvas.getContext('2d');
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = smallWidth;
+    tempCanvas.height = smallHeight;
+    const tempCtx = tempCanvas.getContext('2d');
 
-tempCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
+    tempCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
 
-ctx.imageSmoothingEnabled = false;
-ctx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
 }
 
 // Outil pour nettoyer les accents et caractères spéciaux
@@ -5732,9 +5731,7 @@ window.submitCineGuess = function() {
         
         if (isCorrect) {
             const myName = window.myPlayerKey || state.username;
-            // Score plus haut selon la vitesse (temps restant)
             const pts = 500 + ((window.cineTimeLeft || 0) * 20);
-            
             let currentScore = data.players[myName]?.score || 0;
             
             const updates = {};
@@ -5747,7 +5744,6 @@ window.submitCineGuess = function() {
                     const humanPlayers = Object.values(players).filter(p => p && !p.isBot);
                     const playerStatus = freshData.cineGame.playerStatus || {};
                     
-                    // Si TOUS les joueurs ont trouvé, on termine la manche immédiatement
                     const allFound = humanPlayers.length > 0 && humanPlayers.every(p => playerStatus[p.name || p.pseudo]?.solved);
                     if (allFound && window.isHost) {
                         window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
@@ -5777,6 +5773,7 @@ window.nextCineRound = function() {
             window.mettreAJourSalonFirebase(roomCode, {
                 'cineGame/status': 'PLAYING',
                 'cineGame/currentRound': gameData.currentRound + 1,
+                'cineGame/playerStatus': null,
                 'cineGame/winner': null
             });
         }
