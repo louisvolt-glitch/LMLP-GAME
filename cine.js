@@ -285,38 +285,54 @@ window.nextCineRound = function() {
     if (!roomCode) return;
     
     window.hasVotedCineNext = true;
+    
+    // Désactiver immédiatement le bouton localement pour éviter les double-clics
+    const nextBtn = document.getElementById('cine-next-btn');
+    if (nextBtn) {
+        nextBtn.disabled = true;
+        nextBtn.className = "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
+        nextBtn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+    }
+
     const updates = {};
     updates[`cineGame/readyForNext/${myName}`] = true;
     
-    // On met à jour Firebase. La vérification globale est gérée proprement 
-    // soit ici, soit par l'écouteur en temps réel pour synchroniser tous les clients.
     window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+        // Vérification immédiate de l'état global du salon
         window.rejoindreSalonFirebaseGet(roomCode, (data) => {
-            const gameData = data.cineGame;
-            if (!gameData) return;
-            
-            const players = data.players || {};
-            const playersArr = Array.isArray(players) ? players : Object.values(players);
-            const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
-            const readyMap = gameData.readyForNext || {};
-            
-            const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
-            
-            // Si tout le monde est prêt, n'importe quel client (Hôte ou invité) peut pousser la mise à jour globale
-            if (allReady) {
-                if (gameData.currentRound >= gameData.maxRounds) {
-                    window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
-                    showFinalResults();
-                } else {
-                    window.mettreAJourSalonFirebase(roomCode, {
-                        'cineGame/status': 'PLAYING',
-                        'cineGame/currentRound': gameData.currentRound + 1,
-                        'cineGame/playerStatus': null,
-                        'cineGame/readyForNext': null,
-                        'cineGame/winner': null
-                    });
-                }
-            }
+            checkAndTriggerNextCineRound(data, roomCode);
         });
     });
 };
+
+// Fonction utilitaire centralisée pour valider si tout le monde est prêt
+function checkAndTriggerNextCineRound(data, roomCode) {
+    const gameData = data.cineGame;
+    if (!gameData || gameData.status !== 'ROUND_OVER') return;
+    
+    const players = data.players || {};
+    const playersArr = Array.isArray(players) ? players : Object.values(players);
+    const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+    const readyMap = gameData.readyForNext || {};
+    
+    const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
+    
+    // Si tout le monde est prêt, on déclenche le changement de manche ou la fin de partie
+    if (allReady) {
+        // Empêcher les déclenchements multiples en vérifiant si le statut n'a pas déjà basculé
+        if (gameData.status === 'ROUND_OVER') {
+            if (gameData.currentRound >= gameData.maxRounds) {
+                window.mettreAJourSalonFirebase(roomCode, { status: 'LOBBY', cineGame: null });
+                showFinalResults();
+            } else {
+                window.mettreAJourSalonFirebase(roomCode, {
+                    'cineGame/status': 'PLAYING',
+                    'cineGame/currentRound': gameData.currentRound + 1,
+                    'cineGame/playerStatus': null,
+                    'cineGame/readyForNext': null,
+                    'cineGame/winner': null
+                });
+            }
+        }
+    }
+}
