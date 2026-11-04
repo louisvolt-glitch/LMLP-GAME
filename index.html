@@ -1407,15 +1407,13 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
     </div>
     <div class="glass p-6 rounded-3xl flex-1 flex flex-col items-center justify-center space-y-6 max-w-6xl mx-auto w-full text-center">
         
-        <div class="flex flex-col md:flex-row w-full gap-6 items-center md:items-start justify-center mb-4">
-    <!-- Zone de texte narratif à gauche -->
-    <div class="flex-[2] w-full flex flex-col bg-slate-900/80 border border-slate-700 p-6 rounded-2xl text-left shadow-inner min-h-[300px] max-h-[450px] md:max-h-[600px] overflow-y-auto">
-        <div id="cine-story-box" class="text-slate-300 font-sans text-lg md:text-xl leading-relaxed whitespace-pre-line">
-            <!-- Le texte s'écrira ici -->
-        </div>
+        <div class="flex flex-col md:flex-row w-full gap-6 items-center md:items-stretch justify-center mb-4">
+    <!-- Zone de texte narratif à gauche (hauteur liée à l'affiche) -->
+    <div class="flex-[2] w-full flex flex-col bg-slate-900/80 border border-slate-700 p-6 rounded-2xl text-left shadow-inner h-[400px] md:h-[510px] overflow-y-auto">
+        <div id="cine-story-box" class="text-slate-300 font-sans text-base md:text-lg leading-relaxed whitespace-pre-line"></div>
     </div>
     <!-- Affiche à droite -->
-    <div id="cine-image-container" class="relative w-[260px] md:w-[340px] shrink-0 aspect-[2/3] rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
+    <div id="cine-image-container" class="relative w-[260px] md:w-[340px] shrink-0 h-[400px] md:h-[510px] rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-black flex items-center justify-center">
         <canvas id="cine-canvas" class="w-full h-full object-cover" style="image-rendering: pixelated;"></canvas>
     </div>
 </div>
@@ -5568,9 +5566,10 @@ function renderCineScreen(data) {
                 window.cineTimeLeft = gameData.timer;
                 
                 const getPixelSize = (timeLeft) => {
-                    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / gameData.timer)));
-                    return Math.max(8, Math.floor(120 * Math.pow(1 - progress, 1.2) + 8 * progress));
-                };
+    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / gameData.timer)));
+    // Courbe plus douce et progressive pour faciliter la lecture anticipée
+    return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
+};
                 
                 drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft));
 
