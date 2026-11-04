@@ -319,6 +319,11 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             displayString = `${timerStr} / manche (${data.settings.pbRounds || 3} manches)`;
                             modulesStr = `${data.settings.pbCategories || 5} catégories par manche`;
                             break;
+			case 'cine':
+                            timerStr = "90s";
+                            displayString = `${timerStr} / manche (${data.settings?.cineRounds || 5} manches)`;
+                            modulesStr = "Cinématophile";
+                            break;
                         default:
                             timerStr = (data.settings.timer || 20) + "s";
                             displayString = `${timerStr}`;
@@ -5559,7 +5564,16 @@ function renderCineScreen(data) {
             const pName = p.name || p.pseudo;
             const pStat = playerStatusMap[pName] || { solved: false };
             const badgeColor = pStat.solved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-400 border-slate-700';
-            const icon = pStat.solved ? '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !' : '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
+            let icon = '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
+            let badgeColor = 'bg-slate-900 text-slate-400 border-slate-700';
+            
+            if (pStat.solved) {
+                badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                icon = '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
+            } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
+                badgeColor = 'bg-red-500/20 text-red-300 border-red-500/40';
+                icon = '<i class="fa-solid fa-xmark text-red-400"></i> Temps écoulé';
+            }
             return `<div class="px-3 py-1.5 rounded-lg border ${badgeColor} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
         }).join('');
     }
@@ -5633,8 +5647,21 @@ function renderCineScreen(data) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
                         if (window.isHost) {
-                            window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-                                'cineGame/status': 'ROUND_OVER'
+                            // Marquer automatiquement les joueurs non-trouvés comme "Temps écoulé"
+                            window.rejoindreSalonFirebaseGet(window.currentCodeSalon, (latestData) => {
+                                const pStatuses = latestData.cineGame?.playerStatus || {};
+                                const players = latestData.players || {};
+                                const updates = { 'cineGame/status': 'ROUND_OVER' };
+                                
+                                Object.values(players).forEach(p => {
+                                    if (p && !p.isBot) {
+                                        const pName = p.name || p.pseudo;
+                                        if (!pStatuses[pName]?.solved) {
+                                            updates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
+                                        }
+                                    }
+                                });
+                                window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
                             });
                         }
                     }
