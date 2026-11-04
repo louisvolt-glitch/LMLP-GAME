@@ -397,9 +397,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
-                if (data.selectedMode === 'cine' && typeof renderCineScreen === 'function') {
-                    renderCineScreen(data);
-                }
+                if (data.selectedMode === 'cine' && data.cineGame) {
+    renderCineScreen(data);
+    
+    // Vérification automatique en temps réel si tous les joueurs ont voté pour la manche suivante
+    if (data.cineGame.status === 'ROUND_OVER' && data.cineGame.readyForNext) {
+        checkAndTriggerNextCineRound(data, window.currentCodeSalon || data.roomCode);
+    }
+}
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
