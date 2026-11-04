@@ -5655,13 +5655,19 @@ function drawPixelatedPoster(img, pixelSize) {
         return;
     }
 
-    // Le secret de la pixelisation : On dessine l'image en tout petit, puis on l'agrandit
-    const smallWidth = canvas.width / pixelSize;
-    const smallHeight = canvas.height / pixelSize;
-    
-    ctx.imageSmoothingEnabled = false; // Désactive l'anti-aliasing pour garder les bords carrés
-    ctx.drawImage(img, 0, 0, smallWidth, smallHeight);
-    ctx.drawImage(canvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
+    const smallWidth = Math.max(1, Math.floor(canvas.width / pixelSize));
+const smallHeight = Math.max(1, Math.floor(canvas.height / pixelSize));
+
+// Création d'un canvas temporaire pour éviter l'erreur InvalidStateError
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = smallWidth;
+tempCanvas.height = smallHeight;
+const tempCtx = tempCanvas.getContext('2d');
+
+tempCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
+
+ctx.imageSmoothingEnabled = false;
+ctx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
 }
 
 // Outil pour nettoyer les accents et caractères spéciaux
