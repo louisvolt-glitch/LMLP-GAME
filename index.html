@@ -5565,16 +5565,16 @@ function renderCineScreen(data) {
             const pStat = playerStatusMap[pName] || { solved: false };
             const badgeColor = pStat.solved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-400 border-slate-700';
             let icon = '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
-            let badgeColor = 'bg-slate-900 text-slate-400 border-slate-700';
+            let badgeColore = 'bg-slate-900 text-slate-400 border-slate-700';
             
             if (pStat.solved) {
-                badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                badgeColore = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
                 icon = '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
             } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
-                badgeColor = 'bg-red-500/20 text-red-300 border-red-500/40';
+                badgeColore = 'bg-red-500/20 text-red-300 border-red-500/40';
                 icon = '<i class="fa-solid fa-xmark text-red-400"></i> Temps écoulé';
             }
-            return `<div class="px-3 py-1.5 rounded-lg border ${badgeColor} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
+            return `<div class="px-3 py-1.5 rounded-lg border ${badgeColore} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
         }).join('');
     }
 
