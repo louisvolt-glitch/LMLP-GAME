@@ -1425,6 +1425,9 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             <input type="text" id="input-cine-guess" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold uppercase" placeholder="Titre du film..." onkeypress="if(event.key==='Enter') submitCineGuess()">
             <button onclick="submitCineGuess()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg">Deviner</button>
         </div>
+
+        <!-- Zone d'affichage du vainqueur / Résultat -->
+        <div id="cine-winner-box" class="hidden"></div>
         
         <!-- Bouton Manche Suivante (Réservé à l'hôte) -->
         <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">
