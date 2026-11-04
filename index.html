@@ -5699,11 +5699,18 @@ function renderCineScreen(data) {
         winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
         winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
-        if (window.isHost) {
-            nextBtn.classList.remove('hidden');
-            if (gameData.currentRound >= gameData.maxRounds) {
-                nextBtn.innerHTML = 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>';
-            }
+        // Le bouton s'affiche pour TOUT LE MONDE
+        nextBtn.classList.remove('hidden');
+        const hasVotedNext = window.hasVotedCineNext || (gameData.readyForNext && gameData.readyForNext[myName]);
+        
+        if (hasVotedNext) {
+            nextBtn.disabled = true;
+            nextBtn.className = "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
+            nextBtn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+        } else {
+            nextBtn.disabled = false;
+            nextBtn.className = "w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition";
+            nextBtn.innerHTML = gameData.currentRound >= gameData.maxRounds ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>' : 'Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
         }
     }
 }
