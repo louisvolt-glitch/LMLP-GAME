@@ -508,13 +508,22 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 }
 
 	    else if (data.status === 'RESULTS') {
-        	const resultsScreen = document.getElementById('screen-results');
-       		if (resultsScreen && resultsScreen.classList.contains('hidden')) {
-            		if (typeof showFinalResults === 'function') {
-                		showFinalResults();
-            		}
-        	}
-    	    }
+
+    		const cineScreen = document.getElementById('screen-cine');
+    		if (cineScreen) {
+        		cineScreen.classList.add('hidden');
+        		cineScreen.style.display = 'none';
+    		}
+    		if (typeof cineTimerInterval !== 'undefined' && cineTimerInterval) clearInterval(cineTimerInterval);
+    		if (typeof windowCineTextInterval !== 'undefined' && windowCineTextInterval) clearInterval(windowCineTextInterval);
+
+    		const resultsScreen = document.getElementById('screen-results');
+    		if (resultsScreen && resultsScreen.classList.contains('hidden')) {
+        		if (typeof showFinalResults === 'function') {
+            			showFinalResults();
+        		}
+    		}
+	    }
 
             // === AJOUT POUR LE RETOUR AU MENU DE TOUS LES JOUEURS ===
             else if (data.status === 'LOBBY') {
