@@ -5063,19 +5063,28 @@ window.backToLobby = function() {
     });
 };
 
-// Nouvelle fonction exécutée uniquement lorsque TOUS les joueurs ont voté
 function executeActualBackToLobby() {
-    // 1. Masquer tous les écrans et afficher le lobby
     document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
     const lobby = document.getElementById('screen-lobby');
     if (lobby) lobby.classList.remove('hidden');
     
-    // 2. Réinitialiser la progression du Quiz localement
-if (typeof state !== 'undefined' && state.quizGame) {
-    state.quizGame.currentIndex = 0;
-    state.quizGame.answersLog = [];
-    state.quizGame.currentRoundAnswers = {};
-    state.quizGame.lobbyVotes = {};
+    // Réinitialisation complète des écrans de fin pour éviter qu'ils ne persistent en arrière-plan
+    ['screen-results', 'screen-cine', 'screen-round-summary', 'screen-quiz-recap'].forEach(sId => {
+        const sc = document.getElementById(sId);
+        if (sc) { sc.classList.add('hidden'); sc.style.display = 'none'; }
+    });
+
+    if (typeof state !== 'undefined' && state.quizGame) {
+        state.quizGame.currentIndex = 0;
+        state.quizGame.answersLog = [];
+        state.quizGame.currentRoundAnswers = {};
+        state.quizGame.lobbyVotes = {};
+    }
+    window.hasVotedForLobby = false;
+    isReady = false;
+
+    showScreen('screen-lobby');
+    updateLobbyUI();
 }
 
 window.hasVotedForLobby = false; // <-- AJOUT : Réinitialise pour la prochaine partie
