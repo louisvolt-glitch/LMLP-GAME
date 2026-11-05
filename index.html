@@ -397,31 +397,6 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
-                if (data.selectedMode === 'cine' && data.cineGame) {
-                    // Si la manche est en cours (PLAYING), on nettoie de force l'ancienne boîte de résultats
-                    // et on réactive la zone de saisie pour tout le monde, y compris l'hôte.
-                    if (data.cineGame.status === 'PLAYING') {
-                        const winnerBox = document.getElementById('cine-winner-box');
-                        const nextBtn = document.getElementById('cine-next-btn');
-                        const inputArea = document.getElementById('cine-input-area');
-
-                        if (winnerBox) {
-                            winnerBox.classList.add('hidden');
-                            winnerBox.style.display = 'none';
-                            winnerBox.innerHTML = '';
-                        }
-                        if (nextBtn) {
-                            nextBtn.classList.add('hidden');
-                            nextBtn.style.display = 'none';
-                            nextBtn.disabled = false;
-                        }
-                        if (inputArea) {
-                            inputArea.classList.remove('hidden');
-                            inputArea.style.display = 'flex'; // Restaure l'affichage flex de l'input
-                        }
-                    }
-                    renderCineScreen(data);
-                }
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
