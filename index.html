@@ -414,7 +414,11 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     const selectedMode = data.selectedMode || 'quiz';
 
                     if (selectedMode === 'quiz') {
-                        showScreen('screen-quiz-difficulty');
+                        if (typeof prepareNextQuizQuestion === 'function') {
+                            prepareNextQuizQuestion();
+                        } else {
+                            showScreen('screen-quiz-difficulty');
+                        }
                     } else if (selectedMode === 'impostor') {
                         showScreen('screen-impostor');
                     } else if (selectedMode === 'geoguessr') {
