@@ -54,9 +54,11 @@ function renderCineScreen(data) {
     }
 
     if (gameData.status === 'PLAYING') {
-        winnerBox.className = 'hidden'; // <-- CORRECTION : Écrase les classes CSS ajoutées lors du ROUND_OVER
+        winnerBox.classList.add('hidden');
         winnerBox.style.display = 'none';
+        winnerBox.innerHTML = '';
         
+        // Empêcher l'exécution redondante du rechargement d'image si l'hôte a déjà trouvé
         if (myStatus.solved) {
             inputArea.classList.add('hidden');
             inputArea.style.display = 'none';
@@ -215,9 +217,14 @@ function renderCineScreen(data) {
             if (allReady) {
                 const roomCode = window.currentCodeSalon || state.roomCode;
                 if (gameData.currentRound >= gameData.maxRounds) {
-                    window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
-                    if (typeof showFinalResults === 'function') showFinalResults();
-                } else {
+    window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
+    
+    // CORRECTION : Masquer explicitement l'écran Cinématophile pour éviter qu'il ne reste en arrière-plan
+    const cineScreen = document.getElementById('screen-cine');
+    if (cineScreen) cineScreen.classList.add('hidden');
+
+    if (typeof showFinalResults === 'function') showFinalResults();
+} else {
                     const resetPlayerStatus = {};
                     humanPlayers.forEach(p => {
                         const pName = p.name || p.pseudo;
