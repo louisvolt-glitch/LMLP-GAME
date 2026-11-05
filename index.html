@@ -398,8 +398,27 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
                 if (data.selectedMode === 'cine' && data.cineGame) {
-                    renderCineScreen(data);
-                }
+    // Si la manche est en cours, on nettoie d'office les résidus de l'ancienne manche pour tout le monde
+    if (data.cineGame.status === 'PLAYING') {
+        const winnerBox = document.getElementById('cine-winner-box');
+        if (winnerBox) {
+            winnerBox.classList.add('hidden');
+            winnerBox.style.display = 'none';
+            winnerBox.innerHTML = '';
+        }
+        const nextBtn = document.getElementById('cine-next-btn');
+        if (nextBtn) {
+            nextBtn.classList.add('hidden');
+            nextBtn.style.display = 'none';
+        }
+        const inputArea = document.getElementById('cine-input-area');
+        if (inputArea) {
+            inputArea.classList.remove('hidden');
+            inputArea.style.display = '';
+        }
+    }
+    renderCineScreen(data);
+}
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
