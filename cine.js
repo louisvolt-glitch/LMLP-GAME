@@ -54,11 +54,11 @@ function renderCineScreen(data) {
     }
 
     if (gameData.status === 'PLAYING') {
-        winnerBox.classList.add('hidden');
+        winnerBox.className = 'hidden';
         winnerBox.style.display = 'none';
         winnerBox.innerHTML = '';
         
-        // Empêcher l'exécution redondante du rechargement d'image si l'hôte a déjà trouvé
+        // S'assurer que chaque joueur gère son propre champ de saisie selon SON propre statut
         if (myStatus.solved) {
             inputArea.classList.add('hidden');
             inputArea.style.display = 'none';
@@ -75,14 +75,14 @@ function renderCineScreen(data) {
             window.cineCurrentMovieRound = gameData.currentRound;
             window.hasVotedCineNext = false;
             
-            winnerBox.innerHTML = ''; // Nettoyage de la réponse précédente
-            
-            if (!myStatus.solved) document.getElementById('input-cine-guess').value = '';
+            if (!myStatus.solved) {
+                const guessInput = document.getElementById('input-cine-guess');
+                if (guessInput) guessInput.value = '';
+            }
             
             if (cineTimerInterval) clearInterval(cineTimerInterval);
             if (windowCineTextInterval) clearInterval(windowCineTextInterval);
             
-            // <-- CORRECTION : Annule le chargement de l'ancienne image pour éviter les intervalles fantômes
             if (cineCurrentImg) cineCurrentImg.onload = null;
 
             cineCurrentImg = new Image();
@@ -123,15 +123,19 @@ function renderCineScreen(data) {
                 }, typingSpeed);
 
                 cineTimerInterval = setInterval(() => {
-                    window.cineTimeLeft--;
-                    timerDisplay.innerText = window.cineTimeLeft + 's';
+                    // Récupération sécurisée du statut frais du joueur depuis le snapshot global
+                    const freshStatusMap = (window.latestCineGameData && window.latestCineGameData.playerStatus) || {};
+                    const currentMyStatus = freshStatusMap[myName] || { solved: false };
 
-                    const latestStatusMap = (window.latestCineGameData && window.latestCineGameData.playerStatus) || {};
-                    const isNowSolved = latestStatusMap[myName]?.solved || false;
+                    if (!currentMyStatus.solved) {
+                        window.cineTimeLeft--;
+                        if (timerDisplay) timerDisplay.innerText = window.cineTimeLeft + 's';
+                    }
 
+                    const isNowSolved = currentMyStatus.solved || false;
                     drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, isNowSolved));
 
-                    if (window.cineTimeLeft <= 0) {
+                    if (window.cineTimeLeft <= 0 && !currentMyStatus.solved) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
                         if (window.isHost) {
@@ -162,6 +166,7 @@ function renderCineScreen(data) {
                 initPosterGame();
             }
         } else {
+            // Mise à jour fluide du rendu si le statut change en cours de route
             const getPixelSize = (timeLeft, isSolved) => {
                 if (isSolved) return 1;
                 let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
@@ -221,7 +226,13 @@ function renderCineScreen(data) {
     
     // CORRECTION : Masquer explicitement l'écran Cinématophile pour éviter qu'il ne reste en arrière-plan
     const cineScreen = document.getElementById('screen-cine');
-    if (cineScreen) cineScreen.classList.add('hidden');
+    if (cineScreen) {
+        cineScreen.classList.add('hidden');
+        cineScreen.style.display = 'none';
+    }
+
+    if (cineTimerInterval) clearInterval(cineTimerInterval);
+    if (windowCineTextInterval) clearInterval(windowCineTextInterval);
 
     if (typeof showFinalResults === 'function') showFinalResults();
 } else {
