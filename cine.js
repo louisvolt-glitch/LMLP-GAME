@@ -54,22 +54,25 @@ function renderCineScreen(data) {
     }
 
     if (gameData.status === 'PLAYING') {
-        winnerBox.className = 'hidden';
-        winnerBox.style.display = 'none';
-        winnerBox.innerHTML = '';
-        
-        if (myStatus.solved) {
-            inputArea.classList.add('hidden');
-            inputArea.style.display = 'none';
-        } else {
-            inputArea.classList.remove('hidden');
-            inputArea.style.display = '';
-	    const guessInput = document.getElementById('input-cine-guess');
-        if (guessInput) guessInput.disabled = false;
-        }
+    winnerBox.className = 'hidden';
+    winnerBox.style.display = 'none';
+    winnerBox.innerHTML = '';
 
-        nextBtn.classList.add('hidden');
-        nextBtn.style.display = 'none';
+    // S'assurer que la zone de saisie est réaffichée si le joueur n'a pas résolu la manche en cours
+    if (myStatus.solved) {
+        inputArea.classList.add('hidden');
+        inputArea.style.display = 'none';
+    } else {
+        inputArea.classList.remove('hidden');
+        inputArea.style.display = '';
+        const guessInput = document.getElementById('input-cine-guess');
+        if (guessInput) {
+            guessInput.disabled = false;
+            guessInput.value = '';
+        }
+    }
+    nextBtn.classList.add('hidden');
+    nextBtn.style.display = 'none';
         
         if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
     		window.cineCurrentMovieTitle = currentMovie.title;
@@ -235,7 +238,6 @@ function renderCineScreen(data) {
             nextBtn.innerHTML = gameData.currentRound >= gameData.maxRounds ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>' : 'Prêt pour la suite <i class="fa-solid fa-check ml-2"></i>';
         }
 
-        // 2. NOUVEAU : L'hôte vérifie ICI si tout le monde est prêt
         if (window.isHost) {
             const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
             const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
@@ -245,34 +247,33 @@ function renderCineScreen(data) {
             
             if (allReady) {
                 const roomCode = window.currentCodeSalon || state.roomCode;
-                if (gameData.currentRound >= gameData.maxRounds) {
-    window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
+                if (gameData.currentRound >= gameData.maxRounds) { 
+			window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
 
-    // Masquer explicitement l'écran Cinématophile pour éviter qu'il ne reste en arrière-plan
-    const cineScreen = document.getElementById('screen-cine');
-    if (cineScreen) {
-        cineScreen.classList.add('hidden');
-        cineScreen.style.display = 'none';
-    }
-    if (cineTimerInterval) clearInterval(cineTimerInterval);
-    if (windowCineTextInterval) clearInterval(windowCineTextInterval);
+    			const cineScreen = document.getElementById('screen-cine');
+    			if (cineScreen) {
+        			cineScreen.classList.add('hidden');
+        			cineScreen.style.display = 'none';
+    			}
+    			if (cineTimerInterval) clearInterval(cineTimerInterval);
+    			if (windowCineTextInterval) clearInterval(windowCineTextInterval);
 
-    if (typeof showFinalResults === 'function') showFinalResults();
-} else {
-                    const resetPlayerStatus = {};
-                    humanPlayers.forEach(p => {
-                        const pName = p.name || p.pseudo;
-                        resetPlayerStatus[pName] = { solved: false, timedOut: false };
-                    });
+    			if (typeof showFinalResults === 'function') showFinalResults();
+	    	} else {
+                	const resetPlayerStatus = {};
+                	humanPlayers.forEach(p => {
+                		const pName = p.name || p.pseudo;
+                        	resetPlayerStatus[pName] = { solved: false, timedOut: false };
+                	});
 
-                    window.mettreAJourSalonFirebase(roomCode, {
-                        'cineGame/status': 'PLAYING',
-                        'cineGame/currentRound': gameData.currentRound + 1,
-                        'cineGame/playerStatus': resetPlayerStatus,
-                        'cineGame/readyForNext': null, // On réinitialise les votes
-                        'cineGame/winner': null
-                    });
-                }
+                	window.mettreAJourSalonFirebase(roomCode, {
+                        	'cineGame/status': 'PLAYING',
+                        	'cineGame/currentRound': gameData.currentRound + 1,
+                        	'cineGame/playerStatus': resetPlayerStatus,
+                        	'cineGame/readyForNext': null,
+                        	'cineGame/winner': null
+                	});
+            	}
             }
         }
     }
