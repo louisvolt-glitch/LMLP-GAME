@@ -218,12 +218,20 @@ function renderCineScreen(data) {
     if (guessInput) {
         guessInput.disabled = isBlocked;
         
+        // On récupère aussi le bouton "Deviner" pour le bloquer
+        const guessBtn = inputArea ? inputArea.querySelector('button') : null;
+        if (guessBtn) guessBtn.disabled = isBlocked;
+        
         if (myLives <= 0 && !isSolved) {
             guessInput.placeholder = "PLUS DE VIES POUR CETTE MANCHE !";
-            guessInput.value = ""; // Vide le texte s'il en restait
-            guessInput.classList.add('opacity-50', 'cursor-not-allowed'); // Grise visuellement et bloque le curseur
+            guessInput.value = ""; 
+            guessInput.classList.add('opacity-50', 'cursor-not-allowed'); 
+            if (guessBtn) guessBtn.classList.add('opacity-50', 'cursor-not-allowed');
         } else {
+            // RÉINITIALISATION EXPLICITE ICI
+            guessInput.placeholder = "Titre du film..."; 
             guessInput.classList.remove('opacity-50', 'cursor-not-allowed');
+            if (guessBtn) guessBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
 
@@ -892,6 +900,13 @@ window.submitCineGuess = function() {
 
         if (!gameData || gameData.status !== 'PLAYING') return;
 
+
+	// VERIFICATION DE SÉCURITÉ : Interdire si le joueur a 0 vies, a déjà trouvé ou a eu un timeout
+        const myName = window.myPlayerKey || state.username;
+        const myStatus = gameData.playerStatus?.[myName] || {};
+        if (myStatus.solved || myStatus.timedOut || (myStatus.lives !== undefined && myStatus.lives <= 0)) {
+            return; // Bloque purement et simplement la soumission
+        }
 
         const currentMovie =
             gameData.movies[gameData.currentRound - 1];
