@@ -211,13 +211,19 @@ function renderCineScreen(data) {
     const isBlocked = isSolved || myLives <= 0 || myStatus.timedOut;
 
     if (inputArea) {
-        inputArea.classList.toggle('hidden', isBlocked);
-        inputArea.style.display = isBlocked ? 'none' : 'flex';
+        inputArea.classList.toggle('hidden', isSolved);
+        inputArea.style.display = isSolved ? 'none' : 'flex';
     }
+    
     if (guessInput) {
         guessInput.disabled = isBlocked;
+        
         if (myLives <= 0 && !isSolved) {
-            guessInput.placeholder = "Plus de vies pour cette manche !";
+            guessInput.placeholder = "PLUS DE VIES POUR CETTE MANCHE !";
+            guessInput.value = ""; // Vide le texte s'il en restait
+            guessInput.classList.add('opacity-50', 'cursor-not-allowed'); // Grise visuellement et bloque le curseur
+        } else {
+            guessInput.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
 
@@ -341,6 +347,7 @@ function renderCineScreen(data) {
 
                 guessInput.value = '';
                 guessInput.disabled = isSolved;
+                guessInput.placeholder = "Titre du film..."; // <-- Réinitialise le placeholder ici
             }
 
 
