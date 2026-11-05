@@ -86,7 +86,7 @@ window.prepareNextQuizQuestion = function() {
     state.quizGame.pendingCategoryName = categoryMetaObj.name;
 
     const badge = document.getElementById('diff-theme-badge');
-    if (badge) badge.innerText = `Thème : ${state.quizGame.pendingCategoryName}`;
+    if (badge) badge.innerText = state.quizGame.pendingCategoryName;
     
     showScreen('screen-quiz-difficulty');
 }
@@ -432,7 +432,7 @@ window.nextQuizQuestionOrFinish = function() {
     window.update(window.ref(window.db, `salons/${roomCode}`), updates);
 };
 
-window.executeActualNextQuizQuestion = function() {
+function executeActualNextQuizQuestion() {
     state.quizGame.currentIndex++;
     
     let roomCode = window.currentCodeSalon || state.roomCode;
@@ -444,6 +444,18 @@ window.executeActualNextQuizQuestion = function() {
         updates[`quizGame/currentRoundAnswers`] = null;
         window.update(window.ref(window.db, `salons/${roomCode}`), updates);
     }
+
+    // === RESET DU BOUTON DE L'ÉCRAN DE RÉSUMÉ POUR LA PROCHAINE FOIS ===
+    const summaryScreen = document.getElementById('screen-quiz-summary');
+    if (summaryScreen) {
+        const btn = summaryScreen.querySelector('button');
+        if (btn) {
+            btn.disabled = false;
+            btn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-indigo-500/20";
+            btn.innerHTML = 'Question Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
+        }
+    }
+    // ====================================================================
     
     prepareNextQuizQuestion();
 }
