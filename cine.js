@@ -54,23 +54,44 @@ function renderCineScreen(data) {
     }
 
     if (gameData.status === 'PLAYING') {
-    winnerBox.className = 'hidden';
-    winnerBox.style.display = 'none';
-    winnerBox.innerHTML = '';
-
-    // S'assurer que la zone de saisie est réaffichée si le joueur n'a pas résolu la manche en cours
-    if (myStatus.solved) {
-        inputArea.classList.add('hidden');
-        inputArea.style.display = 'none';
-    } else {
-        inputArea.classList.remove('hidden');
-        inputArea.style.display = '';
-        const guessInput = document.getElementById('input-cine-guess');
-        if (guessInput) {
-            guessInput.disabled = false;
-            guessInput.value = '';
+        // FORCER LE NETTOYAGE DES ÉLÉMENTS DE FIN DE TOUR POUR TOUT LE MONDE (Y COMPRIS L'HÔTE)
+        if (winnerBox) {
+            winnerBox.className = 'hidden';
+            winnerBox.style.display = 'none';
+            winnerBox.innerHTML = '';
         }
-    }
+        if (nextBtn) {
+            nextBtn.classList.add('hidden');
+            nextBtn.style.display = 'none';
+            nextBtn.disabled = false;
+        }
+        if (inputArea) {
+            inputArea.classList.remove('hidden');
+            inputArea.style.display = '';
+            const guessInput = document.getElementById('input-cine-guess');
+            if (guessInput) {
+                guessInput.disabled = false;
+            }
+        }
+
+        // S'assurer que la zone de saisie est gérée selon si le joueur a résolu ou non
+        if (myStatus.solved) {
+            if (inputArea) {
+                inputArea.classList.add('hidden');
+                inputArea.style.display = 'none';
+            }
+        } else {
+            if (inputArea) {
+                inputArea.classList.remove('hidden');
+                inputArea.style.display = '';
+                const guessInput = document.getElementById('input-cine-guess');
+                if (guessInput) {
+                    guessInput.disabled = false;
+                    guessInput.value = '';
+                }
+            }
+        }
+
     nextBtn.classList.add('hidden');
     nextBtn.style.display = 'none';
         
