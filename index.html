@@ -5083,15 +5083,6 @@ function executeActualBackToLobby() {
     window.hasVotedForLobby = false;
     isReady = false;
 
-    showScreen('screen-lobby');
-    updateLobbyUI();
-}
-
-window.hasVotedForLobby = false; // <-- AJOUT : Réinitialise pour la prochaine partie
-
-// 3. Réinitialiser la variable locale 'isReady'
-isReady = false;
-
     const btn = document.getElementById('deploy-btn');
     const statusText = document.getElementById('ready-status-text');
 
