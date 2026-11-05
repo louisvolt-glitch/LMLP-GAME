@@ -47,10 +47,12 @@ window.initQuizCategoriesChecklist = function() {
         });
 
 window.startQuizMode = function() {
+    // S'assure que l'objet global quizGame existe toujours pour éviter les plantages
+    state.quizGame = state.quizGame || {};
+
     let seq = [];
     let checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
     let cats = checkedBoxes.length > 0 ? Array.from(checkedBoxes).map(cb => cb.value) : (state.quizSettings.categories || ['geo']);
-    
     const totalQ = parseInt(state.quizSettings.questionsCount, 10) || 10;
 
     state.quizGame.totalQuestions = totalQ;
@@ -59,13 +61,15 @@ window.startQuizMode = function() {
     for (let i = 0; i < totalQ; i++) {
         seq.push(cats[i % cats.length]);
     }
-    
+
     state.quizGame.categoriesSequence = seq.sort(() => Math.random() - 0.5);
     state.quizGame.currentIndex = 0;
     state.quizGame.answersLog = [];
-    
+    state.quizGame.currentRoundAnswers = {};
+
+    // Lance proprement la préparation de la première question et de sa catégorie
     prepareNextQuizQuestion();
-}
+};
 
 window.prepareNextQuizQuestion = function() {
     let seq = state.quizGame.categoriesSequence;
@@ -87,12 +91,14 @@ window.prepareNextQuizQuestion = function() {
 
     showScreen('screen-quiz-difficulty');
 
-    const badge = document.getElementById('diff-theme-badge');
-    if (badge) {
-        badge.innerText = state.quizGame.pendingCategoryName;
-    }
+    setTimeout(() => {
+        const badge = document.getElementById('diff-theme-badge');
+        if (badge) {
+            badge.innerText = state.quizGame.pendingCategoryName;
+        }
+    }, 50);
 
-}
+};
 
 window.chooseQuizDifficulty = function(diff) {
     if (typeof window.state === 'undefined') window.state = {};
