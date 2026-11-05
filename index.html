@@ -5074,6 +5074,10 @@ function executeActualBackToLobby() {
         if (sc) { sc.classList.add('hidden'); sc.style.display = 'none'; }
     });
 
+    window.cineCurrentMovieTitle = null;
+    window.cineCurrentMovieRound = null;
+    window.hasVotedCineNext = false;
+
     if (typeof state !== 'undefined' && state.quizGame) {
         state.quizGame.currentIndex = 0;
         state.quizGame.answersLog = [];
