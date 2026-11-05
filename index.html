@@ -441,10 +441,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         const cnScreen = document.getElementById('screen-codenames');
                         if (cnScreen) cnScreen.classList.remove('hidden');
                     } else if (selectedMode === 'cine') {
-                        const cineScreen = document.getElementById('screen-cine');
-                        if (cineScreen) {
-                            cineScreen.classList.remove('hidden');
-                        }
+                        showScreen('screen-cine'); // Utilise showScreen pour nettoyer le display: none
                     }
                 }
             }
