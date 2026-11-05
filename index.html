@@ -4605,19 +4605,19 @@ function renderImpostorScreen(data) {
             }
         }
 
-///////////////////////////////////////////////////////////////
-////////////////// --- PETIT BAC --- //////////////////////////
-///////////////////////////////////////////////////////////////
-
         function showScreen(id) {
-            // Ajout de petitsbac et petitsbac-vote pour bien les masquer
-            ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results', 'screen-petitsbac', 'screen-petitsbac-vote'].forEach(s => {
+            ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results', 'screen-petitsbac', 'screen-petitsbac-vote', 'screen-cine'].forEach(s => {
                 const el = document.getElementById(s);
-                if (el) el.classList.add('hidden');
+                if (el) {
+            		el.classList.add('hidden');
+            		el.style.display = 'none'; // Force le masquage propre
+        	}
             });
             const target = document.getElementById(id);
-            if (target) target.classList.remove('hidden');
-	    target.style.display = '';
+            if (target) {
+        		target.classList.remove('hidden');
+        		target.style.display = ''; // Rétablit l'affichage normal
+    	     }
 
             // Afficher le profil du Header seulement si on a quitté l'écran d'accueil
             const headerProfile = document.getElementById('header-player-profile');
