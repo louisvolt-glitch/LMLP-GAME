@@ -396,52 +396,41 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 	    // --- 3. CHANGEMENT D'ÉCRAN SI JEU LANCÉ ---
             if (data.status === 'IN_GAME') {
                 const lobbyScreen = document.getElementById('screen-lobby');
-                
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
-                    lobbyScreen.classList.add('hidden');
-
+                    // L'appel à showScreen s'occupera de masquer le lobby proprement
                     const selectedMode = data.selectedMode || 'quiz';
 
                     if (selectedMode === 'quiz') {
-                        const diffScreen = document.getElementById('screen-quiz-difficulty');
-                        if (diffScreen) diffScreen.classList.remove('hidden');
+                        showScreen('screen-quiz-difficulty');
                     } else if (selectedMode === 'impostor') {
-                        const imposScreen = document.getElementById('screen-impostor');
-                        if (imposScreen) imposScreen.classList.remove('hidden'); 
+                        showScreen('screen-impostor');
                     } else if (selectedMode === 'geoguessr') {
-                        const geoScreen = document.getElementById('screen-game-geoguessr');
-                        if (geoScreen) {
-                            geoScreen.classList.remove('hidden');
-                            
-                            if (data.activeLocations) {
-                                state.activeLocations = Array.isArray(data.activeLocations) 
-                                    ? data.activeLocations 
-                                    : Object.values(data.activeLocations);
-                            }
-                            if (data.settings) {
-                                state.settings.rounds = data.settings.geoRounds || data.settings.rounds || 5;
-                                state.settings.timer = data.settings.geoTimer || data.settings.timer || 45;
-                            }
-                            state.currentRound = typeof data.currentRound === 'number' ? data.currentRound : 0;
-                            
-                            loadGoogleMapsApi(() => startNextRound());
-                        }
-                    } else if (selectedMode === 'anomaly') {
-                        const anoScreen = document.getElementById('screen-generic-game');
-                        if (anoScreen) anoScreen.classList.remove('hidden'); 
+                        showScreen('screen-game-geoguessr');
                         
+                        if (data.activeLocations) {
+                            state.activeLocations = Array.isArray(data.activeLocations) 
+                                ? data.activeLocations 
+                                : Object.values(data.activeLocations);
+                        }
+                        if (data.settings) {
+                            state.settings.rounds = data.settings.geoRounds || data.settings.rounds || 5;
+                            state.settings.timer = data.settings.geoTimer || data.settings.timer || 45;
+                        }
+                        state.currentRound = typeof data.currentRound === 'number' ? data.currentRound : 0;
+                        
+                        loadGoogleMapsApi(() => startNextRound());
+                    } else if (selectedMode === 'anomaly') {
+                        showScreen('screen-generic-game');
                         if (typeof startAnomalyMode === 'function') {
                             startAnomalyMode();
                         }
                     } else if (selectedMode === 'petitsbac') {
-                        const bacScreen = document.getElementById('screen-petitsbac');
-                        if (bacScreen) bacScreen.classList.remove('hidden'); 
+                        showScreen('screen-petitsbac');
                     } else if (selectedMode === 'codenames') {
-                        const cnScreen = document.getElementById('screen-codenames');
-                        if (cnScreen) cnScreen.classList.remove('hidden');
+                        showScreen('screen-codenames');
                     } else if (selectedMode === 'cine') {
-                        showScreen('screen-cine'); // Utilise showScreen pour nettoyer le display: none
+                        showScreen('screen-cine');
                     }
                 }
             }
@@ -4611,13 +4600,12 @@ function renderImpostorScreen(data) {
         }
 
         function showScreen(id) {
-            ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-generic-game', 'screen-results', 'screen-petitsbac', 'screen-petitsbac-vote', 'screen-cine'].forEach(s => {
-                const el = document.getElementById(s);
-                if (el) {
-            		el.classList.add('hidden');
-            		el.style.display = 'none'; // Force le masquage propre
-        	}
-            });
+
+            document.querySelectorAll('main').forEach(el => {
+        		el.classList.add('hidden');
+        		el.style.display = 'none'; // Force le masquage propre
+    	    });
+
             const target = document.getElementById(id);
             if (target) {
         		target.classList.remove('hidden');
@@ -5084,15 +5072,8 @@ window.backToLobby = function() {
 };
 
 function executeActualBackToLobby() {
-    document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
-    const lobby = document.getElementById('screen-lobby');
-    if (lobby) lobby.classList.remove('hidden');
-    
-    // Réinitialisation complète des écrans de fin pour éviter qu'ils ne persistent en arrière-plan
-    ['screen-results', 'screen-cine', 'screen-round-summary', 'screen-quiz-recap'].forEach(sId => {
-        const sc = document.getElementById(sId);
-        if (sc) { sc.classList.add('hidden'); sc.style.display = 'none'; }
-    });
+    // Utilise la nouvelle fonction showScreen pour tout nettoyer et afficher le salon
+    showScreen('screen-lobby');
 
     window.cineCurrentMovieTitle = null;
     window.cineCurrentMovieRound = null;
@@ -5134,7 +5115,6 @@ function executeActualBackToLobby() {
         });
     }
 
-    showScreen('screen-lobby');
     updateLobbyUI();
 }
 
