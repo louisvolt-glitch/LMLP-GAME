@@ -5086,6 +5086,13 @@ function executeActualBackToLobby() {
         if (sc) { sc.classList.add('hidden'); sc.style.display = 'none'; }
     });
 
+    const buttons = document.querySelectorAll('button[onclick="backToLobby()"]');
+    buttons.forEach(btn => {
+        btn.disabled = false;
+        btn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition shadow-lg";
+        btn.innerHTML = 'Retour au Salon';
+    });
+
     window.cineCurrentMovieTitle = null;
     window.cineCurrentMovieRound = null;
     window.hasVotedCineNext = false;
