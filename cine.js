@@ -78,7 +78,8 @@ function advanceCineRoundIfReady(data, gameData, roundNumber, sessionKey) {
 
             resetPlayerStatus[pName] = {
                 solved: false,
-                timedOut: false
+                timedOut: false,
+		lives: 3
             };
         });
 
@@ -198,11 +199,27 @@ function renderCineScreen(data) {
 
     const myStatus = playerStatusMap[myName] || {
         solved: false,
-        timedOut: false
+        timedOut: false,
+	lives: 3
     };
 
     const isSolved = !!myStatus.solved;
 
+    const myLives = myStatus.lives !== undefined ? myStatus.lives : 3;
+    updateCineHeartsUI(myLives);
+
+    const isBlocked = isSolved || myLives <= 0 || myStatus.timedOut;
+
+    if (inputArea) {
+        inputArea.classList.toggle('hidden', isBlocked);
+        inputArea.style.display = isBlocked ? 'none' : 'flex';
+    }
+    if (guessInput) {
+        guessInput.disabled = isBlocked;
+        if (myLives <= 0 && !isSolved) {
+            guessInput.placeholder = "Plus de vies pour cette manche !";
+        }
+    }
 
     // AFFICHAGE DU STATUT DES JOUEURS
     if (statusBar && data.players) {
@@ -971,11 +988,23 @@ window.submitCineGuess = function() {
             });
 
         } else {
+            // Mauvaise réponse : on retire une vie
+            const myName = window.myPlayerKey || state.username;
+            const currentStatus = gameData.playerStatus?.[myName] || { solved: false, lives: 3 };
+            let currentLives = currentStatus.lives !== undefined ? currentStatus.lives : 3;
+            currentLives = Math.max(0, currentLives - 1);
+
+            const updates = {};
+            updates[`cineGame/playerStatus/${myName}/lives`] = currentLives;
+
+            if (currentLives <= 0) {
+                updates[`cineGame/playerStatus/${myName}/timedOut`] = true;
+            }
+
+            window.update(window.ref(window.db, `salons/${roomCode}`), updates);
 
             input.classList.add('border-red-500');
-
             input.value = "";
-
             setTimeout(() => {
                 input.classList.remove('border-red-500');
             }, 500);
@@ -1040,4 +1069,18 @@ window.nextCineRound = function() {
             error
         );
     });
+};
+
+function updateCineHeartsUI(lives) {
+    const container = document.getElementById('cine-hearts-container');
+    if (!container) return;
+    let html = '';
+    for (let i = 1; i <= 3; i++) {
+        if (i <= lives) {
+            html += '<i class="fa-solid fa-heart text-red-500 drop-shadow"></i>';
+        } else {
+            html += '<i class="fa-solid fa-heart text-slate-700"></i>';
+        }
+    }
+    container.innerHTML = html;
 };
