@@ -4617,6 +4617,7 @@ function renderImpostorScreen(data) {
             });
             const target = document.getElementById(id);
             if (target) target.classList.remove('hidden');
+	    target.style.display = '';
 
             // Afficher le profil du Header seulement si on a quitté l'écran d'accueil
             const headerProfile = document.getElementById('header-player-profile');
