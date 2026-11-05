@@ -85,10 +85,13 @@ window.prepareNextQuizQuestion = function() {
     const categoryMetaObj = categoriesMeta.find(c => c.key === catKey) || { name: 'Culture Générale' };
     state.quizGame.pendingCategoryName = categoryMetaObj.name;
 
-    const badge = document.getElementById('diff-theme-badge');
-    if (badge) badge.innerText = state.quizGame.pendingCategoryName;
-    
     showScreen('screen-quiz-difficulty');
+
+    const badge = document.getElementById('diff-theme-badge');
+    if (badge) {
+        badge.innerText = state.quizGame.pendingCategoryName;
+    }
+
 }
 
 window.chooseQuizDifficulty = function(diff) {
@@ -436,8 +439,9 @@ function executeActualNextQuizQuestion() {
     state.quizGame.currentIndex++;
     
     let roomCode = window.currentCodeSalon || state.roomCode;
+    
+    // Seul l'hôte nettoie les votes sur Firebase pour tout le monde
     if (roomCode && window.isHost) {
-        // L'hôte nettoie les votes de préparation et avance l'index pour tout le monde
         const updates = {};
         updates[`quizGame/currentIndex`] = state.quizGame.currentIndex;
         updates[`quizGame/readyForNext`] = null;
@@ -445,7 +449,7 @@ function executeActualNextQuizQuestion() {
         window.update(window.ref(window.db, `salons/${roomCode}`), updates);
     }
 
-    // === RESET DU BOUTON DE L'ÉCRAN DE RÉSUMÉ POUR LA PROCHAINE FOIS ===
+    // EXÉCUTÉ PAR TOUS LES JOUEURS : Réinitialisation locale du bouton de résumé
     const summaryScreen = document.getElementById('screen-quiz-summary');
     if (summaryScreen) {
         const btn = summaryScreen.querySelector('button');
@@ -455,8 +459,8 @@ function executeActualNextQuizQuestion() {
             btn.innerHTML = 'Question Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
         }
     }
-    // ====================================================================
     
+    // Prépare la question suivante
     prepareNextQuizQuestion();
 }
 
