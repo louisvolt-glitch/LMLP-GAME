@@ -409,18 +409,44 @@ window.showQuizSummaryScreen = function(selIdx, qObj) {
 }
 
 window.nextQuizQuestionOrFinish = function() {
-            state.quizGame.currentIndex++;
-            
-            // Synchroniser le nouvel index et réinitialiser les réponses du tour sur Firebase
-            if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
-                window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-                    "quizGame/currentIndex": state.quizGame.currentIndex,
-                    "quizGame/currentRoundAnswers": null
-                });
-            }
-            
-            prepareNextQuizQuestion();
-        }
+    let myKey = window.myPlayerKey || state.username;
+    let roomCode = window.currentCodeSalon || state.roomCode;
+
+    // 1. Mettre à jour l'interface du bouton localement pour afficher le sablier tout de suite
+    const btn = document.querySelector('#screen-quiz-summary button') || event.target;
+    if (btn) {
+        btn.disabled = true;
+        btn.className = "w-full bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
+        btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+    }
+
+    if (!roomCode || !window.db) {
+        // Mode secours local si pas de salon Firebase
+        setTimeout(() => { executeActualNextQuizQuestion(); }, 1000);
+        return;
+    }
+
+    // 2. Enregistrer sur Firebase que ce joueur est prêt pour la suite
+    const updates = {};
+    updates[`quizGame/readyForNext/${myKey}`] = true;
+    window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+};
+
+window.executeActualNextQuizQuestion = function() {
+    state.quizGame.currentIndex++;
+    
+    let roomCode = window.currentCodeSalon || state.roomCode;
+    if (roomCode && window.isHost) {
+        // L'hôte nettoie les votes de préparation et avance l'index pour tout le monde
+        const updates = {};
+        updates[`quizGame/currentIndex`] = state.quizGame.currentIndex;
+        updates[`quizGame/readyForNext`] = null;
+        updates[`quizGame/currentRoundAnswers`] = null;
+        window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+    }
+    
+    prepareNextQuizQuestion();
+}
 
 window.showQuizFinalRecap = function() {
     showScreen('screen-quiz-recap');
