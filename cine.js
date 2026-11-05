@@ -984,16 +984,16 @@ window.submitCineGuess = function() {
                         const playerStatus =
                             freshData.cineGame?.playerStatus || {};
 
-
-                        const allFound =
+                        // MODIFIÉ : La manche est finie si tout le monde a soit trouvé, soit perdu toutes ses vies
+                        const isRoundFinished =
                             humanPlayers.length > 0 &&
-                            humanPlayers.every(
-                                p => playerStatus[p.name || p.pseudo]?.solved
-                            );
-
+                            humanPlayers.every(p => {
+                                const status = playerStatus[p.name || p.pseudo] || {};
+                                return status.solved || status.timedOut;
+                            });
 
                         if (
-                            allFound &&
+                            isRoundFinished &&
                             freshData.cineGame?.status === 'PLAYING'
                         ) {
 
@@ -1023,7 +1023,26 @@ window.submitCineGuess = function() {
                 updates[`cineGame/playerStatus/${myName}/timedOut`] = true;
             }
 
-            window.update(window.ref(window.db, `salons/${roomCode}`), updates);
+            window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+                // Si le joueur vient de perdre sa dernière vie, on vérifie si ça termine la manche pour tout le monde
+                if (currentLives <= 0) {
+                    window.rejoindreSalonFirebaseGet(roomCode, (freshData) => {
+                        const players = freshData.players || {};
+                        const playersArr = Array.isArray(players) ? players : Object.values(players);
+                        const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+                        const playerStatus = freshData.cineGame?.playerStatus || {};
+
+                        const isRoundFinished = humanPlayers.length > 0 && humanPlayers.every(p => {
+                            const status = playerStatus[p.name || p.pseudo] || {};
+                            return status.solved || status.timedOut;
+                        });
+
+                        if (isRoundFinished && freshData.cineGame?.status === 'PLAYING') {
+                            window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
+                        }
+                    });
+                }
+            });
 
             input.classList.add('border-red-500');
             input.value = "";
