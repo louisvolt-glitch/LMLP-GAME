@@ -10,394 +10,1034 @@ let windowCineTextInterval = null;
 let cineCurrentImg = new Image();
 cineCurrentImg.crossOrigin = "Anonymous";
 
+// Identifiants locaux pour distinguer une nouvelle partie d'une nouvelle manche.
+window.cineGameSessionKey = window.cineGameSessionKey || null;
+window.cineLastRenderedRound = window.cineLastRenderedRound || 0;
+window.cineRoundKey = window.cineRoundKey || null;
+window.cineTransitionInProgressKey = window.cineTransitionInProgressKey || null;
+
+function stopCineIntervals() {
+    if (cineTimerInterval) {
+        clearInterval(cineTimerInterval);
+        cineTimerInterval = null;
+    }
+
+    if (windowCineTextInterval) {
+        clearInterval(windowCineTextInterval);
+        windowCineTextInterval = null;
+    }
+}
+
+// Passage sécurisé à la manche suivante.
+function advanceCineRoundIfReady(data, gameData, roundNumber, sessionKey) {
+    if (!window.isHost || gameData.status !== 'ROUND_OVER') return;
+
+    const playersRaw = data.players || {};
+    const playersArr = Array.isArray(playersRaw)
+        ? playersRaw
+        : Object.values(playersRaw);
+
+    const humanPlayers = playersArr.filter(
+        p => p && (p.name || p.pseudo) && !p.isBot
+    );
+
+    const readyMap = gameData.readyForNext || {};
+
+    const allReady = humanPlayers.length > 0 &&
+        humanPlayers.every(p => !!readyMap[p.name || p.pseudo]);
+
+    if (!allReady) return;
+
+    const transitionKey = `${sessionKey}:${roundNumber}`;
+
+    // Empêcher plusieurs transitions pour la même manche.
+    if (window.cineTransitionInProgressKey === transitionKey) return;
+
+    const roomCode = window.currentCodeSalon || state.roomCode;
+
+    if (!roomCode || typeof window.update !== 'function') return;
+
+    // Verrou local posé AVANT l'appel Firebase.
+    window.cineTransitionInProgressKey = transitionKey;
+
+    let updates;
+
+    if (roundNumber >= Number(gameData.maxRounds || 1)) {
+
+        updates = {
+            status: 'RESULTS',
+            cineGame: null
+        };
+
+    } else {
+
+        const resetPlayerStatus = {};
+
+        humanPlayers.forEach(p => {
+            const pName = p.name || p.pseudo;
+
+            resetPlayerStatus[pName] = {
+                solved: false,
+                timedOut: false
+            };
+        });
+
+        // Réinitialiser également le joueur local, y compris l'hôte.
+        const localName = window.myPlayerKey || state.username;
+
+        if (localName) {
+            resetPlayerStatus[localName] = {
+                solved: false,
+                timedOut: false
+            };
+        }
+
+        updates = {
+            status: 'IN_GAME',
+            'cineGame/status': 'PLAYING',
+            'cineGame/currentRound': roundNumber + 1,
+            'cineGame/playerStatus': resetPlayerStatus,
+            'cineGame/readyForNext': null,
+            'cineGame/winner': null
+        };
+    }
+
+    window.update(
+        window.ref(window.db, `salons/${roomCode}`),
+        updates
+    ).catch(error => {
+
+        // En cas d'échec, autoriser une nouvelle tentative.
+        if (window.cineTransitionInProgressKey === transitionKey) {
+            window.cineTransitionInProgressKey = null;
+        }
+
+        console.error(
+            'Erreur lors du passage à la manche suivante (Cinématophile) :',
+            error
+        );
+    });
+}
+
+
 function renderCineScreen(data) {
-    const gameData = data.cineGame;
+
+    const gameData = data && data.cineGame;
     if (!gameData) return;
-    
+
+    const movies = Array.isArray(gameData.movies)
+        ? gameData.movies
+        : Object.values(gameData.movies || {});
+
+    const roundNumber = Number(gameData.currentRound) || 1;
+
+    const currentMovie = movies[roundNumber - 1];
+
+    if (!currentMovie) {
+        console.error(
+            'Cinématophile : film introuvable pour la manche',
+            roundNumber,
+            gameData.movies
+        );
+        return;
+    }
+
+    // Identification unique de la partie.
+    const sessionKey = String(
+        data.startedAt || gameData.startedAt || 'cine-session'
+    );
+
+    if (window.cineGameSessionKey !== sessionKey) {
+
+        stopCineIntervals();
+
+        window.cineGameSessionKey = sessionKey;
+        window.cineLastRenderedRound = 0;
+        window.cineRoundKey = null;
+        window.cineTransitionInProgressKey = null;
+
+        window.cineCurrentMovieRound = null;
+        window.cineCurrentMovieTitle = null;
+
+        window.cineTimeLeft = undefined;
+        window.hasVotedCineNext = false;
+    }
+
+    // Ignorer les anciennes mises à jour Firebase.
+    if (roundNumber < Number(window.cineLastRenderedRound || 0)) {
+        return;
+    }
+
+    window.cineLastRenderedRound = roundNumber;
     window.latestCineGameData = gameData;
 
-    if (document.getElementById('screen-cine').classList.contains('hidden')) {
+    const cineScreen = document.getElementById('screen-cine');
+
+    if (cineScreen && cineScreen.classList.contains('hidden')) {
         showScreen('screen-cine');
     }
 
-    const currentMovie = gameData.movies[gameData.currentRound - 1];
-    document.getElementById('cine-round-indicator').innerHTML = `<i class="fa-solid fa-film"></i> Cinématophile - Manche ${gameData.currentRound}/${gameData.maxRounds}`;
-    
+    const roundIndicator = document.getElementById('cine-round-indicator');
+
+    if (roundIndicator) {
+        roundIndicator.innerHTML =
+            `<i class="fa-solid fa-film"></i> Cinématophile - Manche ${roundNumber}/${gameData.maxRounds}`;
+    }
+
     const winnerBox = document.getElementById('cine-winner-box');
     const inputArea = document.getElementById('cine-input-area');
+    const guessInput = document.getElementById('input-cine-guess');
     const nextBtn = document.getElementById('cine-next-btn');
     const timerDisplay = document.getElementById('cine-timer');
     const storyBox = document.getElementById('cine-story-box');
     const statusBar = document.getElementById('cine-players-status-bar');
 
     const myName = window.myPlayerKey || state.username;
-    const playerStatusMap = gameData.playerStatus || {};
-    const myStatus = playerStatusMap[myName] || { solved: false };
 
+    const playerStatusMap = gameData.playerStatus || {};
+
+    const myStatus = playerStatusMap[myName] || {
+        solved: false,
+        timedOut: false
+    };
+
+    const isSolved = !!myStatus.solved;
+
+
+    // AFFICHAGE DU STATUT DES JOUEURS
     if (statusBar && data.players) {
-        const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
-        statusBar.innerHTML = playersArr.filter(p => p && !p.isBot).map(p => {
-            const pName = p.name || p.pseudo;
-            const pStat = playerStatusMap[pName] || { solved: false };
-            let icon = '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
-            let badgeColore = 'bg-slate-900 text-slate-400 border-slate-700';
-            
-            if (pStat.solved) {
-                badgeColore = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-                icon = '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
-            } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
-                badgeColore = 'bg-red-500/20 text-red-300 border-red-700';
-                icon = '<i class="fa-solid fa-xmark text-red-400"></i> Temps écoulé';
-            }
-            return `<div class="px-3 py-1.5 rounded-lg border ${badgeColore} flex items-center gap-2 font-mono"><span>${pName}</span> : <span>${icon}</span></div>`;
-        }).join('');
+
+        const playersArr = Array.isArray(data.players)
+            ? data.players
+            : Object.values(data.players);
+
+        statusBar.innerHTML = playersArr
+            .filter(p => p && !p.isBot)
+            .map(p => {
+
+                const pName = p.name || p.pseudo;
+
+                if (!pName) return '';
+
+                const pStat = playerStatusMap[pName] || {
+                    solved: false
+                };
+
+                let icon =
+                    '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
+
+                let badgeColore =
+                    'bg-slate-900 text-slate-400 border-slate-700';
+
+                if (pStat.solved) {
+
+                    badgeColore =
+                        'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+
+                    icon =
+                        '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
+
+                } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
+
+                    badgeColore =
+                        'bg-red-500/20 text-red-300 border-red-700';
+
+                    icon =
+                        '<i class="fa-solid fa-xmark text-red-400"></i> Temps écoulé';
+                }
+
+                return `
+                    <div class="px-3 py-1.5 rounded-lg border ${badgeColore} flex items-center gap-2 font-mono">
+                        <span>${pName}</span> :
+                        <span>${icon}</span>
+                    </div>
+                `;
+
+            }).join('');
     }
 
+
+    // =========================================================
+    // MANCHE EN COURS
+    // =========================================================
+
     if (gameData.status === 'PLAYING') {
-        // FORCER LE NETTOYAGE DES ÉLÉMENTS DE FIN DE TOUR POUR TOUT LE MONDE (Y COMPRIS L'HÔTE)
+
+        const roundKey =
+            `${sessionKey}:${roundNumber}:${currentMovie.title}`;
+
+        const isNewRound = window.cineRoundKey !== roundKey;
+
+
+        // INITIALISATION D'UNE NOUVELLE MANCHE
+        if (isNewRound) {
+
+            window.cineRoundKey = roundKey;
+
+            window.cineCurrentMovieTitle = currentMovie.title;
+            window.cineCurrentMovieRound = roundNumber;
+
+            window.hasVotedCineNext = false;
+            window.cineTransitionInProgressKey = null;
+
+            stopCineIntervals();
+
+            window.cineTimeLeft = Number(gameData.timer) || 90;
+
+            if (timerDisplay) {
+                timerDisplay.innerText = `${window.cineTimeLeft}s`;
+            }
+
+            if (storyBox) {
+                storyBox.innerHTML = '';
+            }
+
+
+            // Réinitialiser les anciens résultats.
+            if (winnerBox) {
+
+                winnerBox.classList.add('hidden');
+                winnerBox.style.display = 'none';
+                winnerBox.innerHTML = '';
+            }
+
+
+            // Masquer le bouton de manche suivante.
+            if (nextBtn) {
+
+                nextBtn.classList.add('hidden');
+                nextBtn.style.display = 'none';
+                nextBtn.disabled = false;
+            }
+
+
+            // Réactiver la zone de réponse.
+            if (inputArea) {
+
+                inputArea.classList.toggle('hidden', isSolved);
+
+                inputArea.style.display =
+                    isSolved ? 'none' : 'flex';
+            }
+
+            if (guessInput) {
+
+                guessInput.value = '';
+                guessInput.disabled = isSolved;
+            }
+
+
+            // Charger la nouvelle affiche.
+            if (cineCurrentImg) {
+
+                cineCurrentImg.onload = null;
+                cineCurrentImg.onerror = null;
+            }
+
+            cineCurrentImg = new Image();
+            cineCurrentImg.crossOrigin = 'Anonymous';
+
+            let isInitialized = false;
+
+
+            // INITIALISATION APRÈS CHARGEMENT DE L'AFFICHE
+            const initPosterGame = () => {
+
+                if (isInitialized) return;
+
+                isInitialized = true;
+
+                const timerDuration = Number(gameData.timer) || 90;
+
+                window.cineTimeLeft = timerDuration;
+
+
+                const getPixelSize = (timeLeft, solved) => {
+
+                    if (solved) return 1;
+
+                    const progress = Math.max(
+                        0,
+                        Math.min(1, 1 - (timeLeft / timerDuration))
+                    );
+
+                    return Math.max(
+                        1,
+                        Math.floor(
+                            60 * Math.pow(1 - progress, 0.6) +
+                            2 * progress
+                        )
+                    );
+                };
+
+
+                drawPixelatedPoster(
+                    cineCurrentImg,
+                    isSolved ? 1 : 60
+                );
+
+
+                // ANIMATION DU TEXTE
+                const fullText = currentMovie.storyText ||
+                    'Le texte narratif de ce film n\'a pas encore été configuré dans les données.';
+
+                let currentCharIndex = 0;
+
+                const typingSpeed = Math.max(
+                    20,
+                    Math.floor(
+                        (timerDuration * 1000) /
+                        Math.max(fullText.length, 1)
+                    )
+                );
+
+
+                windowCineTextInterval = setInterval(() => {
+
+                    if (currentCharIndex <= fullText.length) {
+
+                        const displayedText =
+                            fullText.substring(0, currentCharIndex);
+
+                        if (storyBox) {
+
+                            storyBox.innerHTML =
+                                `${displayedText}<span class="animate-pulse font-black text-pink-500">_</span>`;
+
+                            const textContainer = storyBox.parentElement;
+
+                            if (textContainer) {
+                                textContainer.scrollTop =
+                                    textContainer.scrollHeight;
+                            }
+                        }
+
+                        currentCharIndex++;
+
+                    } else {
+
+                        clearInterval(windowCineTextInterval);
+                        windowCineTextInterval = null;
+                    }
+
+                }, typingSpeed);
+
+
+                // CHRONOMÈTRE
+                cineTimerInterval = setInterval(() => {
+
+                    const latestGameData = window.latestCineGameData;
+
+                    // Empêcher un ancien chronomètre d'agir
+                    // sur une nouvelle manche.
+                    if (
+                        !latestGameData ||
+                        latestGameData.status !== 'PLAYING' ||
+                        Number(latestGameData.currentRound) !== roundNumber
+                    ) {
+
+                        clearInterval(cineTimerInterval);
+                        cineTimerInterval = null;
+
+                        return;
+                    }
+
+
+                    const freshStatusMap =
+                        latestGameData.playerStatus || {};
+
+                    const currentMyStatus =
+                        freshStatusMap[myName] || { solved: false };
+
+
+                    if (!currentMyStatus.solved) {
+
+                        window.cineTimeLeft = Math.max(
+                            0,
+                            Number(window.cineTimeLeft || 0) - 1
+                        );
+
+                        if (timerDisplay) {
+                            timerDisplay.innerText =
+                                `${window.cineTimeLeft}s`;
+                        }
+                    }
+
+
+                    drawPixelatedPoster(
+                        cineCurrentImg,
+                        getPixelSize(
+                            window.cineTimeLeft,
+                            !!currentMyStatus.solved
+                        )
+                    );
+
+
+                    // TEMPS ÉCOULÉ
+                    if (
+                        window.cineTimeLeft <= 0 &&
+                        !currentMyStatus.solved
+                    ) {
+
+                        stopCineIntervals();
+
+                        const roomCode =
+                            window.currentCodeSalon || state.roomCode;
+
+                        if (!roomCode) return;
+
+                        const timeoutUpdates = {};
+
+                        timeoutUpdates[
+                            `cineGame/playerStatus/${myName}`
+                        ] = {
+                            solved: false,
+                            timedOut: true
+                        };
+
+
+                        window.update(
+                            window.ref(
+                                window.db,
+                                `salons/${roomCode}`
+                            ),
+                            timeoutUpdates
+
+                        ).then(() => {
+
+                            if (!window.isHost) return;
+
+                            window.rejoindreSalonFirebaseGet(
+                                roomCode,
+                                latestData => {
+
+                                    // Vérifier que la manche est toujours la même.
+                                    if (
+                                        !latestData.cineGame ||
+                                        latestData.cineGame.status !== 'PLAYING' ||
+                                        Number(latestData.cineGame.currentRound) !== roundNumber
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    const pStatuses =
+                                        latestData.cineGame.playerStatus || {};
+
+                                    const playersRaw =
+                                        latestData.players || {};
+
+                                    const players = Array.isArray(playersRaw)
+                                        ? playersRaw
+                                        : Object.values(playersRaw);
+
+                                    const hostUpdates = {
+                                        'cineGame/status': 'ROUND_OVER'
+                                    };
+
+
+                                    players.forEach(p => {
+
+                                        if (p && !p.isBot) {
+
+                                            const pName = p.name || p.pseudo;
+
+                                            if (
+                                                pName &&
+                                                !pStatuses[pName]?.solved
+                                            ) {
+
+                                                hostUpdates[
+                                                    `cineGame/playerStatus/${pName}`
+                                                ] = {
+                                                    solved: false,
+                                                    timedOut: true
+                                                };
+                                            }
+                                        }
+                                    });
+
+
+                                    window.mettreAJourSalonFirebase(
+                                        roomCode,
+                                        hostUpdates
+                                    );
+                                }
+                            );
+
+                        }).catch(error => {
+
+                            console.error(
+                                'Erreur de synchronisation du temps Cinématophile :',
+                                error
+                            );
+                        });
+                    }
+
+                }, 1000);
+
+            };
+
+
+            cineCurrentImg.onload = initPosterGame;
+
+            cineCurrentImg.onerror = () => {
+                console.error(
+                    'Impossible de charger l’affiche du film :',
+                    currentMovie.poster
+                );
+            };
+
+            cineCurrentImg.src = currentMovie.poster;
+
+
+            if (
+                cineCurrentImg.complete &&
+                cineCurrentImg.naturalWidth > 0
+            ) {
+                initPosterGame();
+            }
+        }
+
+
+        // RAFRAÎCHISSEMENT DE L'ÉTAT DU JOUEUR
         if (winnerBox) {
-            winnerBox.className = 'hidden';
+
+            winnerBox.classList.add('hidden');
             winnerBox.style.display = 'none';
             winnerBox.innerHTML = '';
         }
+
         if (nextBtn) {
+
             nextBtn.classList.add('hidden');
             nextBtn.style.display = 'none';
             nextBtn.disabled = false;
         }
+
         if (inputArea) {
-            inputArea.classList.remove('hidden');
-            inputArea.style.display = '';
-            const guessInput = document.getElementById('input-cine-guess');
-            if (guessInput) {
-                guessInput.disabled = false;
-            }
+
+            inputArea.classList.toggle('hidden', isSolved);
+
+            inputArea.style.display =
+                isSolved ? 'none' : 'flex';
         }
 
-        // S'assurer que la zone de saisie est gérée selon si le joueur a résolu ou non
-        if (myStatus.solved) {
-            if (inputArea) {
-                inputArea.classList.add('hidden');
-                inputArea.style.display = 'none';
-            }
-        } else {
-            if (inputArea) {
-                inputArea.classList.remove('hidden');
-                inputArea.style.display = '';
-                const guessInput = document.getElementById('input-cine-guess');
-                if (guessInput) {
-                    guessInput.disabled = false;
-                    guessInput.value = '';
-                }
-            }
+        if (guessInput) {
+            guessInput.disabled = isSolved;
         }
 
-    nextBtn.classList.add('hidden');
-    nextBtn.style.display = 'none';
-        
-        if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
-    		window.cineCurrentMovieTitle = currentMovie.title;
-    		window.cineCurrentMovieRound = gameData.currentRound;
-    		window.hasVotedCineNext = false;
 
-    		// S'assurer que l'écran de jeu est visible et que le bouton suivant/résultat est masqué
-    		const cineScreen = document.getElementById('screen-cine');
-    		if (cineScreen) {
-        		cineScreen.classList.remove('hidden');
-        		cineScreen.style.display = 'flex';
-    		}
-    		if (nextBtn) {
-        		nextBtn.classList.add('hidden');
-        		nextBtn.style.display = 'none';
-    		}
-    		if (winnerBox) {
-        		winnerBox.classList.add('hidden');
-        		winnerBox.style.display = 'none';
-    		}
-            
-            if (!myStatus.solved) {
-                const guessInput = document.getElementById('input-cine-guess');
-                if (guessInput) guessInput.value = '';
-            }
-            
-            if (cineTimerInterval) clearInterval(cineTimerInterval);
-            if (windowCineTextInterval) clearInterval(windowCineTextInterval);
-            
-            if (cineCurrentImg) cineCurrentImg.onload = null;
+        if (
+            cineCurrentImg.complete &&
+            cineCurrentImg.naturalWidth > 0 &&
+            window.cineTimeLeft !== undefined
+        ) {
 
-            cineCurrentImg = new Image();
-            cineCurrentImg.crossOrigin = "Anonymous";
-            
-            let isInitialized = false;
+            const timerDuration = Number(gameData.timer) || 90;
 
-            const initPosterGame = () => {
-                if (isInitialized) return;
-                isInitialized = true;
+            const progress = Math.max(
+                0,
+                Math.min(
+                    1,
+                    1 - (window.cineTimeLeft / timerDuration)
+                )
+            );
 
-                window.cineTimeLeft = gameData.timer || 90;
-                
-                const getPixelSize = (timeLeft, isSolved) => {
-                    if (isSolved) return 1;
-                    let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
-                    return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
-                };
-                
-                drawPixelatedPoster(cineCurrentImg, myStatus.solved ? 1 : 60);
+            const pixelSize = isSolved
+                ? 1
+                : Math.max(
+                    1,
+                    Math.floor(
+                        60 * Math.pow(1 - progress, 0.6) +
+                        2 * progress
+                    )
+                );
 
-                const fullText = currentMovie.storyText || "Le texte narratif de ce film n'a pas encore été configuré dans les données.";
-                let currentCharIndex = 0;
-                const typingSpeed = Math.max(20, Math.floor(((gameData.timer || 90) * 1000) / fullText.length));
-
-                windowCineTextInterval = setInterval(() => {
-                    if (currentCharIndex <= fullText.length) {
-                        const displayedText = fullText.substring(0, currentCharIndex);
-                        if (storyBox) {
-                            storyBox.innerHTML = `${displayedText}<span class="animate-pulse font-black text-pink-500">_</span>`;
-                            const textContainer = storyBox.parentElement;
-                            if (textContainer) textContainer.scrollTop = textContainer.scrollHeight;
-                        }
-                        currentCharIndex++;
-                    } else {
-                        clearInterval(windowCineTextInterval);
-                    }
-                }, typingSpeed);
-
-                cineTimerInterval = setInterval(() => {
-                    // Récupération sécurisée du statut frais du joueur depuis le snapshot global
-                    const freshStatusMap = (window.latestCineGameData && window.latestCineGameData.playerStatus) || {};
-                    const currentMyStatus = freshStatusMap[myName] || { solved: false };
-
-                    if (!currentMyStatus.solved) {
-                        window.cineTimeLeft--;
-                        if (timerDisplay) timerDisplay.innerText = window.cineTimeLeft + 's';
-                    }
-
-                    const isNowSolved = currentMyStatus.solved || false;
-                    drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, isNowSolved));
-
-                    if (window.cineTimeLeft <= 0 && !currentMyStatus.solved) {
-    clearInterval(cineTimerInterval);
-    clearInterval(windowCineTextInterval);
-
-    const roomCode = window.currentCodeSalon || state.roomCode;
-    if (roomCode) {
-        const updates = {};
-        updates[`cineGame/playerStatus/${myName}`] = { solved: false, timedOut: true };
-        window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-            if (window.isHost) {
-                window.rejoindreSalonFirebaseGet(roomCode, (latestData) => {
-                    const pStatuses = latestData.cineGame?.playerStatus || {};
-                    const players = latestData.players || {};
-                    const hostUpdates = { 'cineGame/status': 'ROUND_OVER' };
-
-                    Object.values(players).forEach(p => {
-                        if (p && !p.isBot) {
-                            const pName = p.name || p.pseudo;
-                            if (!pStatuses[pName]?.solved) {
-                                hostUpdates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
-                            }
-                        }
-                    });
-                    window.mettreAJourSalonFirebase(roomCode, hostUpdates);
-                });
-            }
-        });
-    }
-}
-                }, 1000);
-            };
-
-            cineCurrentImg.onload = initPosterGame;
-            cineCurrentImg.src = currentMovie.poster;
-
-            if (cineCurrentImg.complete && cineCurrentImg.naturalWidth > 0) {
-                initPosterGame();
-            }
-        } else {
-            // Mise à jour fluide du rendu si le statut change en cours de route
-            const getPixelSize = (timeLeft, isSolved) => {
-                if (isSolved) return 1;
-                let progress = Math.max(0, Math.min(1, 1 - (timeLeft / (gameData.timer || 90))));
-                return Math.max(1, Math.floor(60 * Math.pow(1 - progress, 0.6) + 2 * progress));
-            };
-            if (window.cineTimeLeft !== undefined) {
-                drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, myStatus.solved));
-            }
+            drawPixelatedPoster(cineCurrentImg, pixelSize);
         }
+
+
+    // =========================================================
+    // FIN DE MANCHE
+    // =========================================================
+
     } else if (gameData.status === 'ROUND_OVER') {
 
-        clearInterval(cineTimerInterval);
+        stopCineIntervals();
 
-        if (windowCineTextInterval) clearInterval(windowCineTextInterval);
-        
-        drawPixelatedPoster(cineCurrentImg, 1);
-        
-        if (storyBox) storyBox.innerHTML = currentMovie.storyText || "";
-        
-        inputArea.classList.add('hidden');
-        inputArea.style.display = 'none';
-        
-        winnerBox.classList.remove('hidden');
-        winnerBox.style.display = '';
-        
-        winnerBox.innerHTML = `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
-        winnerBox.className = "w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg";
 
-        nextBtn.classList.remove('hidden');
-        nextBtn.style.display = '';
-        
-        const hasVotedNext = window.hasVotedCineNext || (gameData.readyForNext && gameData.readyForNext[myName]);
-        
-        // 1. Affichage du bouton pour CHAQUE joueur
-        if (hasVotedNext) {
-            nextBtn.disabled = true;
-            nextBtn.className = "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
-            nextBtn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
-        } else {
-            nextBtn.disabled = false;
-            nextBtn.className = "w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition";
-            nextBtn.innerHTML = gameData.currentRound >= gameData.maxRounds ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>' : 'Prêt pour la suite <i class="fa-solid fa-check ml-2"></i>';
+        if (
+            cineCurrentImg &&
+            cineCurrentImg.complete &&
+            cineCurrentImg.naturalWidth > 0
+        ) {
+
+            drawPixelatedPoster(cineCurrentImg, 1);
         }
 
-        if (window.isHost) {
-            const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
-            const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
-            const readyMap = gameData.readyForNext || {};
-            
-            const allReady = humanPlayers.length > 0 && humanPlayers.every(p => readyMap[p.name || p.pseudo]);
-            
-            if (allReady) {
-                const roomCode = window.currentCodeSalon || state.roomCode;
-                if (gameData.currentRound >= gameData.maxRounds) { 
-			window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
 
-    			const cineScreen = document.getElementById('screen-cine');
-    			if (cineScreen) {
-        			cineScreen.classList.add('hidden');
-        			cineScreen.style.display = 'none';
-    			}
-    			if (cineTimerInterval) clearInterval(cineTimerInterval);
-    			if (windowCineTextInterval) clearInterval(windowCineTextInterval);
+        if (storyBox) {
+            storyBox.innerHTML = currentMovie.storyText || '';
+        }
 
-    			if (typeof showFinalResults === 'function') showFinalResults();
-	    	} else {
-                	const resetPlayerStatus = {};
-                	humanPlayers.forEach(p => {
-                		const pName = p.name || p.pseudo;
-                        	resetPlayerStatus[pName] = { solved: false, timedOut: false };
-                	});
 
-                	window.mettreAJourSalonFirebase(roomCode, {
-                        	'cineGame/status': 'PLAYING',
-                        	'cineGame/currentRound': gameData.currentRound + 1,
-                        	'cineGame/playerStatus': resetPlayerStatus,
-                        	'cineGame/readyForNext': null,
-                        	'cineGame/winner': null
-                	});
-            	}
+        if (inputArea) {
+
+            inputArea.classList.add('hidden');
+            inputArea.style.display = 'none';
+        }
+
+        if (guessInput) {
+            guessInput.disabled = true;
+        }
+
+
+        if (winnerBox) {
+
+            winnerBox.classList.remove('hidden');
+            winnerBox.style.display = '';
+
+            winnerBox.innerHTML =
+                `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
+
+            winnerBox.className =
+                'w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg';
+        }
+
+
+        // BOUTON POUR LA PROCHAINE MANCHE
+        if (nextBtn) {
+
+            nextBtn.classList.remove('hidden');
+            nextBtn.style.display = '';
+
+            const hasVotedNext = !!(
+                window.hasVotedCineNext ||
+                (gameData.readyForNext &&
+                    gameData.readyForNext[myName])
+            );
+
+
+            if (hasVotedNext) {
+
+                nextBtn.disabled = true;
+
+                nextBtn.className =
+                    'w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg';
+
+                nextBtn.innerHTML =
+                    '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+
+            } else {
+
+                nextBtn.disabled = false;
+
+                nextBtn.className =
+                    'w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition';
+
+                nextBtn.innerHTML =
+                    roundNumber >= Number(gameData.maxRounds)
+                        ? 'Voir les résultats <i class="fa-solid fa-trophy ml-2"></i>'
+                        : 'Prêt pour la suite <i class="fa-solid fa-check ml-2"></i>';
             }
         }
+
+
+        // Vérifier si tous les joueurs sont prêts.
+        advanceCineRoundIfReady(
+            data,
+            gameData,
+            roundNumber,
+            sessionKey
+        );
     }
 }
 
+
+// =============================================================
+// AFFICHAGE DE L'AFFICHE PIXÉLISÉE
+// =============================================================
+
 function drawPixelatedPoster(img, pixelSize) {
+
     const canvas = document.getElementById('cine-canvas');
+
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    
-    canvas.width = 400; 
+
+    const ctx = canvas.getContext(
+        '2d',
+        { willReadFrequently: true }
+    );
+
+    canvas.width = 400;
     canvas.height = 600;
-    
+
+
     if (pixelSize <= 1) {
+
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        ctx.drawImage(
+            img,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
         return;
     }
 
-    const smallWidth = Math.max(1, Math.floor(canvas.width / pixelSize));
-    const smallHeight = Math.max(1, Math.floor(canvas.height / pixelSize));
+
+    const smallWidth = Math.max(
+        1,
+        Math.floor(canvas.width / pixelSize)
+    );
+
+    const smallHeight = Math.max(
+        1,
+        Math.floor(canvas.height / pixelSize)
+    );
+
 
     const tempCanvas = document.createElement('canvas');
+
     tempCanvas.width = smallWidth;
     tempCanvas.height = smallHeight;
+
     const tempCtx = tempCanvas.getContext('2d');
 
-    tempCtx.drawImage(img, 0, 0, smallWidth, smallHeight);
+    tempCtx.drawImage(
+        img,
+        0,
+        0,
+        smallWidth,
+        smallHeight
+    );
 
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tempCanvas, 0, 0, smallWidth, smallHeight, 0, 0, canvas.width, canvas.height);
+
+    ctx.drawImage(
+        tempCanvas,
+        0,
+        0,
+        smallWidth,
+        smallHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 }
+
+
+// =============================================================
+// NORMALISATION DES RÉPONSES
+// =============================================================
 
 function normalizeGuess(str) {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
 }
+
+
+// =============================================================
+// SOUMISSION D'UNE RÉPONSE
+// =============================================================
 
 window.submitCineGuess = function() {
+
     const input = document.getElementById('input-cine-guess');
+
     if (!input || !input.value.trim()) return;
-    
-    const roomCode = window.currentCodeSalon || state.roomCode;
+
+    const roomCode =
+        window.currentCodeSalon || state.roomCode;
+
     if (!roomCode) return;
-    
+
+
     window.rejoindreSalonFirebaseGet(roomCode, (data) => {
+
         const gameData = data.cineGame;
+
         if (!gameData || gameData.status !== 'PLAYING') return;
 
-        const currentMovie = gameData.movies[gameData.currentRound - 1];
+
+        const currentMovie =
+            gameData.movies[gameData.currentRound - 1];
+
+        if (!currentMovie) return;
+
+
         const guess = normalizeGuess(input.value);
-        
-        let isCorrect = (normalizeGuess(currentMovie.title) === guess);
+
+        let isCorrect =
+            normalizeGuess(currentMovie.title) === guess;
+
+
         if (currentMovie.aliases) {
+
             currentMovie.aliases.forEach(alias => {
-                if (normalizeGuess(alias) === guess) isCorrect = true;
+
+                if (normalizeGuess(alias) === guess) {
+                    isCorrect = true;
+                }
             });
         }
-        
+
+
         if (isCorrect) {
-            const myName = window.myPlayerKey || state.username;
-            const pts = 500 + ((window.cineTimeLeft || 0) * 20);
-            let currentScore = data.players[myName]?.score || 0;
-            
+
+            const myName =
+                window.myPlayerKey || state.username;
+
+            const pts =
+                500 + ((window.cineTimeLeft || 0) * 20);
+
+            const currentScore =
+                data.players[myName]?.score || 0;
+
+
             const updates = {};
-            updates[`cineGame/playerStatus/${myName}`] = { solved: true, timeFound: window.cineTimeLeft };
-            updates[`players/${myName}/score`] = currentScore + pts;
-            
-            window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-                window.rejoindreSalonFirebaseGet(roomCode, (freshData) => {
-                    const players = freshData.players || {};
-                    const playersArr = Array.isArray(players) ? players : Object.values(players);
-                    const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
-                    const playerStatus = freshData.cineGame?.playerStatus || {};
-                    
-                    const allFound = humanPlayers.length > 0 && humanPlayers.every(p => playerStatus[p.name || p.pseudo]?.solved);
-                    if (allFound && freshData.cineGame?.status === 'PLAYING') {
-                        window.mettreAJourSalonFirebase(roomCode, { 'cineGame/status': 'ROUND_OVER' });
+
+            updates[
+                `cineGame/playerStatus/${myName}`
+            ] = {
+                solved: true,
+                timeFound: window.cineTimeLeft
+            };
+
+            updates[
+                `players/${myName}/score`
+            ] = currentScore + pts;
+
+
+            window.update(
+                window.ref(
+                    window.db,
+                    `salons/${roomCode}`
+                ),
+                updates
+
+            ).then(() => {
+
+                window.rejoindreSalonFirebaseGet(
+                    roomCode,
+                    (freshData) => {
+
+                        const players =
+                            freshData.players || {};
+
+                        const playersArr = Array.isArray(players)
+                            ? players
+                            : Object.values(players);
+
+                        const humanPlayers = playersArr.filter(
+                            p => p && (p.name || p.pseudo) && !p.isBot
+                        );
+
+                        const playerStatus =
+                            freshData.cineGame?.playerStatus || {};
+
+
+                        const allFound =
+                            humanPlayers.length > 0 &&
+                            humanPlayers.every(
+                                p => playerStatus[p.name || p.pseudo]?.solved
+                            );
+
+
+                        if (
+                            allFound &&
+                            freshData.cineGame?.status === 'PLAYING'
+                        ) {
+
+                            window.mettreAJourSalonFirebase(
+                                roomCode,
+                                {
+                                    'cineGame/status': 'ROUND_OVER'
+                                }
+                            );
+                        }
                     }
-                });
+                );
+
             });
+
         } else {
+
             input.classList.add('border-red-500');
+
             input.value = "";
-            setTimeout(() => input.classList.remove('border-red-500'), 500);
+
+            setTimeout(() => {
+                input.classList.remove('border-red-500');
+            }, 500);
         }
+
     });
-}
+};
+
+
+// =============================================================
+// VOTE POUR LA MANCHE SUIVANTE
+// =============================================================
 
 window.nextCineRound = function() {
-    const roomCode = window.currentCodeSalon || state.roomCode;
-    const myName = window.myPlayerKey || state.username;
-    if (!roomCode) return;
-    
+
+    const roomCode =
+        window.currentCodeSalon || state.roomCode;
+
+    const myName =
+        window.myPlayerKey || state.username;
+
+    if (!roomCode || !myName) return;
+
+
     window.hasVotedCineNext = true;
-    
-    const nextBtn = document.getElementById('cine-next-btn');
+
+
+    const nextBtn =
+        document.getElementById('cine-next-btn');
+
     if (nextBtn) {
+
         nextBtn.disabled = true;
-        nextBtn.className = "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
-        nextBtn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+
+        nextBtn.className =
+            "w-full max-w-md bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition shadow-lg";
+
+        nextBtn.innerHTML =
+            '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
     }
 
+
     const updates = {};
-    updates[`cineGame/readyForNext/${myName}`] = true;
-    window.update(window.ref(window.db, `salons/${roomCode}`), updates);
-}
+
+    updates[
+        `cineGame/readyForNext/${myName}`
+    ] = true;
+
+
+    window.update(
+        window.ref(
+            window.db,
+            `salons/${roomCode}`
+        ),
+        updates
+    ).catch(error => {
+
+        window.hasVotedCineNext = false;
+
+        console.error(
+            'Erreur lors du vote pour la manche suivante :',
+            error
+        );
+    });
+};
