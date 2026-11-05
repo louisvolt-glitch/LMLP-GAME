@@ -237,6 +237,21 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 window.state.quizGame.currentRoundAnswers = data.quizGame.currentRoundAnswers || {};
             }
 
+	    if (data.selectedMode === 'quiz' && data.quizGame && data.quizGame.readyForNext && data.players) {
+    		const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players);
+    		const humanPlayers = playersArr.filter(p => p && !p.isBot);
+    		const readyKeys = Object.keys(data.quizGame.readyForNext);
+    
+    		const allReadyForNext = humanPlayers.length > 0 && humanPlayers.every(p => readyKeys.includes(p.name || p.pseudo));
+    
+    		const summaryScreen = document.getElementById('screen-quiz-summary');
+    		if (allReadyForNext && summaryScreen && !summaryScreen.classList.contains('hidden')) {
+        		if (typeof executeActualNextQuizQuestion === 'function') {
+            			executeActualNextQuizQuestion();
+        		}
+    		}
+	    }
+
 	    // === NOUVEAU : DÉTECTION DU TRANSFERT D'HÔTE EN DIRECT ===
             // Si le joueur local n'avait pas le rôle, mais que Firebase indique qu'il l'a maintenant (Transfert)
             if (data.players && window.myPlayerKey && data.players[window.myPlayerKey]) {
