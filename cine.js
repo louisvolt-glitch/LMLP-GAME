@@ -126,6 +126,28 @@ function renderCineScreen(data) {
     const gameData = data && data.cineGame;
     if (!gameData) return;
 
+    // === AJOUTER CE BLOC : VÉRIFICATION GLOBALE CENTRALISÉE PAR L'HÔTE ===
+    if (window.isHost && gameData.status === 'PLAYING') {
+        const playersArr = Array.isArray(data.players) ? data.players : Object.values(data.players || {});
+        const humanPlayers = playersArr.filter(p => p && (p.name || p.pseudo) && !p.isBot);
+        const playerStatusMap = gameData.playerStatus || {};
+
+        const isRoundFinished = humanPlayers.length > 0 && humanPlayers.every(p => {
+            const status = playerStatusMap[p.name || p.pseudo] || {};
+            return status.solved || status.timedOut; // Vérifie si Trouvé OU Plus de vie/Temps écoulé
+        });
+
+        if (isRoundFinished) {
+            const roomCode = window.currentCodeSalon || state.roomCode;
+            if (roomCode) {
+                window.mettreAJourSalonFirebase(roomCode, {
+                    'cineGame/status': 'ROUND_OVER'
+                });
+                return; // Stoppe l'affichage local et laisse Firebase déclencher la fin pour tout le monde
+            }
+        }
+    }
+
     const movies = Array.isArray(gameData.movies)
         ? gameData.movies
         : Object.values(gameData.movies || {});
