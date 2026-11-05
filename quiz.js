@@ -145,7 +145,7 @@ window.chooseQuizDifficulty = function(diff) {
     // on indique juste que ce joueur a choisi sa difficulté.
     if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, {
-            [`quizGame.difficultiesChosen/${window.myPlayerKey || state.username}`]: diff
+            [`quizGame/difficultiesChosen/${window.myPlayerKey || state.username}`]: diff
         });
     }
 
