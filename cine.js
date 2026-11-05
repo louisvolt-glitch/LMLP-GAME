@@ -58,22 +58,38 @@ function renderCineScreen(data) {
         winnerBox.style.display = 'none';
         winnerBox.innerHTML = '';
         
-        // S'assurer que chaque joueur gère son propre champ de saisie selon SON propre statut
         if (myStatus.solved) {
             inputArea.classList.add('hidden');
             inputArea.style.display = 'none';
         } else {
             inputArea.classList.remove('hidden');
             inputArea.style.display = '';
+	    const guessInput = document.getElementById('input-cine-guess');
+        if (guessInput) guessInput.disabled = false;
         }
 
         nextBtn.classList.add('hidden');
         nextBtn.style.display = 'none';
         
         if (window.cineCurrentMovieRound !== gameData.currentRound || window.cineCurrentMovieTitle !== currentMovie.title) {
-            window.cineCurrentMovieTitle = currentMovie.title;
-            window.cineCurrentMovieRound = gameData.currentRound;
-            window.hasVotedCineNext = false;
+    		window.cineCurrentMovieTitle = currentMovie.title;
+    		window.cineCurrentMovieRound = gameData.currentRound;
+    		window.hasVotedCineNext = false;
+
+    		// S'assurer que l'écran de jeu est visible et que le bouton suivant/résultat est masqué
+    		const cineScreen = document.getElementById('screen-cine');
+    		if (cineScreen) {
+        		cineScreen.classList.remove('hidden');
+        		cineScreen.style.display = 'flex';
+    		}
+    		if (nextBtn) {
+        		nextBtn.classList.add('hidden');
+        		nextBtn.style.display = 'none';
+    		}
+    		if (winnerBox) {
+        		winnerBox.classList.add('hidden');
+        		winnerBox.style.display = 'none';
+    		}
             
             if (!myStatus.solved) {
                 const guessInput = document.getElementById('input-cine-guess');
@@ -136,35 +152,34 @@ function renderCineScreen(data) {
                     drawPixelatedPoster(cineCurrentImg, getPixelSize(window.cineTimeLeft, isNowSolved));
 
                     if (window.cineTimeLeft <= 0 && !currentMyStatus.solved) {
-                        clearInterval(cineTimerInterval);
-                        clearInterval(windowCineTextInterval);
-                        
-                        // Tout joueur (hôte ou non-hôte) met à jour son propre statut à l'expiration du temps
-                        const roomCode = window.currentCodeSalon || state.roomCode;
-                        if (roomCode) {
-                            const updates = {};
-                            updates[`cineGame/playerStatus/${myName}`] = { solved: false, timedOut: true };
-                            window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
-                                if (window.isHost) {
-                                    window.rejoindreSalonFirebaseGet(roomCode, (latestData) => {
-                                        const pStatuses = latestData.cineGame?.playerStatus || {};
-                                        const players = latestData.players || {};
-                                        const hostUpdates = { 'cineGame/status': 'ROUND_OVER' };
-                                        
-                                        Object.values(players).forEach(p => {
-                                            if (p && !p.isBot) {
-                                                const pName = p.name || p.pseudo;
-                                                if (!pStatuses[pName]?.solved) {
-                                                    hostUpdates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
-                                                }
-                                            }
-                                        });
-                                        window.mettreAJourSalonFirebase(roomCode, hostUpdates);
-                                    });
-                                }
-                            });
+    clearInterval(cineTimerInterval);
+    clearInterval(windowCineTextInterval);
+
+    const roomCode = window.currentCodeSalon || state.roomCode;
+    if (roomCode) {
+        const updates = {};
+        updates[`cineGame/playerStatus/${myName}`] = { solved: false, timedOut: true };
+        window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+            if (window.isHost) {
+                window.rejoindreSalonFirebaseGet(roomCode, (latestData) => {
+                    const pStatuses = latestData.cineGame?.playerStatus || {};
+                    const players = latestData.players || {};
+                    const hostUpdates = { 'cineGame/status': 'ROUND_OVER' };
+
+                    Object.values(players).forEach(p => {
+                        if (p && !p.isBot) {
+                            const pName = p.name || p.pseudo;
+                            if (!pStatuses[pName]?.solved) {
+                                hostUpdates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
+                            }
                         }
-                    }
+                    });
+                    window.mettreAJourSalonFirebase(roomCode, hostUpdates);
+                });
+            }
+        });
+    }
+}
                 }, 1000);
             };
 
@@ -232,14 +247,13 @@ function renderCineScreen(data) {
                 const roomCode = window.currentCodeSalon || state.roomCode;
                 if (gameData.currentRound >= gameData.maxRounds) {
     window.mettreAJourSalonFirebase(roomCode, { status: 'RESULTS', cineGame: null });
-    
-    // CORRECTION : Masquer explicitement l'écran Cinématophile pour éviter qu'il ne reste en arrière-plan
+
+    // Masquer explicitement l'écran Cinématophile pour éviter qu'il ne reste en arrière-plan
     const cineScreen = document.getElementById('screen-cine');
     if (cineScreen) {
         cineScreen.classList.add('hidden');
         cineScreen.style.display = 'none';
     }
-
     if (cineTimerInterval) clearInterval(cineTimerInterval);
     if (windowCineTextInterval) clearInterval(windowCineTextInterval);
 
