@@ -138,21 +138,30 @@ function renderCineScreen(data) {
                     if (window.cineTimeLeft <= 0 && !currentMyStatus.solved) {
                         clearInterval(cineTimerInterval);
                         clearInterval(windowCineTextInterval);
-                        if (window.isHost) {
-                            window.rejoindreSalonFirebaseGet(window.currentCodeSalon, (latestData) => {
-                                const pStatuses = latestData.cineGame?.playerStatus || {};
-                                const players = latestData.players || {};
-                                const updates = { 'cineGame/status': 'ROUND_OVER' };
-                                
-                                Object.values(players).forEach(p => {
-                                    if (p && !p.isBot) {
-                                        const pName = p.name || p.pseudo;
-                                        if (!pStatuses[pName]?.solved) {
-                                            updates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
-                                        }
-                                    }
-                                });
-                                window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
+                        
+                        // Tout joueur (hôte ou non-hôte) met à jour son propre statut à l'expiration du temps
+                        const roomCode = window.currentCodeSalon || state.roomCode;
+                        if (roomCode) {
+                            const updates = {};
+                            updates[`cineGame/playerStatus/${myName}`] = { solved: false, timedOut: true };
+                            window.update(window.ref(window.db, `salons/${roomCode}`), updates).then(() => {
+                                if (window.isHost) {
+                                    window.rejoindreSalonFirebaseGet(roomCode, (latestData) => {
+                                        const pStatuses = latestData.cineGame?.playerStatus || {};
+                                        const players = latestData.players || {};
+                                        const hostUpdates = { 'cineGame/status': 'ROUND_OVER' };
+                                        
+                                        Object.values(players).forEach(p => {
+                                            if (p && !p.isBot) {
+                                                const pName = p.name || p.pseudo;
+                                                if (!pStatuses[pName]?.solved) {
+                                                    hostUpdates[`cineGame/playerStatus/${pName}`] = { solved: false, timedOut: true };
+                                                }
+                                            }
+                                        });
+                                        window.mettreAJourSalonFirebase(roomCode, hostUpdates);
+                                    });
+                                }
                             });
                         }
                     }
