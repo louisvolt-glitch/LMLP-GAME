@@ -398,8 +398,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 const lobbyScreen = document.getElementById('screen-lobby');
                 
                 if (data.selectedMode === 'cine' && data.cineGame) {
-            		renderCineScreen(data);
-        	}
+                    renderCineScreen(data);
+                }
 
                 if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
                     lobbyScreen.classList.add('hidden');
@@ -417,7 +417,6 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         if (geoScreen) {
                             geoScreen.classList.remove('hidden');
                             
-                            // CONVERSION ROBUSTE : S'assurer que activeLocations est un tableau
                             if (data.activeLocations) {
                                 state.activeLocations = Array.isArray(data.activeLocations) 
                                     ? data.activeLocations 
@@ -435,7 +434,6 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         const anoScreen = document.getElementById('screen-generic-game');
                         if (anoScreen) anoScreen.classList.remove('hidden'); 
                         
-                        // CORRECTION : Lancer l'initialisation de la scène 3D pour tous les joueurs
                         if (typeof startAnomalyMode === 'function') {
                             startAnomalyMode();
                         }
@@ -443,16 +441,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         const bacScreen = document.getElementById('screen-petitsbac');
                         if (bacScreen) bacScreen.classList.remove('hidden'); 
                     } else if (selectedMode === 'codenames') {
-    			const cnScreen = document.getElementById('screen-codenames');
-    			if (cnScreen) cnScreen.classList.remove('hidden');
-		    } else if (selectedMode === 'cine') {
+                        const cnScreen = document.getElementById('screen-codenames');
+                        if (cnScreen) cnScreen.classList.remove('hidden');
+                    } else if (selectedMode === 'cine') {
                         const cineScreen = document.getElementById('screen-cine');
                         if (cineScreen) {
                             cineScreen.classList.remove('hidden');
                         }
                     }
                 }
-	    }
+            }
 
                 // AJOUT CRUCIAL : Exécuter la mise à jour de l'écran Imposteur à CHAQUE changement de données
                 if (data.selectedMode === 'impostor' && typeof renderImpostorScreen === 'function') {
@@ -851,7 +849,8 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
         <div id="card-mode-anomaly" onclick="selectGameMode('anomaly')" class="relative cursor-pointer bg-slate-900/50 border-slate-800/80 p-3 rounded-xl border flex flex-col gap-1 transition-all group hover:border-indigo-500 hover:bg-indigo-500/10">
             <div class="flex items-center gap-2">
                 <span class="text-lg">👁️</span>
-                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Anomalies 3D</h3>
+                <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Anomalies</h3>
+		<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
             </div>
             <p class="text-[10px] text-slate-400 leading-tight">Couloir infini : repérez les changements d'environnement pour avancer.</p>
             <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
@@ -865,6 +864,7 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             <div class="flex items-center gap-2">
                 <span class="text-lg">✏️</span>
                 <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Petit Bac</h3>
+		<span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
             </div>
             <p class="text-[10px] text-slate-400 leading-tight">Une lettre, plusieurs catégories. Soyez originaux pour marquer gros.</p>
             <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">
@@ -900,7 +900,6 @@ window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
             <div class="flex items-center gap-2">
                 <span class="text-lg">🎬</span>
                 <h3 class="font-bold text-sm text-gray-100 group-hover:text-indigo-300 transition">Cinématophile</h3>
-                <span class="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1 rounded uppercase">WIP</span>
             </div>
             <p class="text-[10px] text-slate-400 leading-tight">Affiche floutée. Soyez le premier à reconnaître le film.</p>
             <span class="mode-badge hidden absolute top-2 right-2 flex h-2 w-2">...</span>
