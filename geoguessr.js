@@ -22,6 +22,28 @@ const GLOBAL_UNIQUE_POOL = [];
             }
         });
 
+// Appelée par l'hôte au lancement : tire les lieux de la partie
+window.prepareGeoGame = function(rounds) {
+    const n = parseInt(rounds, 10) || 5;
+    const pool = [...GLOBAL_UNIQUE_POOL].sort(() => Math.random() - 0.5);
+    return pool.slice(0, n);
+};
+
+// Écran de fin (seulement si aucun autre fichier ne définit déjà showFinalResults)
+if (typeof window.showFinalResults !== 'function') {
+    window.showFinalResults = function() {
+        showScreen('screen-results');
+        const arr = (Array.isArray(state.players) ? state.players : Object.values(state.players || {}))
+            .slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+        const lb = document.getElementById('final-leaderboard');
+        if (lb) lb.innerHTML = arr.map((p, i) => `
+            <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
+                <span class="font-bold">#${i + 1} - ${p.name || p.pseudo}</span>
+                <span class="font-mono text-emerald-400 font-bold text-sm">${p.score || 0} pts</span>
+            </div>`).join('');
+    };
+}
+
 window.startNextRound = function() {
             // Nettoyage de l'ancien timer pour éviter les conflits
             clearInterval(state.geoTimerInterval);
@@ -185,6 +207,7 @@ window.submitGeoGuess = function() {
             let roomCode = window.currentCodeSalon || state.roomCode;
             if (roomCode && window.db) {
                 const guessPayload = {
+		    round: state.currentRound,
                     score: state.players[myKey].score,
                     guess: hasGuessed ? state.userGuessCoords : null,
                     dist: dist,
@@ -251,6 +274,9 @@ window.checkAllGeoGuessesSubmitted = function() {
 }
 
 window.showRoundSummary = function(dist, pts) {
+	    const sEl = document.getElementById('screen-round-summary');
+    if (sEl && !sEl.classList.contains('hidden') && sEl.style.display !== 'none') return;
+    
             showScreen('screen-round-summary');
             document.getElementById('round-score-info').innerText = `+${pts} pts (${dist} km)`;
             
