@@ -286,7 +286,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             name: window.myPlayerKey,
                             avatar: last.avatar || state.avatar,
                             isBot: false,
-                            isHost: others.length === 0,
+                             isHost: !!last.isHost || others.length === 0,
                             score: last.score || 0,
                             isReady: false
                         }).then(armDisconnect).finally(() => {
@@ -295,15 +295,22 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     }
                 }
 
-                // --- 👑 Transfert d'hôte : si l'hôte est parti, le premier joueur restant (ordre alphabétique) le devient ---
-                const humansNow = Object.values(data.players || {}).filter(p => p && !p.isBot);
-                if (humansNow.length > 0 && !humansNow.some(p => p.isHost)) {
-                    const newHost = humansNow.map(p => p.name).sort()[0];
-                    if (newHost === window.myPlayerKey) {
-                        update(ref(db, 'salons/' + codeSalon), {
-                            ['players/' + newHost + '/isHost']: true,
-                            host: newHost
-                        });
+                                // Règle unique : 1 seul hôte. S'il y en a plusieurs, le premier (ordre alphabétique) gagne ;
+                // s'il n'y en a aucun, le premier joueur (ordre alphabétique) le devient.
+                const humansNow = Object.values(data.players || {}).filter(p => p && !p.isBot && p.name);
+                if (humansNow.length > 0 && window.myPlayerKey) {
+                    const hostNames = humansNow.filter(p => p.isHost).map(p => p.name).sort();
+                    const wantedHost = hostNames.length > 0 ? hostNames[0] : humansNow.map(p => p.name).sort()[0];
+                    const me = data.players && data.players[window.myPlayerKey];
+                    if (me) {
+                        if (wantedHost === window.myPlayerKey && !me.isHost) {
+                            update(ref(db, 'salons/' + codeSalon), {
+                                ['players/' + wantedHost + '/isHost']: true,
+                                host: wantedHost
+                            });
+                        } else if (wantedHost !== window.myPlayerKey && me.isHost) {
+                            update(ref(db, 'salons/' + codeSalon + '/players/' + window.myPlayerKey), { isHost: false });
+                        }
                     }
                 }
                 window.currentRoom = data;
@@ -1346,12 +1353,13 @@ function joinRoom() {
                     return;
                 }
 
+                const existingEntry = players[state.username];
                 players[state.username] = {
                     name: state.username,
                     avatar: state.avatar,
                     isBot: false,
-                    isHost: false,
-                    score: 0,
+                    isHost: existingEntry ? !!existingEntry.isHost : false,
+                    score: existingEntry ? (existingEntry.score || 0) : 0,
                     isReady: false
                 };
                 window.mettreAJourSalonFirebase(roomCode, { players: players });
@@ -1452,6 +1460,9 @@ function updateLobbyUI() {
             slotsHTML += `
                 <div class="border ${p.isReady ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-amber-500/60 bg-amber-950/20'} p-1.5 flex flex-col justify-between text-center relative rounded-sm h-full">
                     <div class="absolute top-1 right-1 text-[9px] ${p.isReady ? 'text-emerald-400' : 'text-amber-500'} font-bold z-20">${p.isReady ? '✓' : '✕'}</div>
+
+			                    ${p.isHost ? '<div class="absolute top-1 left-1 text-[11px] text-yellow-400 z-20" title="Hôte"><i class="fa-solid fa-crown"></i></div>' : ''}
+                    ${(window.isHost && !p.isHost && !p.isBot && p.name !== window.myPlayerKey) ? `<button data-name="${String(p.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" onclick="transferHost(this.dataset.name)" title="Donner le rôle d'Hôte" class="absolute top-1 left-1 z-30 px-1 py-0.5 text-[9px] bg-yellow-500/20 border border-yellow-500/60 text-yellow-300 hover:bg-yellow-500 hover:text-black rounded cursor-pointer"><i class="fa-solid fa-crown"></i></button>` : ''}
                     
                     <!-- L'image prend tout l'espace disponible verticalement sans bandes noires -->
                     <div class="scanline-box w-full flex-1 bg-black/90 border border-cyan-500/30 flex items-center justify-center my-1 relative overflow-hidden rounded min-h-0">
@@ -1475,6 +1486,26 @@ function updateLobbyUI() {
     }
     grid.innerHTML = slotsHTML;
     renderCodenamesTeams();
+}
+
+// Transfère le rôle d'Hôte à un autre joueur du salon (un seul écrit atomique : jamais 0 ou 2 hôtes).
+function transferHost(targetName) {
+    if (!window.isHost || !window.currentCodeSalon || !window.db || !window.update) return;
+    const me = window.myPlayerKey;
+    if (!targetName || targetName === me) return;
+
+    const target = Object.values(state.players || {}).find(p => p && p.name === targetName && !p.isBot);
+    if (!target) {
+        showToast("⚠️ Ce joueur n'est plus dans le salon.");
+        return;
+    }
+
+    window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), {
+        [`players/${me}/isHost`]: false,
+        [`players/${targetName}/isHost`]: true,
+        host: targetName
+    }).then(() => showToast(`👑 ${targetName} est maintenant l'Hôte.`))
+      .catch(err => console.error("Transfert d'hôte impossible :", err));
 }
 
 function toggleReady() {
