@@ -350,6 +350,29 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     updateLobbyUI();
                 }
 
+		                // --- 🔄 SYNCHRO QUIZ : réponses des autres joueurs + passage à la question suivante ---
+                if (data.quizGame && state.quizGame) {
+                    const curIdx = state.quizGame.currentIndex || 0;
+                    if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
+
+                    // 1. Copier les réponses des autres joueurs (uniquement la manche en cours)
+                    const remote = data.quizGame.currentRoundAnswers || {};
+                    Object.keys(remote).forEach(k => {
+                        if (remote[k] && remote[k].round === curIdx) {
+                            state.quizGame.currentRoundAnswers[k] = remote[k];
+                        }
+                    });
+
+                    // 2. Si tout le monde a cliqué "Question suivante" (et qu'on est sur le résumé), on avance
+                    const summaryEl = document.getElementById('screen-quiz-summary');
+                    const onSummary = summaryEl && summaryEl.style.display !== 'none' && !summaryEl.classList.contains('hidden');
+                    const ready = data.quizGame.readyForNext || {};
+                    const humans = Object.values(data.players || {}).filter(p => !p.isBot).map(p => p.name);
+                    if (onSummary && humans.length > 0 && humans.every(n => ready[n])) {
+                        executeActualNextQuizQuestion();
+                    }
+                }
+
                 if (typeof callbackMiseAJour === 'function') callbackMiseAJour(data);
             }
         });
