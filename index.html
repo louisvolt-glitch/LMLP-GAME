@@ -231,7 +231,7 @@
           .catch((error) => console.error("Erreur de création :", error));
       };
 
-      window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
+window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         const salonRef = ref(db, 'salons/' + codeSalon);
         onValue(salonRef, (snapshot) => {
             const data = snapshot.val();
@@ -240,12 +240,32 @@
                 window.currentCodeSalon = codeSalon;
                 state.roomCode = codeSalon;
 
-		const sessionCodeEl = document.getElementById('session-code');
+                const sessionCodeEl = document.getElementById('session-code');
                 if (sessionCodeEl) sessionCodeEl.innerText = codeSalon;
 
                 if (typeof window.state === 'undefined') window.state = {};
                 if (!window.state.quizGame) window.state.quizGame = {};
                 if (!window.state.quizSettings) window.state.quizSettings = {};
+
+                // --- 🔄 SYNCHRONISATION DU MODE DE JEU EN TEMPS REEL ---
+                if (data.selectedMode && data.selectedMode !== state.selectedMode) {
+                    const modeMap = {
+                        'quiz': { name: 'Quiz Culture G', icon: '❓', desc: 'Quiz chronométré en équipe à travers 20 catégories de culture générale.' },
+                        'geoguessr': { name: 'GeoGuessr', icon: '📍', desc: 'Explorez Street View et placez votre repère géographique.' },
+                        'cine': { name: 'Cinématophile', icon: '🎥', desc: 'Reconnaissez le film à partir de l affiche floutée.' },
+                        'codenames': { name: 'Codenames', icon: '🕵️', desc: 'Donnez un indice unique pour faire deviner vos mots en équipe.' },
+                        'petitsbac': { name: 'Petit Bac', icon: '📝', desc: 'Trouvez des mots par catégorie avec la lettre imposée.' },
+                        'impostor': { name: 'Impostor', icon: '🥷', desc: 'Démasquez l impostor ou bluffez pour survivre incognito.' },
+                        'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Surveillez le couloir infini et détectez les anomalies visuelles.' }
+                    };
+                    
+                    const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
+                    if (typeof appliquerChangementProtocole === 'function') {
+                        // On applique visuellement le choix de l'hôte sans re-déclencher l'écriture Firebase
+                        appliquerChangementProtocole(mInfo.name, mInfo.icon, mInfo.desc, data.selectedMode);
+                    }
+                }
+                // --------------------------------------------------------
 
                 if (data.settings) {
                     window.state.quizSettings.timer = data.settings.timer || 20;
@@ -1311,19 +1331,38 @@ const protocolData = {
 };
 
 function selectProtocol(name, icon, desc, modeKey) {
-    // 1. Mise à jour de l'en-tête (Titre et Description)
-    document.getElementById('active-protocol-title').innerText = name;
-    document.getElementById('active-protocol-desc').innerText = desc;
-    state.selectedMode = modeKey;
+    // 🔒 RESTRICTION : Seul l'hôte peut changer le mode de jeu
+    if (!window.isHost) {
+        showToast("⚠️ Seul l'Hôte peut sélectionner un protocole de mission.");
+        return;
+    }
 
-    // 1. Masquer tous les points verts et réinitialiser l'apparence des lignes
+    // Synchronisation avec Firebase (l'écouteur onValue se chargera d'appeler appliquerChangementProtocole pour tout le monde)
+    if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+        window.mettreAJourSalonFirebase(window.currentCodeSalon, { selectedMode: modeKey });
+    } else {
+        // Mode hors-ligne / solo
+        appliquerChangementProtocole(name, icon, desc, modeKey);
+    }
+}
+
+function appliquerChangementProtocole(name, icon, desc, modeKey) {
+    state.selectedMode = modeKey;
+    const data = protocolData[modeKey] || protocolData['codenames'];
+
+    // 1. Mise à jour de l'en-tête (Titre et Description)
+    const titleEl = document.getElementById('active-protocol-title');
+    const descEl = document.getElementById('active-protocol-desc');
+    if (titleEl) titleEl.innerText = name;
+    if (descEl) descEl.innerText = desc;
+
+    // 2. Gestion visuelle des boutons de la bibliothèque
     document.querySelectorAll('.dot-indicator').forEach(dot => dot.classList.add('hidden'));
     document.querySelectorAll('[id^="protocol-btn-"]').forEach(btn => {
         btn.classList.remove('border-cyan-400', 'bg-cyan-950/40');
         btn.classList.add('border-cyan-500/25', 'bg-black/40');
     });
 
-    // 2. Activer le point vert et illuminer la ligne du jeu sélectionné
     const activeBtn = document.getElementById('protocol-btn-' + modeKey);
     if (activeBtn) {
         activeBtn.classList.remove('border-cyan-500/25', 'bg-black/40');
@@ -1331,11 +1370,8 @@ function selectProtocol(name, icon, desc, modeKey) {
         const dot = activeBtn.querySelector('.dot-indicator');
         if (dot) dot.classList.remove('hidden');
     }
-    
-    // 2. Récupération des données du mode sélectionné (Fallback sur codenames si manquant)
-    const data = protocolData[modeKey] || protocolData['codenames'];
 
-    // Mise à jour des Règles d'engagement
+    // 3. Mise à jour des Règles d'engagement
     const rulesContainer = document.getElementById('protocol-rules-list');
     if (rulesContainer && data.rules) {
         rulesContainer.innerHTML = data.rules.map((rule, idx) => `
@@ -1346,84 +1382,67 @@ function selectProtocol(name, icon, desc, modeKey) {
         `).join('');
     }
 
-    // Mise à jour des Métriques
+    // 4. Mise à jour des Métriques & Barres
     if (document.getElementById('protocol-players-text')) document.getElementById('protocol-players-text').innerText = data.players;
     if (document.getElementById('protocol-duration-text')) document.getElementById('protocol-duration-text').innerText = data.duration;
-    
     if (document.getElementById('protocol-complexity-text')) document.getElementById('protocol-complexity-text').innerText = data.complexity;
     if (document.getElementById('protocol-complexity-bar')) document.getElementById('protocol-complexity-bar').style.width = data.complexity;
-    
     if (document.getElementById('protocol-sync-text')) document.getElementById('protocol-sync-text').innerText = data.sync;
     if (document.getElementById('protocol-sync-bar')) document.getElementById('protocol-sync-bar').style.width = data.sync;
 
-    // 3. Mise à jour du Dossier de Mission (Paramètres Hôte)
-    // On cache tous les paramètres spécifiques
+    // 5. Affichage des paramètres spécifiques de l'hôte / lecture seule
     const allSettings = [
-    'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
-    'host-settings-codenames', 'host-settings-petitsbac', 
-    'host-settings-impostor', 'host-settings-anomaly'
-	];
+        'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
+        'host-settings-codenames', 'host-settings-petitsbac', 
+        'host-settings-impostor', 'host-settings-anomaly'
+    ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
     
-    // On affiche uniquement le paramètre spécifique s'il existe
     if (data.settingsId) {
         const activeSettings = document.getElementById(data.settingsId);
         if (activeSettings) activeSettings.classList.remove('hidden');
     }
 
     const modularChecksEl = document.getElementById('modular-checks-container');
-        if (modularChecksEl) {
-            if (modeKey === 'codenames') {
-                modularChecksEl.classList.add('hidden');
-            } else {
-                modularChecksEl.classList.remove('hidden');
-            }
+    if (modularChecksEl) {
+        if (modeKey === 'codenames') {
+            modularChecksEl.classList.add('hidden');
+        } else {
+            modularChecksEl.classList.remove('hidden');
         }
+    }
 
-    // Vue du joueur "non-hôte" (Dossier de mission lecture seule)
     const nonHostModeText = document.getElementById('non-host-target-mode');
     if (nonHostModeText) nonHostModeText.innerText = name;
 
-    // 4. Gestion de la vidéo vs Icône
+    // 6. Gestion dynamique de la vidéo du protocole
     const defaultImgContainer = document.getElementById('active-protocol-default-img');
     const iconContainer = document.getElementById('active-protocol-icon-container');
     const videoContainer = document.getElementById('active-protocol-video-container');
     const videoElement = document.getElementById('active-protocol-video');
     const iconElement = document.getElementById('active-protocol-icon');
 
-    // On masque l'image par défaut dans tous les cas puisqu'un mode est sélectionné
     if (defaultImgContainer) defaultImgContainer.classList.add('hidden');
 
-	// --- GESTION DYNAMIQUE DE LA VIDÉO ---
-            if (data.video) {
-                iconContainer.classList.add('hidden');
-                videoContainer.classList.remove('hidden');
-                
-                // Mettre à jour la source de la vidéo si elle est différente
-                const sourceElement = videoElement.querySelector('source');
-                if (sourceElement.getAttribute('src') !== data.video) {
-                    sourceElement.setAttribute('src', data.video);
-                    videoElement.load(); // Recharge le lecteur avec la nouvelle vidéo
-                }
-
-                videoElement.currentTime = 0;
-                videoElement.play().catch(e => console.log("Auto-play bloqué", e));
-            } else {
-                // S'il n'y a pas de vidéo configurée, on affiche l'icône par défaut
-                videoContainer.classList.add('hidden');
-                iconContainer.classList.remove('hidden');
-                iconElement.innerText = icon;
-                videoElement.pause();
-            }
-
-    showToast("Protocole sélectionné : " + name);
-    
-    // Push Firebase si Hôte
-    if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
-        window.mettreAJourSalonFirebase(window.currentCodeSalon, { selectedMode: modeKey });
+    if (data.video) {
+        if (iconContainer) iconContainer.classList.add('hidden');
+        if (videoContainer) videoContainer.classList.remove('hidden');
+        
+        const sourceElement = videoElement.querySelector('source');
+        if (sourceElement && sourceElement.getAttribute('src') !== data.video) {
+            sourceElement.setAttribute('src', data.video);
+            videoElement.load();
+        }
+        videoElement.currentTime = 0;
+        videoElement.play().catch(e => console.log("Auto-play bloqué", e));
+    } else {
+        if (videoContainer) videoContainer.classList.add('hidden');
+        if (iconContainer) iconContainer.classList.remove('hidden');
+        if (iconElement) iconElement.innerText = icon;
+        videoElement.pause();
     }
 }
 
