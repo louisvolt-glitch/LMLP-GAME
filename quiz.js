@@ -276,6 +276,7 @@ window.answerQuizQuestion = function(selIdx) {
     if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
     
     state.quizGame.currentRoundAnswers[myKey] = { 
+        round: state.quizGame.currentIndex || 0,
         questionObj: qobj,
         choice: selIdx, 
         isCorrect: selIdx === qobj.correct, 
