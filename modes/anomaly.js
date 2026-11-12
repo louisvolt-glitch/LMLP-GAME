@@ -103,6 +103,27 @@ window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallback
     return mat;
 };
 
+// --- Modèles 3D (GLTF) : ./models/<nom>/scene.gltf ---
+// Chargé une seule fois, puis cloné à chaque couloir. Si le fichier est absent, le jeu continue sans l'objet.
+const modelCache = {};
+window.loadGLTFModel = function(name, cb) {
+    const m = modelCache[name];
+    if (m && m.failed) return;
+    if (m && m.obj) { cb(m.obj.clone(true)); return; }
+    if (m) { m.waiting.push(cb); return; }
+    if (!THREE.GLTFLoader) { modelCache[name] = { failed: true }; return; }
+    const entry = modelCache[name] = { obj: null, failed: false, waiting: [cb] };
+    new THREE.GLTFLoader().load(`./models/${name}/scene.gltf`, gltf => {
+        gltf.scene.traverse(c => { c.userData.keep = true; });   // ressources partagées : ne pas les détruire au nettoyage
+        entry.obj = gltf.scene;
+        entry.waiting.forEach(f => f(entry.obj.clone(true)));
+        entry.waiting = [];
+    }, undefined, err => {
+        entry.failed = true; entry.waiting = [];
+        console.warn('Modèle 3D introuvable (ignoré) :', name, err && err.message);
+    });
+};
+
 // Moquette rayée générée par le code (décor sans textures) : tourne de 90° pour l'anomalie « Hôtel 1 »
 let carpetTexCache = null;
 window.getCarpetTexture = function() {
@@ -521,6 +542,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             // NETTOYAGE COMPLET POUR ÉVITER LES FUITES DE MÉMOIRE WEBGL
             if (state.anomalyData.scene) {
                 state.anomalyData.scene.traverse(child => {
+                    if (child.userData && child.userData.keep) return;
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) {
                         if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
@@ -745,6 +767,34 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             extGroup.position.set(-wallDist + 0.2, 1.0, -12);
             if (!(hasAnomaly && currentTheme === 'hopital' && anomalyId === 7)) corridorGroup.add(extGroup);   // Hôpital 7 : extincteur disparu
 
+            // Banc (modèle GLTF) contre le mur de droite, entre les deux affiches (métro uniquement)
+            let benchZone = null;   // { zMin, zMax, xMax } : empêche de traverser le banc
+            if (currentTheme === 'metro') {
+                const BENCH_LENGTH = 1.8;     // mètres le long du mur
+                const BENCH_FLIP = 0;         // mettre Math.PI si le dossier est du mauvais côté
+                window.loadGLTFModel('bench', bench => {
+                    if (state.anomalyData.scene !== scene) return;   // la scène a changé pendant le chargement
+                    const holder = new THREE.Group();
+                    holder.add(bench);
+                    let box = new THREE.Box3().setFromObject(holder);
+                    let size = box.getSize(new THREE.Vector3());
+                    holder.rotation.y = (size.x >= size.z ? -Math.PI / 2 : 0) + BENCH_FLIP;   // grand côté parallèle au mur
+                    holder.updateMatrixWorld(true);
+                    box = new THREE.Box3().setFromObject(holder);
+                    size = box.getSize(new THREE.Vector3());
+                    const k = BENCH_LENGTH / Math.max(size.z, 0.001);
+                    holder.scale.setScalar(k);
+                    holder.updateMatrixWorld(true);
+                    box = new THREE.Box3().setFromObject(holder);
+                    const c = box.getCenter(new THREE.Vector3());
+                    holder.position.set(wallDist - 0.05 - box.max.x + holder.position.x - 0 + 0, -box.min.y + holder.position.y, -6 - c.z + holder.position.z);
+                    holder.updateMatrixWorld(true);
+                    const fin = new THREE.Box3().setFromObject(holder);
+                    benchZone = { zMin: fin.min.z - 0.3, zMax: fin.max.z + 0.3, xMax: fin.min.x - 0.35 };
+                    corridorGroup.add(holder);
+                });
+            }
+
             // Objets bloquants (Chaises / Landau)
             if (hasAnomaly) {
                 if (currentTheme === 'hopital' && anomalyId === 1) {
@@ -816,6 +866,9 @@ window.renderLoop = function() {
                 // Collisions basiques
                 const limitX = wallDist - 0.4;
                 state.anomalyGame.playerX = Math.max(-limitX, Math.min(limitX, state.anomalyGame.playerX));
+                if (benchZone && state.anomalyGame.playerZ > benchZone.zMin && state.anomalyGame.playerZ < benchZone.zMax) {
+                    state.anomalyGame.playerX = Math.min(state.anomalyGame.playerX, benchZone.xMax);
+                }
                 
                 if (hasAnomaly && ((currentTheme === 'hopital' && anomalyId === 1) || (currentTheme === 'hotel' && anomalyId === 3))) {
                     if (state.anomalyGame.playerZ < -6.5 && state.anomalyGame.playerZ > -9.5) {
