@@ -113,6 +113,7 @@ window.startNextRound = function() {
                     if (status === google.maps.StreetViewStatus.OK && data && data.copyright && data.copyright.includes('Google')) {
                         
                         state.currentLocation.coords = [data.location.latLng.lat(), data.location.latLng.lng()];
+			state.spawnPanoId = data.location.pano;
 
                         state.nativePano = new google.maps.StreetViewPanorama(document.getElementById('sv-native'), {
                             position: data.location.latLng, 
@@ -178,10 +179,15 @@ window.startNextRound = function() {
         }
 
 window.returnToGeoSpawn = function() {
-            if (state.nativePano && state.currentLocation && state.currentLocation.coords) {
-                state.nativePano.setPosition(new google.maps.LatLng(state.currentLocation.coords[0], state.currentLocation.coords[1]));
-            }
-        };
+    if (!state.nativePano) return;
+    if (state.spawnPanoId) {
+        state.nativePano.setPano(state.spawnPanoId);
+    } else if (state.currentLocation && state.currentLocation.coords) {
+        state.nativePano.setPosition(new google.maps.LatLng(state.currentLocation.coords[0], state.currentLocation.coords[1]));
+    }
+    state.nativePano.setPov({ heading: 0, pitch: 0 });
+    state.nativePano.setZoom(1);
+};
 
 window.submitGeoGuess = function() {
             clearInterval(state.geoTimerInterval);
