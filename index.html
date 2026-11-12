@@ -240,6 +240,9 @@
                 window.currentCodeSalon = codeSalon;
                 state.roomCode = codeSalon;
 
+		const sessionCodeEl = document.getElementById('session-code');
+                if (sessionCodeEl) sessionCodeEl.innerText = codeSalon;
+
                 if (typeof window.state === 'undefined') window.state = {};
                 if (!window.state.quizGame) window.state.quizGame = {};
                 if (!window.state.quizSettings) window.state.quizSettings = {};
@@ -1002,6 +1005,9 @@ function updatePlayerProfile() {
             state.roomCode = roomCode;
             window.myPlayerKey = state.username;
 
+	    const sessionCodeEl = document.getElementById('session-code');
+    	    if (sessionCodeEl) sessionCodeEl.innerText = roomCode;	
+
             const hostData = {
                 host: state.username,
                 players: {
@@ -1065,6 +1071,9 @@ function joinRoom() {
                 window.isHost = false;
                 state.roomCode = roomCode;
                 window.myPlayerKey = state.username;
+
+		const sessionCodeEl = document.getElementById('session-code');
+                if (sessionCodeEl) sessionCodeEl.innerText = roomCode;
 
                 showScreen('screen-lobby');
                 setupLobbyViewForUser();
