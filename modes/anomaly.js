@@ -7,6 +7,8 @@
 // --- LISTE DES ANOMALIES 3D (Style Exit 8) ---
 const THEMES_CONFIG = {
             metro: {
+                pbr: true,   // textures locales dans ./textures/metro/ (mur, sol, plafond)
+                fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
                 wallTexture: 'https://images.unsplash.com/photo-1617391764619-3c7d674eb8f7?auto=format&fit=crop&w=1024&q=80',
                 floorTexture: 'https://images.unsplash.com/photo-1596205739343-41bbd9c7bb7f?auto=format&fit=crop&w=1024&q=80',
                 lightColor: 0xfffbeb,
@@ -22,6 +24,8 @@ const THEMES_CONFIG = {
                 }
             },
             hopital: {
+                pbr: false,  // passer à true quand ./textures/hopital/ est rempli
+                fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
                 wallTexture: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=1024&q=80',
                 floorTexture: 'https://images.unsplash.com/photo-1581404118991-381bb4542289?auto=format&fit=crop&w=1024&q=80',
                 lightColor: 0xe0f2fe,
@@ -37,6 +41,8 @@ const THEMES_CONFIG = {
                 }
             },
             hotel: {
+                pbr: false,  // passer à true quand ./textures/hotel/ est rempli
+                fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
                 wallTexture: 'https://images.unsplash.com/photo-1615800098779-1be32e60cca3?auto=format&fit=crop&w=1024&q=80',
                 floorTexture: 'https://images.unsplash.com/photo-1533256926955-4c07c2dc1b9f?auto=format&fit=crop&w=1024&q=80',
                 lightColor: 0xffedd5,
@@ -56,6 +62,63 @@ const THEMES_CONFIG = {
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');   // obligatoire pour utiliser des images d'un autre domaine dans WebGL
 const textureCache = {};
+
+// --- Textures PBR locales : ./textures/<décor>/<surface>_color.jpg, _normal.jpg, _rough.jpg ---
+// Si un fichier est introuvable, la surface retombe sur une couleur unie (le jeu ne plante pas).
+const pbrCache = {};
+window.loadPBRTexture = function(url, rx, ry, isColor) {
+    const key = url + '|' + rx + '|' + ry;
+    if (pbrCache[key]) return pbrCache[key];
+    const tex = textureLoader.load(url, undefined, undefined, () => {
+        tex.userData.failed = true;
+        (tex.userData.users || []).forEach(u => {          // retire la texture manquante des matériaux déjà créés
+            u.mat[u.prop] = null;
+            if (u.prop === 'map') u.mat.color.setHex(u.fallback);
+            u.mat.needsUpdate = true;
+        });
+    });
+    tex.userData.users = [];
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(rx, ry);
+    if (isColor) tex.encoding = THREE.sRGBEncoding;
+    pbrCache[key] = tex;
+    return tex;
+};
+
+window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallbackColor) {
+    const mat = new THREE.MeshStandardMaterial({ color: fallbackColor, roughness: 0.85, metalness: 0.0 });
+    if (!THEMES_CONFIG[theme].pbr) return mat;
+    const maxAniso = state.anomalyData.renderer ? state.anomalyData.renderer.capabilities.getMaxAnisotropy() : 4;
+    const base = `./textures/${theme}/${surface}_`;
+    [['map', 'color', true], ['normalMap', 'normal', false], ['roughnessMap', 'rough', false]].forEach(([prop, file, isColor]) => {
+        const tex = window.loadPBRTexture(base + file + '.jpg', rx, ry, isColor);
+        tex.anisotropy = maxAniso;
+        tex.rotation = rotation || 0;
+        if (tex.userData.failed) return;
+        mat[prop] = tex;
+        tex.userData.users.push({ mat: mat, prop: prop, fallback: fallbackColor });
+        if (prop === 'map') mat.color.setHex(0xffffff);
+        if (prop === 'roughnessMap') mat.roughness = 1.0;
+    });
+    return mat;
+};
+
+// Moquette rayée générée par le code (décor sans textures) : tourne de 90° pour l'anomalie « Hôtel 1 »
+let carpetTexCache = null;
+window.getCarpetTexture = function() {
+    if (carpetTexCache) return carpetTexCache;
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#5b2c2c'; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#c9a227';
+    for (let x = 0; x < 256; x += 64) g.fillRect(x + 28, 0, 8, 256);
+    g.fillStyle = '#7a3b3b';
+    for (let x = 0; x < 256; x += 64) g.fillRect(x + 10, 0, 4, 256);
+    carpetTexCache = new THREE.CanvasTexture(c);
+    carpetTexCache.wrapS = carpetTexCache.wrapT = THREE.RepeatWrapping;
+    carpetTexCache.encoding = THREE.sRGBEncoding;
+    return carpetTexCache;
+};
 
 window.loadRealTexture = function(url, repeatX = 1, repeatY = 1) {
             if (textureCache[url]) return textureCache[url];
@@ -315,6 +378,8 @@ window.startAnomalyMode = function(cfg) {
                     <i class="fa-solid fa-mouse mr-1 text-indigo-400"></i> Cliquez pour capturer la souris
                 </div>
                 <div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:rgba(255,255,255,0.6);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5"></div>
+                <div style="position:absolute;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)"></div>
+                <div style="position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0.10;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/></filter><rect width=%22200%22 height=%22200%22 filter=%22url(%23n)%22/></svg>')"></div>
                 <div id="anomaly-hint-banner" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 px-5 py-2.5 rounded-full border border-indigo-500/30 text-xs text-indigo-300 pointer-events-none text-center shadow-lg transition-opacity duration-500">
                     <b class="text-emerald-400"><i class="fa-solid fa-shield-halved"></i> Sortie 0 : Observez bien la référence (0 anomalie)</b>
                     <div class="text-[10px] text-slate-400 mt-1">Avancez si tout est normal, faites demi-tour s'il y a une anomalie.</div>
@@ -481,7 +546,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 renderer.outputEncoding = THREE.sRGBEncoding;
                 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                renderer.toneMappingExposure = 0.8;
+                renderer.toneMappingExposure = 1.0;
                 state.anomalyData.renderer = renderer;
             }
             if (state.anomalyData.renderer.domElement.parentNode !== container) {
@@ -515,7 +580,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             flashlight.angle = Math.PI / 5.5; // Faisceau resserré
             flashlight.penumbra = 0.4;        // Bords flous
             flashlight.distance = 25;
-            flashlight.castShadow = true;
+            flashlight.castShadow = false;   // aucune surface ne reçoit d'ombre : inutile et coûteux
             scene.add(flashlight);
             scene.add(flashlight.target);
             
@@ -527,37 +592,22 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             const themeData = THEMES_CONFIG[currentTheme];
             const maxAnisotropy = state.anomalyData.renderer.capabilities.getMaxAnisotropy();
             
-            // Chargement dynamique des textures avec exceptions visuelles
-            let wTexUrl = themeData.wallTexture;
-            let fTexUrl = themeData.floorTexture;
+            const fb = themeData.fallback;
+            const floorRot = (hasAnomaly && currentTheme === 'hotel' && anomalyId === 1) ? Math.PI / 2 : 0;   // Hôtel 1 : moquette pivotée
+            const brickWall = hasAnomaly && currentTheme === 'hotel' && anomalyId === 4;                        // Hôtel 4 : le papier peint pèle
 
-            if (hasAnomaly && currentTheme === 'hotel' && anomalyId === 4) wTexUrl = 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=512&q=80'; // Papier peint s'écaille (Briques)
-            
-            const wallTex = loadRealTexture(wTexUrl, 6, 2);
-            wallTex.anisotropy = maxAnisotropy;
-            const floorTex = loadRealTexture(fTexUrl, 2, 15);
-            floorTex.anisotropy = maxAnisotropy;
+            // Mur ~2 m par motif, sol et plafond carrés (le couloir fait 7 m x 60 m)
+            const wallMat = brickWall
+                ? window.makeSurfaceMaterial(currentTheme, 'wall_alt', 37, 2, 0, 0x7c2d12)
+                : window.makeSurfaceMaterial(currentTheme, 'wall', 37, 2, 0, fb.wall);
+            const floorMat = window.makeSurfaceMaterial(currentTheme, 'floor', 4, 34, floorRot, fb.floor);
+            if (!themeData.pbr && currentTheme === 'hotel') {
+                const carpet = window.getCarpetTexture();
+                carpet.repeat.set(6, 40); carpet.rotation = floorRot;
+                floorMat.map = carpet; floorMat.color.setHex(0xffffff); floorMat.needsUpdate = true;
+            }
+            const ceilingMat = window.makeSurfaceMaterial(currentTheme, 'ceiling', 3, 26, 0, fb.ceiling);
 
-            floorTex.rotation = (hasAnomaly && currentTheme === 'hotel' && anomalyId === 1) ? Math.PI / 2 : 0; // Moquette inversée
-
-            // Modifiez la déclaration de floorMat et wallMat dans GÉOMÉTRIE & MATÉRIAUX
-            const floorMat = new THREE.MeshStandardMaterial({ 
-                map: floorTex, 
-                roughness: 0.8, 
-                metalness: 0.1,
-                bumpMap: floorTex, // Utilise l'image pour créer du relief
-                bumpScale: 0.015
-            });
-            const wallMat = new THREE.MeshStandardMaterial({ 
-                map: wallTex, 
-                roughness: 0.6, 
-                metalness: 0.05,
-                bumpMap: wallTex,
-                bumpScale: 0.01
-            });
-            
-            const ceilingColor = currentTheme === 'hopital' ? 0xd1d5db : (currentTheme === 'hotel' ? 0x78716c : 0x1e293b);
-            const ceilingMat = new THREE.MeshStandardMaterial({ color: ceilingColor, roughness: 0.9 });
             const doorMat = new THREE.MeshStandardMaterial({ color: 0x3f3f46, metalness: 0.6, roughness: 0.4 });
 
             let ceilingHeight = 3.2;
@@ -613,7 +663,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 if (!isBlackout) {
                     const pl = new THREE.PointLight(neonColor, 1.2, 15);
                     pl.position.set(0, ceilingHeight - 0.3, z);
-                    pl.castShadow = true;
+                    pl.castShadow = false;
                     pointLights.push(pl);
                     corridorGroup.add(pl);
                 }
@@ -715,6 +765,8 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             corridorGroup.add(signMesh);
 
 	    const clock = new THREE.Clock();
+            const flickerLight = pointLights[2] || null;
+            let flickerUntil = 0, nextFlicker = Date.now() + 2000;
 
 window.renderLoop = function() {
                 if (document.getElementById('screen-generic-game').classList.contains('hidden') || state.anomalyGame.finished) {
@@ -734,6 +786,13 @@ window.renderLoop = function() {
                             if (camera.position.z < pl.position.z) pl.intensity = 0; 
                         });
                     }
+                }
+
+                // Néon qui vacille de temps en temps
+                if (flickerLight && !(hasAnomaly && currentTheme === 'hotel' && anomalyId === 8)) {
+                    const now = Date.now();
+                    if (now > nextFlicker) { flickerUntil = now + 60 + Math.random() * 120; nextFlicker = now + 2500 + Math.random() * 6000; }
+                    flickerLight.intensity = now < flickerUntil ? 0.2 : 1.2;
                 }
 
                 // Déplacements stabilisés par delta time
