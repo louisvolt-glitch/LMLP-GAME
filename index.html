@@ -146,13 +146,15 @@
 
 	/* --- Cinématophile : mise en page adaptative --- */
 #screen-cine {
-    /* hauteur de l'affiche = hauteur disponible, sans dépasser la largeur */
-    --cine-h: min(calc(100vh - 17rem), calc((100vw - 2rem) * 1.5));
+    /* largeur réellement disponible (même plafond que max-w-7xl = 80rem) */
+    --cine-w: min(calc(100vw - 2rem), 80rem);
+    --cine-h: min(calc(100vh - 17rem), calc(var(--cine-w) * 1.5));
 }
 @media (min-width: 768px) {
     #screen-cine {
-        /* l'affiche occupe au plus ~42 % de la largeur */
-        --cine-h: min(calc(100vh - 17rem), calc((100vw - 4rem) * 0.42 * 1.5));
+        --cine-w: min(calc(100vw - 4rem), 80rem);
+        /* l'affiche prend 38 % de la largeur du contenu, le texte le reste */
+        --cine-h: min(calc(100vh - 17rem), calc(var(--cine-w) * 0.38 * 1.5));
     }
 }
 #cine-canvas {
