@@ -328,10 +328,17 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 			}
                     } else if (selectedMode === 'impostor') {
                         showScreen('screen-impostor');
-                    } else if (selectedMode === 'geoguessr') {
-                        showScreen('screen-game-geoguessr');
-                        if (data.activeLocations) state.activeLocations = Array.isArray(data.activeLocations) ? data.activeLocations : Object.values(data.activeLocations);
-                        if (typeof loadGoogleMapsApi === 'function') loadGoogleMapsApi(() => startNextRound());
+                                        } else if (selectedMode === 'geoguessr') {
+                        // Une seule fois, au passage à IN_GAME (pas à chaque mise à jour Firebase)
+                        if (justStarted) {
+                            state.currentRound = 0;
+                            state.currentLocation = null;
+                            state.activeLocations = data.activeLocations
+                                ? (Array.isArray(data.activeLocations) ? data.activeLocations : Object.values(data.activeLocations))
+                                : [];
+                            showScreen('screen-game-geoguessr');
+                            if (typeof loadGoogleMapsApi === 'function') loadGoogleMapsApi(() => startNextRound());
+                        }
                     } else if (selectedMode === 'anomaly') {
                         showScreen('screen-generic-game');
                         if (typeof startAnomalyMode === 'function') startAnomalyMode();
@@ -381,6 +388,27 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     const updates = { status: 'LOBBY', lobbyReturn: null };
                     Object.keys(data.players).forEach(k => { updates[`players/${k}/isReady`] = false; });
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
+                }
+
+		                // --- 🔄 SYNCHRO GEOGUESSR ---
+                if (data.selectedMode === 'geoguessr' && data.status === 'IN_GAME') {
+                    const geoNames = Object.values(data.players || {}).filter(p => p && !p.isBot).map(p => p.name);
+                    const isVisible = id => { const el = document.getElementById(id); return !!el && !el.classList.contains('hidden') && el.style.display !== 'none'; };
+                    const geoGuesses = (data.geoGame && data.geoGame.guesses) || {};
+                    const geoReady = (data.geoGame && data.geoGame.readyForNextRound) || {};
+                    const curRound = state.currentRound || 0;
+
+                    // 1. Tous ont validé leur repère → résumé de la manche
+                    if (isVisible('screen-game-geoguessr') && geoNames.length > 0 &&
+                        geoNames.every(n => geoGuesses[n] && geoGuesses[n].submitted && geoGuesses[n].round === curRound)) {
+                        const mine = geoGuesses[window.myPlayerKey] || { dist: '?', pts: 0 };
+                        showRoundSummary(mine.dist, mine.pts);
+                    }
+
+                    // 2. Tous ont cliqué "Manche suivante" → on avance
+                    if (isVisible('screen-round-summary') && geoNames.length > 0 && geoNames.every(n => geoReady[n])) {
+                        executeActualNextRoundOrFinish();
+                    }
                 }
 
                 if (typeof callbackMiseAJour === 'function') callbackMiseAJour(data);
@@ -878,25 +906,6 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <div id="team-unassigned-container" class="flex flex-wrap gap-1 min-h-[35px]"></div>
                     </div>
                 </div>
-
-                <!-- MODULAR 2 CHECKS (Masqué pour Codenames et Quiz) -->
-                <div id="modular-checks-container" class="space-y-1 shrink-0 hidden">
-                    <div class="text-[11px] text-slate-400 mb-1 uppercase tracking-wide">MODULAR 2 CHECKS</div>
-                    <div class="grid grid-cols-2 gap-1 text-[10px]">
-                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-                            <input type="checkbox" checked class="accent-cyan-400"> CHECK PSEUDONYME
-                        </label>
-                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-                            <input type="checkbox" class="accent-cyan-400"> CHECK IP
-                        </label>
-                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-                            <input type="checkbox" class="accent-cyan-400"> CHECK CONFIG
-                        </label>
-                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-                            <input type="checkbox" checked class="accent-cyan-400"> CHECK SECURISE
-                        </label>
-                    </div>
-                </div>
             </div> <!-- Fin Zone Scrollable -->
 
             <!-- Bouton de lancement calé tout en bas -->
@@ -1058,10 +1067,25 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         </div>
         <div id="pano-container">
             <div id="streetview-holder" class="w-full h-full"></div>
-            <div class="minimap-wrapper p-2 flex flex-col justify-between">
+                        <div id="minimap-box" class="minimap-wrapper p-2 flex flex-col justify-between">
                 <div id="geoguessr-map"></div>
                 <button onclick="submitGeoGuess()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 rounded-xl transition text-xs shadow-lg mt-2 cursor-pointer">Valider mon Repère</button>
             </div>
+        </div>
+    </main>
+
+    <!-- ÉCRAN RÉSUMÉ DE MANCHE GEOGUESSR -->
+    <main id="screen-round-summary" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto">
+        <div class="neon-border-cyan bg-[#091424]/90 p-5 rounded-3xl max-w-3xl w-full space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-black sci-font text-white">Résultat de la manche</h3>
+                <span id="round-score-info" class="font-mono text-sm text-emerald-400 font-bold"></span>
+            </div>
+            <div id="round-summary-map" class="w-full h-72 rounded-xl border border-cyan-500/30"></div>
+            <div id="round-scores-list" class="space-y-2"></div>
+            <button id="next-round-btn" onclick="nextRoundOrFinish()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg">
+                Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
         </div>
     </main>
 
@@ -1093,6 +1117,9 @@ const AVATARS = [
             selectedMode: "",
             players: {},
             quizGame: { currentIndex: 0 }
+	    settings: { rounds: 5, timer: 45 },
+            currentRound: 0,
+            activeLocations: []
         };
 
         window.state = state;
@@ -1404,6 +1431,16 @@ function launchGame() {
     				categoriesSequence: state.quizGame.categoriesSequence
 			});
                     }
+		} else if (state.selectedMode === 'geoguessr') {
+                    const rounds = parseInt(document.getElementById('setting-rounds')?.value, 10) || 5;
+                    const timer = document.getElementById('input-host-timer')?.value || 45;
+                    window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+                        status: 'IN_GAME',
+                        'settings/geoRounds': rounds,
+                        'settings/geoTimer': timer,
+                        activeLocations: window.prepareGeoGame(rounds),
+                        geoGame: null          // purge l'ancienne partie
+                    });
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -1416,7 +1453,7 @@ function launchGame() {
             const mainScreens = [
                 'screen-home', 'screen-lobby', 'screen-quiz-difficulty', 
                 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 
-                'screen-game-geoguessr', 'screen-impostor', 'screen-cine', 
+                'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-cine', 
                 'screen-petitsbac', 'screen-generic-game', 'screen-results'
             ];
             
@@ -1678,16 +1715,6 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     if (data.settingsId) {
         const activeSettings = document.getElementById(data.settingsId);
         if (activeSettings) activeSettings.classList.remove('hidden');
-    }
-
-    const modularChecksEl = document.getElementById('modular-checks-container');
-    if (modularChecksEl) {
-        // CORRECTION : On masque les modulars pour Codenames ET Quiz
-        if (modeKey === 'codenames' || modeKey === 'quiz') {
-            modularChecksEl.classList.add('hidden');
-        } else {
-            modularChecksEl.classList.remove('hidden');
-        }
     }
 
     const nonHostModeText = document.getElementById('non-host-target-mode');
