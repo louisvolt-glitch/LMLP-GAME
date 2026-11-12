@@ -691,246 +691,247 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             </div>
         </section>
 
-        <!-- 3. SECTION INFÉRIEURE À 3 COLONNES -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0">
+<!-- 3. SECTION INFÉRIEURE À 3 COLONNES -->
+<!-- Ajout de overflow-hidden pour empêcher la section entière de grandir -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden">
 
- <!-- COLONNE 1 : DOSSIER DE MISSION / CONFIGURATION HÔTE -->
-<div class="neon-border-dim p-3 flex flex-col justify-between rounded-sm h-full">
+    <!-- COLONNE 1 : DOSSIER DE MISSION / CONFIGURATION HÔTE -->
+    <!-- Structure : Flex colonne avec min-h-0 pour contraindre la hauteur -->
+    <div class="neon-border-dim p-3 flex flex-col rounded-sm h-full min-h-0 relative">
 
-    <!-- État vide par défaut (Avant sélection d'un jeu) -->
-    <div id="empty-mission-folder" class="flex flex-col items-center justify-center h-full opacity-60">
-        <i class="fa-solid fa-folder-open text-3xl mb-3 text-cyan-500/50"></i>
-        <span class="sci-font text-[11px] tracking-widest text-slate-400">PROTOCOLE CIBLE NON DÉFINI</span>
-    </div>
-    
-    <!-- Vue non-hôte -->
-    <div id="non-host-mission-folder" class="hidden flex flex-col justify-between h-full">
-        <div>
-            <div class="sci-font font-semibold text-xs tracking-wider text-slate-300 border-b border-cyan-500/30 pb-2 mb-2">
+        <!-- État vide par défaut (Avant sélection d'un jeu) -->
+        <div id="empty-mission-folder" class="absolute inset-0 flex flex-col items-center justify-center opacity-60 z-10 bg-black/40">
+            <i class="fa-solid fa-folder-open text-3xl mb-3 text-cyan-500/50"></i>
+            <span class="sci-font text-[11px] tracking-widest text-slate-400">PROTOCOLE CIBLE NON DÉFINI</span>
+        </div>
+
+        <!-- Vue non-hôte -->
+        <div id="non-host-mission-folder" class="hidden flex flex-col h-full w-full min-h-0">
+            <div class="sci-font font-semibold text-xs tracking-wider text-slate-300 border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
                 DOSSIER DE MISSION / LECTURE SEULE
             </div>
-            <div class="space-y-2 text-xs">
-                <div>
+            <div class="flex-1 flex flex-col min-h-0 space-y-2 text-xs">
+                <div class="shrink-0">
                     <span class="text-slate-400">MODE SÉLECTIONNÉ :</span>
                     <div id="non-host-target-mode" class="text-white font-bold mt-1">En attente...</div>
                 </div>
-                <div>
+                <div class="shrink-0">
                     <span class="text-slate-400">PARAMÈTRES :</span>
                     <div id="non-host-timer-display" class="text-white font-bold mt-1">...</div>
-                    <!-- NOUVEAU : Affichage des catégories -->
-                    <div id="non-host-categories-display" class="text-cyan-400 text-[10px] mt-2 leading-relaxed h-[150px] overflow-y-auto"></div>
+                </div>
+                
+                <!-- Zone d'affichage des catégories (S'adapte à l'espace grâce à flex-1) -->
+                <div id="non-host-categories-display" class="flex-1 overflow-y-auto min-h-0 text-cyan-400 text-[10px] mt-1 bg-black/20 border border-cyan-500/10 p-2 rounded">
+                    <!-- Rempli dynamiquement en JS -->
                 </div>
             </div>
         </div>
-    </div>
 
-                <!-- Vue hôte (Interactive) -->
-                <div id="host-settings-container" class="hidden flex flex-col justify-between h-full w-full">
-                    <!-- Contenu du haut -->
-                    <div class="flex flex-col space-y-3">
-                        <div class="sci-font font-semibold text-xs tracking-wider text-slate-300 border-b border-cyan-500/30 pb-2 mb-1">
-                            DOSSIER DE MISSION / CONFIGURATION HÔTE
-                        </div>
-
-                        <!-- Sliders Section -->
-                        <div class="space-y-1 text-xs">
-                            <div class="flex justify-between text-[11px] text-slate-400 mb-1">
-                                <span>MISSION SETTINGS (TEMPS)</span>
-                                <span id="slider1-val" class="text-cyan-400">20s</span>
-                            </div>
-                            <input type="range" id="input-host-timer" min="5" max="60" value="20" class="w-full accent-cyan-400 bg-cyan-950 cursor-pointer h-1" oninput="updateSliderVal(1, this.value); updateHostSettings()">
-                        </div>
-
-                        <!-- Options Quiz -->
-                        <div id="host-settings-quiz" class="space-y-2 text-xs">
-                            <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS QUIZ</div>
-                            <div>
-                                <span class="text-slate-300 text-[11px]">Nombre de questions :</span>
-                                <input type="number" id="input-quiz-questions-count" min="3" max="30" value="10" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                            </div>
-                            
-                            <!-- ── CORRECTION : Liste des catégories ── -->
-                            <div class="pt-2 border-t border-cyan-500/20">
-                                <div class="flex justify-between items-center mb-1">
-                                    <span class="text-slate-300 text-[11px]">Catégories Actives :</span>
-                                    <div class="flex gap-1">
-                                        <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = true); updateHostSettings();" class="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 rounded text-[9px] cursor-pointer hover:bg-cyan-500 hover:text-black">Tout cocher</button>
-                                        <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = false); updateHostSettings();" class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 rounded text-[9px] cursor-pointer hover:bg-slate-800">Tout décocher</button>
-                                    </div>
-                                </div>
-                                <div id="quiz-categories-checklist" class="grid grid-cols-1 gap-1 max-h-24 overflow-y-auto bg-black/40 border border-cyan-500/20 p-1.5 rounded">
-                                    <!-- Rempli par initQuizCategoriesChecklist() dans quiz.js -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Options Géoguessr -->
-                        <div id="host-settings-geo" class="hidden space-y-1 text-xs">
-                            <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS GEOGUESSR</div>
-                            <div>
-                                <span class="text-slate-300 text-[11px]">Manches :</span>
-                                <input type="number" id="setting-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                            </div>
-                        </div>
-
-                        <!-- Options Anomalies -->
-                        <div id="host-settings-anomaly" class="hidden space-y-1 text-xs">
-                            <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ANOMALIES 3D</div>
-                            <div>
-                                <span class="text-slate-300 text-[11px]">Étapes max :</span>
-                                <input type="number" id="setting-anomaly-stages" min="1" max="20" value="8" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                            </div>
-                        </div>
-
-                        <!-- Options Petits Bac -->
-                        <div id="host-settings-petitsbac" class="hidden space-y-1 text-xs">
-                            <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS PETIT BAC</div>
-                            <div>
-                                <span class="text-slate-300 text-[11px]">Manches :</span>
-                    <input type="number" id="setting-petitsbac-rounds" min="1" max="10" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                            </div>
-                        </div>
-
-			<!-- OPTIONS CODENAMES : ÉQUIPES ROUGE / BLEUE (DRAG & DROP + RÔLES) -->
-<div id="host-settings-codenames" class="hidden space-y-2 text-xs">
-    <div class="text-[11px] text-amber-400 uppercase tracking-wide font-bold flex items-center justify-between">
-        <span>AFFECTATION DES ÉQUIPES (CODENAMES)</span>
-        <div class="flex gap-1">
-            <button onclick="randomizeCodenamesTeams()" class="px-2 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black transition rounded text-[10px] cursor-pointer">🎲 Aléatoire</button>
-            <button onclick="resetCodenamesTeams()" class="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition rounded text-[10px] cursor-pointer">🔄 Reset</button>
-        </div>
-    </div>
-    
-    <div class="grid grid-cols-2 gap-2 mt-1">
-        <!-- Équipe Bleue -->
-        <div class="bg-blue-950/30 border border-blue-500/40 p-2 rounded flex flex-col min-h-[130px]">
-            <div class="text-[10px] font-bold text-blue-400 border-b border-blue-500/30 pb-1 mb-1 flex justify-between">
-                <span>ÉQUIPE BLEUE</span>
-                <span id="count-blue">0</span>
+        <!-- Vue hôte (Interactive) -->
+        <div id="host-settings-container" class="hidden flex flex-col h-full w-full min-h-0">
+            
+            <div class="sci-font font-semibold text-xs tracking-wider text-slate-300 border-b border-cyan-500/30 pb-2 mb-1 shrink-0">
+                DOSSIER DE MISSION / CONFIGURATION HÔTE
             </div>
-            <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'spymaster')">
-                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
-                <div id="team-blue-spymaster" class="min-h-[24px] bg-blue-950/50 border border-dashed border-blue-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
-            </div>
-            <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'agent')">
-                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Espions :</div>
-                <div id="team-blue-agents" class="min-h-[35px] bg-blue-950/20 border border-dashed border-blue-500/30 rounded p-1 space-y-1"></div>
-            </div>
-        </div>
-
-        <!-- Équipe Rouge -->
-        <div class="bg-rose-950/30 border border-rose-500/40 p-2 rounded flex flex-col min-h-[130px]">
-            <div class="text-[10px] font-bold text-rose-400 border-b border-rose-500/30 pb-1 mb-1 flex justify-between">
-                <span>ÉQUIPE ROUGE</span>
-                <span id="count-red">0</span>
-            </div>
-            <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'spymaster')">
-                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
-                <div id="team-red-spymaster" class="min-h-[24px] bg-rose-950/50 border border-dashed border-rose-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
-            </div>
-            <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'agent')">
-                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Espions :</div>
-                <div id="team-red-agents" class="min-h-[35px] bg-rose-950/20 border border-dashed border-rose-500/30 rounded p-1 space-y-1"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Réserve d'opérateurs non assignés -->
-    <div class="bg-black/40 border border-cyan-500/20 p-2 rounded mt-1" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'unassigned', 'agent')">
-        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve d'Opérateurs (Glisser vers une équipe) :</div>
-        <div id="team-unassigned-container" class="flex flex-wrap gap-1 min-h-[35px]"></div>
-    </div>
-</div>
-
-                        <!-- MODULAR 2 CHECKS (Masqué pour Codenames) -->
-<div id="modular-checks-container" class="space-y-1">
-    <div class="text-[11px] text-slate-400 mb-1 uppercase tracking-wide">MODULAR 2 CHECKS</div>
-    <div class="grid grid-cols-2 gap-1 text-[10px]">
-        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-            <input type="checkbox" checked class="accent-cyan-400"> CHECK PSEUDONYME
-        </label>
-        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-            <input type="checkbox" class="accent-cyan-400"> CHECK IP
-        </label>
-        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-            <input type="checkbox" class="accent-cyan-400"> CHECK CONFIG
-        </label>
-        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
-            <input type="checkbox" checked class="accent-cyan-400"> CHECK SECURISE
-        </label>
-    </div>
-</div>
+            
+            <!-- Zone centrale adaptative (SANS overflow-y-auto ici) -->
+            <div class="flex-1 flex flex-col min-h-0 pr-1 space-y-3">
+                
+                <!-- Sliders Section -->
+                <div class="space-y-1 text-xs shrink-0">
+                    <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                        <span>MISSION SETTINGS (TEMPS)</span>
+                        <span id="slider1-val" class="text-cyan-400">20s</span>
                     </div>
+                    <input type="range" id="input-host-timer" min="5" max="60" value="20" class="w-full accent-cyan-400 bg-cyan-950 cursor-pointer h-1" oninput="updateSliderVal(1, this.value); updateHostSettings()">
+                </div>
 
-                    <!-- Bouton de lancement calé tout en bas -->
-                    <div class="pt-2 border-t border-cyan-500/20 shrink-0 mt-4">
-                        <button onclick="launchGame()" class="neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer">
-                            LANCER LA MISSION
-                        </button>
+                <!-- Options Quiz (S'étire grâce à flex-1 et force l'encadré intérieur à toucher le bas) -->
+                <div id="host-settings-quiz" class="flex-1 flex flex-col min-h-0 space-y-2 text-xs hidden">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide shrink-0">OPTIONS QUIZ</div>
+                    <div class="shrink-0">
+                        <span class="text-slate-300 text-[11px]">Nombre de questions :</span>
+                        <input type="number" id="input-quiz-questions-count" min="3" max="30" value="10" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                    
+                    <div class="pt-2 border-t border-cyan-500/20 flex flex-col flex-1 min-h-0">
+                        <div class="flex justify-between items-center mb-1 shrink-0">
+                            <span class="text-slate-300 text-[11px]">Catégories Actives :</span>
+                            <div class="flex gap-1">
+                                <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = true); updateHostSettings();" class="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 rounded text-[9px] cursor-pointer hover:bg-cyan-500 hover:text-black">Tout cocher</button>
+                                <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = false); updateHostSettings();" class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 rounded text-[9px] cursor-pointer hover:bg-slate-800">Tout décocher</button>
+                            </div>
+                        </div>
+                        <!-- Encadré des checkboxes : flex-1 le pousse vers le bas, overflow-y-auto le fait scroller si nécessaire -->
+                        <div id="quiz-categories-checklist" class="flex-1 overflow-y-auto min-h-0 bg-black/40 border border-cyan-500/20 p-1.5 rounded flex flex-col gap-1 content-start">
+                            <!-- Rempli par initQuizCategoriesChecklist() dans quiz.js -->
+                        </div>
                     </div>
                 </div>
 
+                <!-- Options Géoguessr -->
+                <div id="host-settings-geo" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS GEOGUESSR</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Manches :</span>
+                        <input type="number" id="setting-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                </div>
+
+                <!-- Options Anomalies -->
+                <div id="host-settings-anomaly" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ANOMALIES 3D</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Étapes max :</span>
+                        <input type="number" id="setting-anomaly-stages" min="1" max="20" value="8" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                </div>
+
+                <!-- Options Petits Bac -->
+                <div id="host-settings-petitsbac" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS PETIT BAC</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Manches :</span>
+            <input type="number" id="setting-petitsbac-rounds" min="1" max="10" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                </div>
+
+                <!-- OPTIONS CODENAMES -->
+                <div id="host-settings-codenames" class="hidden space-y-2 text-xs shrink-0">
+                    <div class="text-[11px] text-amber-400 uppercase tracking-wide font-bold flex items-center justify-between">
+                        <span>AFFECTATION DES ÉQUIPES (CODENAMES)</span>
+                        <div class="flex gap-1">
+                            <button onclick="randomizeCodenamesTeams()" class="px-2 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black transition rounded text-[10px] cursor-pointer">🎲 Aléatoire</button>
+                            <button onclick="resetCodenamesTeams()" class="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition rounded text-[10px] cursor-pointer">🔄 Reset</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <!-- Équipe Bleue -->
+                        <div class="bg-blue-950/30 border border-blue-500/40 p-2 rounded flex flex-col min-h-[130px]">
+                            <div class="text-[10px] font-bold text-blue-400 border-b border-blue-500/30 pb-1 mb-1 flex justify-between">
+                                <span>ÉQUIPE BLEUE</span>
+                                <span id="count-blue">0</span>
+                            </div>
+                            <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'spymaster')">
+                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
+                                <div id="team-blue-spymaster" class="min-h-[24px] bg-blue-950/50 border border-dashed border-blue-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
+                            </div>
+                            <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'agent')">
+                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Espions :</div>
+                                <div id="team-blue-agents" class="min-h-[35px] bg-blue-950/20 border border-dashed border-blue-500/30 rounded p-1 space-y-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- Équipe Rouge -->
+                        <div class="bg-rose-950/30 border border-rose-500/40 p-2 rounded flex flex-col min-h-[130px]">
+                            <div class="text-[10px] font-bold text-rose-400 border-b border-rose-500/30 pb-1 mb-1 flex justify-between">
+                                <span>ÉQUIPE ROUGE</span>
+                                <span id="count-red">0</span>
+                            </div>
+                            <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'spymaster')">
+                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
+                                <div id="team-red-spymaster" class="min-h-[24px] bg-rose-950/50 border border-dashed border-rose-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
+                            </div>
+                            <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'agent')">
+                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Espions :</div>
+                                <div id="team-red-agents" class="min-h-[35px] bg-rose-950/20 border border-dashed border-rose-500/30 rounded p-1 space-y-1"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Réserve d'opérateurs non assignés -->
+                    <div class="bg-black/40 border border-cyan-500/20 p-2 rounded mt-1" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'unassigned', 'agent')">
+                        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve d'Opérateurs (Glisser vers une équipe) :</div>
+                        <div id="team-unassigned-container" class="flex flex-wrap gap-1 min-h-[35px]"></div>
+                    </div>
+                </div>
+
+                <!-- MODULAR 2 CHECKS (Masqué pour Codenames et Quiz) -->
+                <div id="modular-checks-container" class="space-y-1 shrink-0 hidden">
+                    <div class="text-[11px] text-slate-400 mb-1 uppercase tracking-wide">MODULAR 2 CHECKS</div>
+                    <div class="grid grid-cols-2 gap-1 text-[10px]">
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
+                            <input type="checkbox" checked class="accent-cyan-400"> CHECK PSEUDONYME
+                        </label>
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
+                            <input type="checkbox" class="accent-cyan-400"> CHECK IP
+                        </label>
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
+                            <input type="checkbox" class="accent-cyan-400"> CHECK CONFIG
+                        </label>
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer bg-black/20 p-1 border border-cyan-500/10">
+                            <input type="checkbox" checked class="accent-cyan-400"> CHECK SECURISE
+                        </label>
+                    </div>
+                </div>
+            </div> <!-- Fin Zone Scrollable -->
+
+            <!-- Bouton de lancement calé tout en bas -->
+            <div class="pt-2 border-t border-cyan-500/20 shrink-0 mt-2">
+                <button onclick="launchGame()" class="neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer">
+                    LANCER LA MISSION
+                </button>
+            </div>
+        </div>
+    </div> <!-- FIN COLONNE 1 -->
+
+    <!-- COLONNE 2 : OPÉRATEURS CONNECTÉS -->
+    <div class="neon-border-dim p-3 flex flex-col rounded-sm h-full min-h-0">
+        <!-- En-tête -->
+        <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
+            <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
+                OPÉRATEURS CONNECTÉS
+            </div>
+            <div id="player-count" class="sci-font text-xs text-cyan-400">
+                1/8 ACTIF(S)
+            </div>
+        </div>
+
+        <!-- Grille des 8 opérateurs -->
+        <div id="operators-grid" class="grid grid-cols-4 grid-rows-2 gap-2 flex-1 min-h-0 mb-2">
+            <!-- Rempli dynamiquement par JS -->
+        </div>
+
+        <!-- Bas de carte -->
+        <div class="flex justify-between items-center text-[10px] text-slate-400 border-t border-cyan-500/20 pt-2 shrink-0 sci-font">
+            <span id="lobby-status-text">STATUT: EN ATTENTE DU DÉPLOIEMENT</span>
+            <span class="text-emerald-400">● SYNC OK</span>
+        </div>
+    </div>
+
+    <!-- COLONNE 3 : CANAL DE DISCUSSION SÉCURISÉ -->
+    <div class="neon-border-dim p-3 flex flex-col rounded-sm h-full min-h-0">
+        <!-- En-tête -->
+        <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
+            <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
+                Canal de Discussion Sécurisé
+            </div>
+            <div class="flex items-center gap-1 text-[10px] text-cyan-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span> SECURE CHAT
+            </div>
+        </div>
+
+        <div class="flex-1 relative mb-2 min-h-0">
+            <div id="chat-messages" class="absolute inset-0 bg-black/70 border border-cyan-500/20 p-2 overflow-y-auto text-[11px] space-y-1 font-mono">
+                <p><span class="text-cyan-400 font-bold">[COMMANDANT]</span> : Message sol reçu par commandement.</p>
+            </div>
+        </div>
+
+        <!-- Section du bas (Bouton Prêt) -->
+        <div class="flex flex-col gap-2 shrink-0 mt-auto">
+            <div class="flex gap-1">
+                <input type="text" id="chat-input" placeholder="Entrer un message sécurisé..." class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs focus:outline-none focus:border-cyan-300" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()" class="bg-cyan-950 border border-cyan-500 text-cyan-400 px-3 py-1 text-xs hover:bg-cyan-500 hover:text-black transition-all cursor-pointer">ENVOYER</button>
             </div>
 
-            <!-- COLONNE 2 : OPÉRATEURS CONNECTÉS -->
-<div class="neon-border-dim p-3 flex flex-col rounded-sm h-full">
-    <!-- En-tête -->
-    <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
-        <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
-            OPÉRATEURS CONNECTÉS
-        </div>
-        <div id="player-count" class="sci-font text-xs text-cyan-400">
-            1/8 ACTIF(S)
+            <button id="deploy-btn" onclick="toggleReady()" class="neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer">
+                PRÊT POUR LE DÉPLOIEMENT
+            </button>
         </div>
     </div>
 
-    <!-- Grille des 8 opérateurs (flex-1 pour s'étirer dynamiquement vers le bas) -->
-    <div id="operators-grid" class="grid grid-cols-4 grid-rows-2 gap-2 flex-1 min-h-0 mb-2">
-        <!-- Rempli dynamiquement par JS -->
-    </div>
-
-    <!-- Bas de carte (Statut / Sync) -->
-    <div class="flex justify-between items-center text-[10px] text-slate-400 border-t border-cyan-500/20 pt-2 shrink-0 sci-font">
-        <span id="lobby-status-text">STATUT: EN ATTENTE DU DÉPLOIEMENT</span>
-        <span class="text-emerald-400">● SYNC OK</span>
-    </div>
 </div>
-
-<!-- COLONNE 3 : CANAL DE DISCUSSION SÉCURISÉ -->
-<div class="neon-border-dim p-3 flex flex-col rounded-sm h-full">
-    <!-- En-tête (ne bouge pas) -->
-    <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
-        <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
-            Canal de Discussion Sécurisé
-        </div>
-        <div class="flex items-center gap-1 text-[10px] text-cyan-400">
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span> SECURE CHAT
-        </div>
-    </div>
-
-    <!-- LE TRUC INFAILLIBLE : Un conteneur invisible qui prend 100% de l'espace vide -->
-    <div class="flex-1 relative mb-2 min-h-0">
-        <!-- La boîte noire en absolute inset-0 est obligée de respecter les limites exactes du conteneur sans jamais agrandir la page -->
-        <div id="chat-messages" class="absolute inset-0 bg-black/70 border border-cyan-500/20 p-2 overflow-y-auto text-[11px] space-y-1 font-mono">
-            <p><span class="text-cyan-400 font-bold">[COMMANDANT]</span> : Message sol reçu par commandement.</p>
-        </div>
-    </div>
-
-    <!-- Section du bas (ne bouge pas) -->
-    <div class="flex flex-col gap-2 shrink-0">
-        <div class="flex gap-1">
-            <input type="text" id="chat-input" placeholder="Entrer un message sécurisé..." class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs focus:outline-none focus:border-cyan-300" onkeydown="if(event.key==='Enter') sendChatMessage()">
-            <button onclick="sendChatMessage()" class="bg-cyan-950 border border-cyan-500 text-cyan-400 px-3 py-1 text-xs hover:bg-cyan-500 hover:text-black transition-all cursor-pointer">ENVOYER</button>
-        </div>
-
-        <button id="deploy-btn" onclick="toggleReady()" class="neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer">
-            PRÊT POUR LE DÉPLOIEMENT
-        </button>
-    </div>
-</div>
-        </div>
-
-    </div>
 
     <!-- ÉCRANS DE JEU SECONDAIRES -->
     <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
