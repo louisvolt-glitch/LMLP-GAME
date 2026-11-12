@@ -47,7 +47,6 @@ let bacCategories = [
 //  Phases : PLAYING (écrire) → VOTING (valider les mots des autres)
 //           → ROUND_SCORES (points de la manche) → ... → FINISHED
 // =====================================================================
-const BAC_VOTE_TIME = 30;      // secondes pour voter
 const BAC_STOP_TIME = 15;      // temps restant aux autres quand quelqu'un termine en premier
 
 let bacTickInterval = null;
@@ -265,8 +264,7 @@ function bacRenderVote(data, g, me, round, sessionKey, rd, cats) {
         window.bacPhaseKey = phaseKey;
         window.bacVotesSent = false;
         window.bacMyVotes = {};
-        window.bacTimeLeft = BAC_VOTE_TIME;
-        if (timerEl) timerEl.innerText = window.bacTimeLeft + 's';
+        if (timerEl) timerEl.innerText = '—';
 
         const answers = (g.answers && g.answers[round]) || {};
         const humans = bacHumanNames(data);
@@ -476,8 +474,7 @@ function bacHostAdvance(data) {
     } else if (g.status === 'VOTING') {
         const done = (g.votesDone && g.votesDone[round]) || {};
         const allDone = humans.every(n => done[n]);
-        const overdue = g.voteStart && (now - g.voteStart) > (BAC_VOTE_TIME + 15) * 1000;
-        if (allDone || overdue) {
+        if (allDone) {
             const result = bacComputeRound(data, g, round, humans);
             const updates = { 'bacGame/status': 'ROUND_SCORES' };
             humans.forEach(n => {
@@ -506,13 +503,12 @@ function bacTick() {
     const g = data.bacGame;
     if (g.status === 'FINISHED') { clearInterval(bacTickInterval); bacTickInterval = null; return; }
 
-    if (g.status === 'PLAYING' || g.status === 'VOTING') {
+    if (g.status === 'PLAYING') {
         if (window.bacTimeLeft > 0) window.bacTimeLeft--;
         const timerEl = document.getElementById('bac-timer');
         if (timerEl) timerEl.innerText = window.bacTimeLeft + 's';
         if (window.bacTimeLeft <= 0) {
-            if (g.status === 'PLAYING' && !window.bacSubmitted) window.submitBacAnswers(false);
-            if (g.status === 'VOTING' && !window.bacVotesSent) window.submitBacVotes();
+            if (!window.bacSubmitted) window.submitBacAnswers(false);
         }
     }
     if (window.isHost) bacHostAdvance(data);
