@@ -475,50 +475,39 @@ function renderCineScreen(data) {
                 );
 
 
-                // ANIMATION DU TEXTE
+                                // ANIMATION DU TEXTE : synchronisée sur la durée totale de la manche
                 const fullText = currentMovie.storyText ||
                     'Le texte narratif de ce film n\'a pas encore été configuré dans les données.';
 
-                let currentCharIndex = 0;
+                const textStartTime = Date.now();
+                const totalMs = timerDuration * 1000;
 
-                const typingSpeed = Math.max(
-                    20,
-                    Math.floor(
-                        (timerDuration * 600) /
-                        Math.max(fullText.length, 1)
-                    )
-                );
+                const renderStoryText = () => {
 
+                    const progress = Math.min(1, (Date.now() - textStartTime) / totalMs);
+                    const charCount = Math.ceil(fullText.length * progress);
+                    const done = progress >= 1;
 
-                windowCineTextInterval = setInterval(() => {
+                    if (storyBox) {
 
-                    if (currentCharIndex <= fullText.length) {
+                        storyBox.innerHTML = fullText.substring(0, charCount) +
+                            (done ? '' : '<span class="animate-pulse font-black text-pink-500">_</span>');
 
-                        const displayedText =
-                            fullText.substring(0, currentCharIndex);
+                        const textContainer = storyBox.parentElement;
 
-                        if (storyBox) {
-
-                            storyBox.innerHTML =
-                                `${displayedText}<span class="animate-pulse font-black text-pink-500">_</span>`;
-
-                            const textContainer = storyBox.parentElement;
-
-                            if (textContainer) {
-                                textContainer.scrollTop =
-                                    textContainer.scrollHeight;
-                            }
+                        if (textContainer) {
+                            textContainer.scrollTop = textContainer.scrollHeight;
                         }
+                    }
 
-                        currentCharIndex++;
-
-                    } else {
-
+                    if (done && windowCineTextInterval) {
                         clearInterval(windowCineTextInterval);
                         windowCineTextInterval = null;
                     }
+                };
 
-                }, typingSpeed);
+                renderStoryText();
+                windowCineTextInterval = setInterval(renderStoryText, 100);
 
 
                 // CHRONOMÈTRE
@@ -809,7 +798,7 @@ cineCurrentImg.onerror = () => {
                 `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
 
             winnerBox.className =
-                'w-full max-w-md p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg';
+                'w-full max-w-xl p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg';
         }
 
 
