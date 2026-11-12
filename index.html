@@ -288,27 +288,38 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 }
 
                 if (data.status === 'IN_GAME') {
-                    const lobbyScreen = document.getElementById('screen-lobby');
-                    if (lobbyScreen && !lobbyScreen.classList.contains('hidden')) {
-                        const selectedMode = data.selectedMode || 'quiz';
-                        if (selectedMode === 'quiz') {
-                            if (typeof prepareNextQuizQuestion === 'function') prepareNextQuizQuestion();
-                            else showScreen('screen-quiz-difficulty');
-                        } else if (selectedMode === 'impostor') {
-                            showScreen('screen-impostor');
-                        } else if (selectedMode === 'geoguessr') {
-                            showScreen('screen-game-geoguessr');
-                            if (data.activeLocations) state.activeLocations = Array.isArray(data.activeLocations) ? data.activeLocations : Object.values(data.activeLocations);
-                            loadGoogleMapsApi(() => startNextRound());
-                        } else if (selectedMode === 'anomaly') {
-                            showScreen('screen-generic-game');
-                            if (typeof startAnomalyMode === 'function') startAnomalyMode();
-                        } else if (selectedMode === 'petitsbac') {
-                            showScreen('screen-petitsbac');
-                        } else if (selectedMode === 'cine') {
-                            showScreen('screen-cine');
+                    // On ne vérifie pas si le lobby est affiché, si le statut est IN_GAME on force l'affichage du jeu pour tout le monde
+                    const selectedMode = data.selectedMode || 'quiz';
+                    
+                    if (selectedMode === 'quiz') {
+                        // Pour le quiz, le processus commence par le choix de la difficulté
+                        if (typeof prepareNextQuizQuestion === 'function') {
+                            // Ne relance pas startQuizMode si c'est déjà en cours
+                            if (!state.quizGame || typeof state.quizGame.currentIndex === 'undefined') {
+                               if (window.isHost) window.startQuizMode();
+                            } else {
+                               showScreen('screen-quiz-difficulty');
+                            }
+                        } else {
+                            showScreen('screen-quiz-difficulty');
                         }
+                    } else if (selectedMode === 'impostor') {
+                        showScreen('screen-impostor');
+                    } else if (selectedMode === 'geoguessr') {
+                        showScreen('screen-game-geoguessr');
+                        if (data.activeLocations) state.activeLocations = Array.isArray(data.activeLocations) ? data.activeLocations : Object.values(data.activeLocations);
+                        if (typeof loadGoogleMapsApi === 'function') loadGoogleMapsApi(() => startNextRound());
+                    } else if (selectedMode === 'anomaly') {
+                        showScreen('screen-generic-game');
+                        if (typeof startAnomalyMode === 'function') startAnomalyMode();
+                    } else if (selectedMode === 'petitsbac') {
+                        showScreen('screen-petitsbac');
+                    } else if (selectedMode === 'cine') {
+                        showScreen('screen-cine');
                     }
+                } else if (data.status === 'LOBBY') {
+                    // Si on revient au lobby, on réaffiche le lobby
+                    showScreen('screen-lobby');
                 }
 
                 if (data.players) {
@@ -1195,22 +1206,41 @@ function updateLobbyUI() {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function launchGame() {
+function launchGame() {
+            // 1. Vérification : Tous les joueurs sont-ils prêts ?
+            if (state.players) {
+                const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
+                const allReady = playersArr.every(p => p.isReady || p.isBot); // On ignore les bots éventuels
+                
+                if (!allReady) {
+                    showToast("⚠️ Action refusée : Tous les opérateurs doivent être PRÊTS.");
+                    return;
+                }
+            }
+
             showToast("🚀 Lancement de la mission en cours...");
-            if (state.selectedMode === 'quiz') {
-                showScreen('screen-quiz');
-                document.getElementById('quiz-question-text').innerText = "Quelle est la capitale de l'Australie ?";
-                const grid = document.getElementById('quiz-options-grid');
-                grid.innerHTML = `
-                    <button class="p-3 bg-black/50 border border-cyan-500/40 text-cyan-300 text-xs hover:bg-cyan-500 hover:text-black transition">Sydney</button>
-                    <button class="p-3 bg-black/50 border border-cyan-500/40 text-cyan-300 text-xs hover:bg-cyan-500 hover:text-black transition">Canberra</button>
-                    <button class="p-3 bg-black/50 border border-cyan-500/40 text-cyan-300 text-xs hover:bg-cyan-500 hover:text-black transition">Melbourne</button>
-                    <button class="p-3 bg-black/50 border border-cyan-500/40 text-cyan-300 text-xs hover:bg-cyan-500 hover:text-black transition">Brisbane</button>
-                `;
-            } else if (state.selectedMode === 'geoguessr') {
-                showScreen('screen-game-geoguessr');
-            } else {
-                showScreen('screen-results');
+            
+            // 2. Synchronisation Firebase : Au lieu de juste ouvrir l'écran localement, on indique à tout le salon que le jeu démarre.
+            if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+                // Si c'est un quiz, on prépare les catégories avant d'envoyer le statut IN_GAME
+                if (state.selectedMode === 'quiz') {
+                    // Cette fonction (dans quiz.js) prépare les questions, puis on pousse le statut global
+                    if (typeof window.startQuizMode === 'function') {
+                        // Optionnel: Mettre à jour Firebase avec les paramètres choisis par l'hôte juste avant
+                        const totalQ = document.getElementById('input-quiz-questions-count')?.value || 10;
+                        const timer = document.getElementById('input-host-timer')?.value || 20;
+                        
+                        window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
+                            status: 'IN_GAME',
+                            settings: { questionsCount: totalQ, timer: timer }
+                        });
+                        
+                        window.startQuizMode(); 
+                    }
+                } else {
+                    // Pour les autres jeux, on pousse directement le statut
+                    window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
+                }
             }
         }
 
