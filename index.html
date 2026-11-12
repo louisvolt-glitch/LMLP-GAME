@@ -388,8 +388,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     				prepareNextQuizQuestion();
 			}
                     } else if (selectedMode === 'impostor') {
-                        showScreen('screen-impostor');
-                                        } else if (selectedMode === 'geoguessr') {
+    			const impScreen = document.getElementById('screen-impostor');
+    			if (justStarted || !impScreen || impScreen.style.display === 'none') showScreen('screen-impostor');
+    			if (typeof renderImpostorScreen === 'function') renderImpostorScreen(data);
+                    } else if (selectedMode === 'geoguessr') {
                         // Une seule fois, au passage à IN_GAME (pas à chaque mise à jour Firebase)
                         if (justStarted) {
                             state.currentRound = 0;
@@ -916,6 +918,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <div class="text-[10px] text-slate-500">Temps par manche : réglez le curseur ci-dessus (15 à 180 s).</div>
 </div>
 
+		<!-- Options Imposteur -->
+<div id="host-settings-impostor" class="hidden space-y-1 text-xs shrink-0">
+    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS IMPOSTEUR</div>
+    <div>
+        <span class="text-slate-300 text-[11px]">Tours d'indices (1-5) :</span>
+        <input type="number" id="setting-impostor-rounds" min="1" max="5" value="2" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+    </div>
+    <div class="text-[10px] text-slate-500">Temps par indice : réglez le curseur ci-dessus (10 à 90 s).</div>
+</div>
+
                 <!-- Options Anomalies -->
                 <div id="host-settings-anomaly" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ANOMALIES 3D</div>
@@ -1243,6 +1255,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     </div>
 </main>
 
+    <!-- ÉCRAN IMPOSTOR -->
+<main id="screen-impostor" class="hidden flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto w-full max-w-4xl mx-auto gap-4">
+    <div class="w-full flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4">
+        <div class="text-xs sm:text-sm font-bold text-red-400 uppercase tracking-wider">🥷 Imposteur</div>
+        <div id="impostor-timer" class="text-xs sm:text-sm font-mono text-slate-300"></div>
+    </div>
+    <div id="impostor-main-area" class="w-full text-center"></div>
+</main>
+
     <main id="screen-results" class="hidden flex-1 flex flex-col justify-center items-center p-4">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-3xl w-full text-center space-y-6">
             <h2 class="text-3xl font-black sci-font text-white">Fin de Partie !</h2>
@@ -1541,6 +1562,9 @@ if (mode === 'codenames') {
 	    } else if (mode === 'petitsbac') {
     		displayEl.innerText = `${timer}s/manche | ${s.bacRounds || 3} manches | ${s.bacCategories || 5} catégories`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+	    } else if (mode === 'impostor') {
+    		displayEl.innerText = `${timer}s/indice | ${s.impostorRounds || 2} tours`;
+    		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else {
                 // Autres modes : on n'affiche que le temps, sans les catégories du Quiz
                 displayEl.innerText = `${timer}s`;
@@ -1791,6 +1815,8 @@ function launchGame() {
             				startedAt: Date.now()
         			}
     			}, resetScores));
+		} else if (state.selectedMode === 'impostor') {
+    			if (typeof window.startImpostorGame === 'function') window.startImpostorGame();
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -1891,6 +1917,8 @@ function showScreen(id) {
 		const bacRounds = document.getElementById('setting-petitsbac-rounds')?.value || 3;
 		const bacCategories = document.getElementById('setting-petitsbac-categories')?.value || 5;
 
+		const impostorRounds = document.getElementById('setting-impostor-rounds')?.value || 2;
+
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
@@ -1899,7 +1927,8 @@ function showScreen(id) {
                         geoRounds: geoRounds,
 			cineRounds: cineRounds,
 			bacRounds: bacRounds,
-			bacCategories: bacCategories
+			bacCategories: bacCategories,
+			impostorRounds: impostorRounds
                     }
                 });
             }
@@ -2084,6 +2113,7 @@ if (timerSlider) {
     const sliderConfigs = {
     cine:      { min: 15, max: 180, step: 5, value: 90 },
     petitsbac: { min: 20, max: 180, step: 5, value: 60 },
+    impostor:  { min: 10, max: 90,  step: 5, value: 30 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
