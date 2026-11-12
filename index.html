@@ -324,10 +324,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     				state.quizGame.answersLog = [];
     				state.quizGame.currentRoundAnswers = {};
     				prepareNextQuizQuestion();
-				}
-                        } else {
-                            showScreen('screen-quiz-difficulty');
-                        }
+			}
                     } else if (selectedMode === 'impostor') {
                         showScreen('screen-impostor');
                     } else if (selectedMode === 'geoguessr') {
