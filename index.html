@@ -839,11 +839,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <span class="text-slate-400">MODE SÉLECTIONNÉ :</span>
                     <div id="non-host-target-mode" class="text-white font-bold mt-1">En attente...</div>
                 </div>
-                <div class="shrink-0">
-                    <span class="text-slate-400">PARAMÈTRES :</span>
+                <div id="non-host-params-block" class="shrink-0">
+    <span class="text-slate-400">PARAMÈTRES :</span>
                     <div id="non-host-timer-display" class="text-white font-bold mt-1">...</div>
                 </div>
                 
+		<!-- Équipes Codenames (lecture seule) -->
+<div id="non-host-teams-display" class="hidden flex-1 overflow-y-auto min-h-0 text-xs mt-1"></div>
+
                 <!-- Zone d'affichage des catégories (S'adapte à l'espace grâce à flex-1) -->
                 <div id="non-host-categories-display" class="flex-1 overflow-y-auto min-h-0 text-cyan-400 text-[10px] mt-1 bg-black/20 border border-cyan-500/10 p-2 rounded">
                     <!-- Rempli dynamiquement en JS -->
@@ -862,7 +865,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <div class="flex-1 flex flex-col min-h-0 pr-1 space-y-3">
                 
                 <!-- Sliders Section -->
-                <div class="space-y-1 text-xs shrink-0">
+		<div id="host-timer-section" class="space-y-1 text-xs shrink-0">
                     <div class="flex justify-between text-[11px] text-slate-400 mb-1">
                         <span>MISSION SETTINGS (TEMPS)</span>
                         <span id="slider1-val" class="text-cyan-400">20s</span>
@@ -1401,6 +1404,66 @@ function joinRoom() {
     }
 }
 
+        // Aperçu en lecture seule des équipes Codenames (vue des joueurs non hôtes)
+        function renderNonHostTeams(data) {
+            const box = document.getElementById('non-host-teams-display');
+            if (!box) return;
+
+            const esc = (v) => escapeChatHTML(v);
+            const me = window.myPlayerKey;
+            const players = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot);
+
+            const chip = (p, a) => {
+                const img = (p.avatar && p.avatar.src)
+                    ? `<img src="${esc(p.avatar.src)}" class="w-6 h-6 rounded-full object-cover border ${a.chip} shrink-0">`
+                    : `<i class="fa-solid fa-user text-[10px] shrink-0"></i>`;
+                const isMe = p.name === me;
+                return `<div class="flex items-center gap-1.5 px-1.5 py-1 rounded bg-black/40 border ${isMe ? a.border : a.chip} ${isMe ? 'shadow-[0_0_8px_rgba(255,255,255,0.15)]' : ''}">
+                    ${img}
+                    <span class="truncate text-[11px] ${isMe ? 'font-extrabold text-white' : 'text-slate-200'}">${esc(p.name)}</span>
+                    ${isMe ? '<span class="ml-auto text-[8px] uppercase tracking-wider text-white/70">vous</span>' : ''}
+                </div>`;
+            };
+
+            const teamCard = (key, label, a) => {
+                const members = players.filter(p => p.team === key);
+                const spy = members.find(p => p.role === 'spymaster');
+                const agents = members.filter(p => p !== spy);
+                return `<div class="rounded-lg border ${a.border} bg-gradient-to-b ${a.bg} p-2 flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between border-b ${a.border} pb-1">
+                        <span class="sci-font font-bold text-[10px] tracking-wider ${a.text}">${label}</span>
+                        <span class="text-[10px] px-1.5 rounded-full bg-black/40 ${a.text}">${members.length}</span>
+                    </div>
+                    <div class="text-[8px] uppercase tracking-wider ${a.text} opacity-80">🕵️ Maître-Espion</div>
+                    ${spy ? chip(spy, a) : '<div class="text-[10px] text-slate-500 italic px-1">— non assigné —</div>'}
+                    <div class="text-[8px] uppercase tracking-wider ${a.text} opacity-80 mt-1">Agents</div>
+                    <div class="flex flex-col gap-1">
+                        ${agents.length ? agents.map(p => chip(p, a)).join('') : '<div class="text-[10px] text-slate-500 italic px-1">— aucun —</div>'}
+                    </div>
+                </div>`;
+            };
+
+            const blue = { border: 'border-blue-500/50', chip: 'border-blue-500/30', bg: 'from-blue-950/60 to-blue-950/10', text: 'text-blue-300' };
+            const red = { border: 'border-red-500/50', chip: 'border-red-500/30', bg: 'from-red-950/60 to-red-950/10', text: 'text-red-300' };
+            const grey = { border: 'border-slate-500/50', chip: 'border-slate-600/40', bg: '', text: 'text-slate-300' };
+
+            const anyAssigned = players.some(p => p.team === 'blue' || p.team === 'red');
+            const reserve = players.filter(p => p.team !== 'blue' && p.team !== 'red');
+
+            box.innerHTML = `
+                <div class="text-slate-400 text-[10px] mb-1 tracking-wider">ÉQUIPES</div>
+                <div class="grid grid-cols-2 gap-2">
+                    ${teamCard('blue', 'ÉQUIPE BLEUE', blue)}
+                    ${teamCard('red', 'ÉQUIPE ROUGE', red)}
+                </div>
+                ${reserve.length ? `<div class="mt-2 rounded-lg border border-slate-600/40 bg-black/30 p-2">
+                    <div class="text-[8px] uppercase tracking-wider text-slate-400 mb-1">${anyAssigned ? 'Spectateurs / en réserve' : 'Pas encore assignés'}</div>
+                    <div class="grid grid-cols-2 gap-1">${reserve.map(p => chip(p, grey)).join('')}</div>
+                </div>` : ''}
+                ${!anyAssigned ? '<div class="text-[10px] text-slate-500 mt-2 italic">L\'hôte n\'a pas encore choisi les équipes : elles seront tirées au sort au lancement.</div>' : ''}
+            `;
+        }
+
         // Remplit le panneau "lecture seule" des non-hôtes selon le mode choisi
         function renderNonHostSettings(data) {
             const s = data.settings || {};
@@ -1409,6 +1472,17 @@ function joinRoom() {
             const catDisplayEl = document.getElementById('non-host-categories-display');
             if (!displayEl) return;
             const timer = s.timer || 20;
+
+	    // Codenames : pas de minuteur, on affiche les équipes à la place
+const paramsBlock = document.getElementById('non-host-params-block');
+const teamsBox = document.getElementById('non-host-teams-display');
+if (paramsBlock) paramsBlock.classList.toggle('hidden', mode === 'codenames');
+if (teamsBox) teamsBox.classList.toggle('hidden', mode !== 'codenames');
+if (mode === 'codenames') {
+    if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+    renderNonHostTeams(data);
+    return;
+}
 
             if (mode === 'quiz') {
                 displayEl.innerText = `${timer}s/q | ${s.questionsCount || 10} questions`;
@@ -1971,6 +2045,10 @@ if (timerSlider) {
     if (sliderLabel) sliderLabel.innerText = timerSlider.value + 's';
     if (window.isHost && typeof updateHostSettings === 'function') updateHostSettings();
 }
+
+    // Codenames n'a pas de minuteur : on masque le réglage du temps
+const timerSection = document.getElementById('host-timer-section');
+if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames');
 
     setupLobbyViewForUser();
 
