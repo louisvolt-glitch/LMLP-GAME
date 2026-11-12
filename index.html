@@ -267,6 +267,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 }
                 // --------------------------------------------------------
 
+                // Dans la fonction rejoindreSalonFirebase, autour de la ligne 255
                 if (data.settings) {
                     window.state.quizSettings.timer = data.settings.timer || 20;
                     window.state.quizSettings.questionsCount = data.settings.questionsCount || 10;
@@ -276,6 +277,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         window.state.quizGame.categoriesSequence = data.settings.categories;
                     }
                     window.state.quizGame.totalQuestions = data.settings.questionsCount || 10;
+
+                    // ── CORRECTION : Mettre à jour l'affichage "Lecture seule" pour les non-hôtes ──
+                    if (!window.isHost) {
+                        const displayEl = document.getElementById('non-host-timer-display');
+                        if (displayEl) {
+                            displayEl.innerText = `${data.settings.timer || 20}s / question | ${data.settings.questionsCount || 10} questions`;
+                        }
+                    }
                 }
 
                 if (data.players && window.myPlayerKey && data.players[window.myPlayerKey]) {
@@ -711,11 +720,25 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         </div>
 
                         <!-- Options Quiz -->
-                        <div id="host-settings-quiz" class="space-y-1 text-xs">
+                        <div id="host-settings-quiz" class="space-y-2 text-xs">
                             <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS QUIZ</div>
                             <div>
                                 <span class="text-slate-300 text-[11px]">Nombre de questions :</span>
                                 <input type="number" id="input-quiz-questions-count" min="3" max="30" value="10" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            </div>
+                            
+                            <!-- ── CORRECTION : Liste des catégories ── -->
+                            <div class="pt-2 border-t border-cyan-500/20">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-slate-300 text-[11px]">Catégories Actives :</span>
+                                    <div class="flex gap-1">
+                                        <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = true); updateHostSettings();" class="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 rounded text-[9px] cursor-pointer hover:bg-cyan-500 hover:text-black">Tout cocher</button>
+                                        <button onclick="document.querySelectorAll('.quiz-cat-checkbox').forEach(cb => cb.checked = false); updateHostSettings();" class="px-1.5 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 rounded text-[9px] cursor-pointer hover:bg-slate-800">Tout décocher</button>
+                                    </div>
+                                </div>
+                                <div id="quiz-categories-checklist" class="grid grid-cols-1 gap-1 max-h-24 overflow-y-auto bg-black/40 border border-cyan-500/20 p-1.5 rounded">
+                                    <!-- Rempli par initQuizCategoriesChecklist() dans quiz.js -->
+                                </div>
                             </div>
                         </div>
 
@@ -963,6 +986,7 @@ const AVATARS = [
             document.getElementById('input-username').value = "Opérateur_" + Math.floor(Math.random() * 900 + 100);
             updatePlayerProfile();
 
+	    initQuizCategoriesChecklist();
 	    showScreen('screen-home');
         };
 
@@ -1175,7 +1199,7 @@ function updateLobbyUI() {
     renderCodenamesTeams();
 }
 
-        function toggleReady() {
+function toggleReady() {
             isReady = !isReady;
             const btn = document.getElementById('deploy-btn');
             if (isReady) {
@@ -1185,13 +1209,23 @@ function updateLobbyUI() {
                 btn.className = "neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer mt-1";
                 btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
             }
+            
+            // Mise à jour de l'état local
             if (window.state && window.state.players && window.myPlayerKey) {
                 if (window.state.players[window.myPlayerKey]) {
                     window.state.players[window.myPlayerKey].isReady = isReady;
                 }
             }
+            
             updateLobbyUI();
             showToast(isReady ? "Vous êtes prêt pour le déploiement." : "Statut prêt annulé.");
+
+            // ── CORRECTION : Synchroniser le statut "Prêt" sur Firebase ──
+            if (window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+                const updates = {};
+                updates[`players/${window.myPlayerKey}/isReady`] = isReady;
+                window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates);
+            }
         }
 
         function sendChatMessage() {
@@ -1262,7 +1296,26 @@ function launchGame() {
         }
 
         function updateHostSettings() {
-            // Synchronisation hôte optionnelle
+            // Uniquement si le joueur est l'hôte et qu'un salon est actif
+            if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+                
+                // Récupération des valeurs
+                const timer = document.getElementById('input-host-timer')?.value || 20;
+                const questionsCount = document.getElementById('input-quiz-questions-count')?.value || 10;
+                
+                // Récupération des catégories cochées
+                const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
+                const categories = checkedBoxes.length > 0 ? Array.from(checkedBoxes).map(cb => cb.value) : ['geo'];
+
+                // Envoi à Firebase sous la clé "settings" du salon
+                window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
+                    settings: {
+                        timer: timer,
+                        questionsCount: questionsCount,
+                        categories: categories
+                    }
+                });
+            }
         }
 
 // Dictionnaire de données des protocoles
