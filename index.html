@@ -404,7 +404,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         showScreen('screen-generic-game');
                         if (typeof startAnomalyMode === 'function') startAnomalyMode();
                     } else if (selectedMode === 'petitsbac') {
-                        showScreen('screen-petitsbac');
+    			if (justStarted) showScreen('screen-petitsbac');
+    			if (typeof renderPetitsBacScreen === 'function') renderPetitsBacScreen(data);
                     } else if (selectedMode === 'codenames') {
                         if (justStarted) showScreen('screen-codenames');
                         if (typeof renderCodenamesScreen === 'function') renderCodenamesScreen(data);
@@ -931,6 +932,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-300 text-[11px]">Manches :</span>
             <input type="number" id="setting-petitsbac-rounds" min="1" max="10" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
+		    <div>
+    			an class="text-slate-300 text-[11px]">Catégories par manche (3-8) :</span>
+    			put type="number" id="setting-petitsbac-categories" min="3" max="8" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+		    </div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -1205,6 +1210,38 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         <div id="codenames-clue-box" class="w-full text-center neon-border-dim p-3 rounded-xl text-slate-200 text-sm"></div>
         <div id="codenames-grid" class="grid grid-cols-5 gap-2 sm:gap-3 w-full"></div>
     </main>
+
+
+    <!-- ÉCRAN PETIT BAC -->
+    <main id="screen-petitsbac" class="hidden flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto">
+    <div class="w-full max-w-4xl space-y-4">
+        <div class="flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4">
+            <div id="bac-round-indicator" class="text-xs sm:text-sm font-bold text-cyan-300 uppercase tracking-wider">Manche 1</div>
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase text-slate-500 tracking-widest">Lettre</span>
+                <span id="bac-letter-display" class="text-5xl sm:text-6xl font-black text-amber-400 leading-none">?</span>
+            </div>
+            <div id="bac-timer" class="text-2xl sm:text-3xl font-mono font-black text-red-400 min-w-[4rem] text-right">0s</div>
+        </div>
+        <div id="bac-phase-label" class="text-center text-xs sm:text-sm uppercase tracking-widest text-slate-400"></div>
+
+        <div id="bac-phase-play" class="hidden space-y-3">
+            <div id="bac-categories-inputs" class="space-y-2"></div>
+            <button id="bac-submit-btn" onclick="submitBacAnswers(true)" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-wider text-sm transition">TERMINER — BAC !</button>
+            <div id="bac-play-status" class="flex flex-wrap gap-2 justify-center text-[11px]"></div>
+        </div>
+
+        <div id="bac-phase-vote" class="hidden space-y-3">
+            <div id="vote-grid-container" class="space-y-3"></div>
+            <button id="bac-vote-btn" onclick="submitBacVotes()" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider text-sm transition">VALIDER MES VOTES</button>
+        </div>
+
+        <div id="bac-phase-scores" class="hidden space-y-3">
+            <div id="bac-scores-container" class="overflow-x-auto"></div>
+            <button id="bac-next-btn" onclick="nextBacRound()" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-wider text-sm transition">Manche suivante</button>
+        </div>
+    </div>
+</main>
 
     <main id="screen-results" class="hidden flex-1 flex flex-col justify-center items-center p-4">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-3xl w-full text-center space-y-6">
@@ -1501,6 +1538,9 @@ if (mode === 'codenames') {
 	    } else if (mode === 'cine') {
     		displayEl.innerText = `${timer}s/manche | ${s.cineRounds || 5} manches`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+	    } else if (mode === 'petitsbac') {
+    		displayEl.innerText = `${timer}s/manche | ${s.bacRounds || 3} manches | ${s.bacCategories || 5} catégories`;
+    		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else {
                 // Autres modes : on n'affiche que le temps, sans les catégories du Quiz
                 displayEl.innerText = `${timer}s`;
@@ -1717,6 +1757,8 @@ function launchGame() {
                         activeLocations: window.prepareGeoGame(rounds),
                         geoGame: null          // purge l'ancienne partie
                     });
+		} else if (state.selectedMode === 'petitsbac') {
+    			if (typeof window.startPetitsBacGame === 'function') window.startPetitsBacGame();
 		} else if (state.selectedMode === 'codenames') {
     			// Les équipes choisies dans le salon sont lues par startCodenamesGame()
     			if (typeof window.startCodenamesGame === 'function') window.startCodenamesGame();
@@ -1846,13 +1888,18 @@ function showScreen(id) {
                 const geoRounds = document.getElementById('setting-rounds')?.value || 5;
 		const cineRounds = document.getElementById('setting-cine-rounds')?.value || 5;
 
+		const bacRounds = document.getElementById('setting-petitsbac-rounds')?.value || 3;
+		const bacCategories = document.getElementById('setting-petitsbac-categories')?.value || 5;
+
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
                         questionsCount: questionsCount,
                         categories: categories,
                         geoRounds: geoRounds,
-			cineRounds: cineRounds
+			cineRounds: cineRounds,
+			bacRounds: bacRounds,
+			bacCategories: bacCategories
                     }
                 });
             }
@@ -2034,13 +2081,18 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
 
     const timerSlider = document.getElementById('input-host-timer');
 if (timerSlider) {
-    const wasCine = timerSlider.dataset.mode === 'cine';
-    if (modeKey === 'cine' && !wasCine) {
-        timerSlider.min = 15; timerSlider.max = 180; timerSlider.step = 5; timerSlider.value = 90;
-    } else if (modeKey !== 'cine' && wasCine) {
-        timerSlider.min = 5; timerSlider.max = 60; timerSlider.step = 1; timerSlider.value = 20;
-    }
-    timerSlider.dataset.mode = modeKey;
+    const sliderConfigs = {
+    cine:      { min: 15, max: 180, step: 5, value: 90 },
+    petitsbac: { min: 20, max: 180, step: 5, value: 60 },
+    'default': { min: 5,  max: 60,  step: 1, value: 20 }
+};
+const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
+if (timerSlider.dataset.cfg !== cfgKey) {
+    const c = sliderConfigs[cfgKey];
+    timerSlider.min = c.min; timerSlider.max = c.max; timerSlider.step = c.step; timerSlider.value = c.value;
+    timerSlider.dataset.cfg = cfgKey;
+}
+timerSlider.dataset.mode = modeKey;
     const sliderLabel = document.getElementById('slider1-val');
     if (sliderLabel) sliderLabel.innerText = timerSlider.value + 's';
     if (window.isHost && typeof updateHostSettings === 'function') updateHostSettings();
