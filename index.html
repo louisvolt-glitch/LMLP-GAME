@@ -1455,6 +1455,7 @@ function updateLobbyUI() {
     for (let i = 0; i < 8; i++) {
         const p = playersArr[i];
         if (p) {
+	    const isHostP = window._computedHost ? p.name === window._computedHost : !!p.isHost;
             const avatarHTML = (p.avatar && p.avatar.src) 
                 ? `<img src="${p.avatar.src}" class="w-full h-full object-cover hologram-avatar">`
                 : `<i class="fa-solid ${(p.avatar && p.avatar.icon) ? p.avatar.icon : 'fa-user'} ${(p.avatar && p.avatar.color) ? p.avatar.color : 'text-white'} hologram-avatar"></i>`;
@@ -1463,8 +1464,8 @@ function updateLobbyUI() {
                 <div class="border ${p.isReady ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-amber-500/60 bg-amber-950/20'} p-1.5 flex flex-col justify-between text-center relative rounded-sm h-full">
                     <div class="absolute top-1 right-1 text-[9px] ${p.isReady ? 'text-emerald-400' : 'text-amber-500'} font-bold z-20">${p.isReady ? '✓' : '✕'}</div>
 
-			                    ${p.isHost ? '<div class="absolute top-1 left-1 text-[11px] text-yellow-400 z-20" title="Hôte"><i class="fa-solid fa-crown"></i></div>' : ''}
-                    ${(window.isHost && !p.isHost && !p.isBot && p.name !== window.myPlayerKey) ? `<button data-name="${String(p.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" onclick="transferHost(this.dataset.name)" title="Donner le rôle d'Hôte" class="absolute top-1 left-1 z-30 px-1 py-0.5 text-[9px] bg-yellow-500/20 border border-yellow-500/60 text-yellow-300 hover:bg-yellow-500 hover:text-black rounded cursor-pointer"><i class="fa-solid fa-crown"></i></button>` : ''}
+			                    ${isHostP ? '<div class="absolute top-1 left-1 text-[11px] text-yellow-400 z-20" title="Hôte"><i class="fa-solid fa-crown"></i></div>' : ''}
+                    ${(window.isHost && !isHostP && !p.isBot && p.name !== window.myPlayerKey) ? `<button data-name="${String(p.name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" onclick="transferHost(this.dataset.name)" title="Donner le rôle d'Hôte" class="absolute top-1 left-1 z-30 px-1 py-0.5 text-[9px] bg-yellow-500/20 border border-yellow-500/60 text-yellow-300 hover:bg-yellow-500 hover:text-black rounded cursor-pointer"><i class="fa-solid fa-crown"></i></button>` : ''}
                     
                     <!-- L'image prend tout l'espace disponible verticalement sans bandes noires -->
                     <div class="scanline-box w-full flex-1 bg-black/90 border border-cyan-500/30 flex items-center justify-center my-1 relative overflow-hidden rounded min-h-0">
