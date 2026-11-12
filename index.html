@@ -351,7 +351,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     updateLobbyUI();
                 }
 
-		                // --- 🔄 SYNCHRO QUIZ : réponses des autres joueurs + passage à la question suivante ---
+		// --- 🔄 SYNCHRO QUIZ : réponses des autres joueurs + passage à la question suivante ---
                 if (data.quizGame && state.quizGame) {
                     const curIdx = state.quizGame.currentIndex || 0;
                     if (!state.quizGame.currentRoundAnswers) state.quizGame.currentRoundAnswers = {};
@@ -372,6 +372,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     if (onSummary && humans.length > 0 && humans.every(n => ready[n])) {
                         executeActualNextQuizQuestion();
                     }
+                }
+
+		// --- 🔄 SYNCHRO FIN DE PARTIE : l'hôte ramène tout le monde au salon quand tous ont cliqué ---
+                const retHumans = Object.values(data.players || {}).filter(p => !p.isBot).map(p => p.name);
+                const retDone = data.lobbyReturn || {};
+                if (window.isHost && data.status === 'IN_GAME' && retHumans.length > 0 && retHumans.every(n => retDone[n])) {
+                    const updates = { status: 'LOBBY', lobbyReturn: null };
+                    Object.keys(data.players).forEach(k => { updates[`players/${k}/isReady`] = false; });
+                    window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
                 }
 
                 if (typeof callbackMiseAJour === 'function') callbackMiseAJour(data);
@@ -1430,6 +1439,9 @@ function launchGame() {
         }
 
 	function resetReadyState() {
+	    document.querySelectorAll('button[onclick="backToLobby()"]').forEach(btn => {
+                if (btn.dataset.orig) { btn.disabled = false; btn.className = btn.dataset.cls; btn.innerHTML = btn.dataset.orig; }
+            });
             isReady = false;
             const btn = document.getElementById('deploy-btn');
             if (btn) {
@@ -1446,18 +1458,32 @@ function launchGame() {
             }
         }
 
-        function backToLobby() {
-            resetReadyState();
+                function backToLobby() {
+            const roomCode = window.currentCodeSalon;
 
-            // L'hôte remet le salon en LOBBY et tout le monde en "non prêt", en un seul update
-            if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
-                const updates = { status: 'LOBBY' };
-                Object.keys(state.players || {}).forEach(k => { updates[`players/${k}/isReady`] = false; });
-                window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
+            // Pas de salon Firebase (mode local) : retour immédiat
+            if (!roomCode || !window.db || !window.myPlayerKey) {
+                resetReadyState();
+                showScreen('screen-lobby');
+                updateLobbyUI();
+                return;
             }
 
-            showScreen('screen-lobby');
-            updateLobbyUI();
+            // Ce joueur a quitté l'écran de jeu : on n'y est plus ramené par les mises à jour Firebase
+            window._returnedToLobby = true;
+
+            // Griser tous les boutons "Retour au salon" (récap quiz, écran résultats...)
+            document.querySelectorAll('button[onclick="backToLobby()"]').forEach(btn => {
+                if (!btn.dataset.orig) { btn.dataset.orig = btn.innerHTML; btn.dataset.cls = btn.className; }
+                btn.disabled = true;
+                btn.className = "w-full bg-slate-800 text-slate-400 font-bold py-3.5 rounded-xl cursor-not-allowed transition";
+                btn.innerHTML = '<i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...';
+            });
+
+            // Signaler à Firebase que ce joueur est prêt à revenir
+            window.update(window.ref(window.db, `salons/${roomCode}`), {
+                [`lobbyReturn/${window.myPlayerKey}`]: true
+            });
         }
 
         function updateHostSettings() {
