@@ -278,28 +278,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     }
                     window.state.quizGame.totalQuestions = data.settings.questionsCount || 10;
 
-                    // Mettre à jour l'affichage "Lecture seule" pour les non-hôtes
-                    if (!window.isHost) {
-                        const displayEl = document.getElementById('non-host-timer-display');
-                        if (displayEl) {
-                            displayEl.innerText = `${data.settings.timer || 20}s/q | ${data.settings.questionsCount || 10} questions`;
-                        }
-                        
-                        // CORRECTION : Affichage en temps réel des catégories cochées
-                        const catDisplayEl = document.getElementById('non-host-categories-display');
-                        if (catDisplayEl && data.settings.categories) {
-                            let catNames = data.settings.categories;
-                            // Traduire les clés en noms complets si window.categoriesMeta est dispo (depuis quiz.js)
-                            if (window.categoriesMeta) {
-                                catNames = data.settings.categories.map(cKey => {
-                                    const meta = window.categoriesMeta.find(m => m.key === cKey);
-                                    return meta ? `• ${meta.name}` : `• ${cKey}`;
-                                });
-                            }
-                            catDisplayEl.innerHTML = `<span class="text-slate-400 font-bold mb-1 block">CATÉGORIES CIBLÉES :</span> ${catNames.join('<br>')}`;
-                        }
-                    }
                 }
+		
+		if (!window.isHost) renderNonHostSettings(data);
 
                 if (data.players && window.myPlayerKey && data.players[window.myPlayerKey]) {
                     const estMaintenantHote = !!data.players[window.myPlayerKey].isHost;
@@ -1290,6 +1271,36 @@ function joinRoom() {
     }
 }
 
+        // Remplit le panneau "lecture seule" des non-hôtes selon le mode choisi
+        function renderNonHostSettings(data) {
+            const s = data.settings || {};
+            const mode = data.selectedMode || state.selectedMode || 'quiz';
+            const displayEl = document.getElementById('non-host-timer-display');
+            const catDisplayEl = document.getElementById('non-host-categories-display');
+            if (!displayEl) return;
+            const timer = s.timer || 20;
+
+            if (mode === 'quiz') {
+                displayEl.innerText = `${timer}s/q | ${s.questionsCount || 10} questions`;
+                if (catDisplayEl) {
+                    catDisplayEl.classList.remove('hidden');
+                    const cats = s.categories ? (Array.isArray(s.categories) ? s.categories : Object.values(s.categories)) : [];
+                    const names = cats.map(cKey => {
+                        const meta = (window.categoriesMeta || []).find(m => m.key === cKey);
+                        return `• ${meta ? meta.name : cKey}`;
+                    });
+                    catDisplayEl.innerHTML = `<span class="text-slate-400 font-bold mb-1 block">CATÉGORIES CIBLÉES :</span> ${names.join('<br>')}`;
+                }
+            } else if (mode === 'geoguessr') {
+                displayEl.innerText = `${timer}s/manche | ${s.geoRounds || 5} manches`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else {
+                // Autres modes : on n'affiche que le temps, sans les catégories du Quiz
+                displayEl.innerText = `${timer}s`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            }
+        }
+
 function setupLobbyViewForUser() {
             const hostContainer = document.getElementById('host-settings-container');
             const nonHostFolder = document.getElementById('non-host-mission-folder');
@@ -1539,12 +1550,14 @@ function launchGame() {
                 const checkedBoxes = document.querySelectorAll('.quiz-cat-checkbox:checked');
                 const categories = checkedBoxes.length > 0 ? Array.from(checkedBoxes).map(cb => cb.value) : ['geo'];
 
-                // Envoi à Firebase sous la clé "settings" du salon
+                const geoRounds = document.getElementById('setting-rounds')?.value || 5;
+
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
                         questionsCount: questionsCount,
-                        categories: categories
+                        categories: categories,
+                        geoRounds: geoRounds
                     }
                 });
             }
