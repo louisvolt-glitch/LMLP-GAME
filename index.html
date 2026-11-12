@@ -223,6 +223,7 @@
     <script src="./modes/impostor.js"></script>
     <script src="./modes/geoguessr.js"></script>
     <script src="./modes/anomaly.js"></script>
+    <script src="./modes/codenames.js"></script>
     <script src="./modes/petitbac.js"></script>
 
     <!-- Importation des SDK Firebase -->
@@ -404,6 +405,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         if (typeof startAnomalyMode === 'function') startAnomalyMode();
                     } else if (selectedMode === 'petitsbac') {
                         showScreen('screen-petitsbac');
+                    } else if (selectedMode === 'codenames') {
+                        if (justStarted) showScreen('screen-codenames');
+                        if (typeof renderCodenamesScreen === 'function') renderCodenamesScreen(data);
                     } else if (selectedMode === 'cine') {
     			if (typeof renderCineScreen === 'function') renderCineScreen(data);
 		    }
@@ -1185,6 +1189,20 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         </div>
     </main>
 
+    <!-- ÉCRAN CODENAMES -->
+    <main id="screen-codenames" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto w-full max-w-5xl mx-auto px-4 gap-3">
+        <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center gap-3 w-full">
+            <span id="codenames-turn-indicator" class="font-bold text-sm text-slate-300">Codenames</span>
+            <div id="codenames-role-badge" class="text-xs text-slate-300 text-center"></div>
+            <div class="flex items-center gap-2 font-mono text-lg font-bold">
+                <span class="px-3 py-1 rounded bg-red-900/40 border border-red-500/50 text-red-300" title="Mots rouges restants"><i class="fa-solid fa-circle text-[10px]"></i> <span id="score-red">9</span></span>
+                <span class="px-3 py-1 rounded bg-blue-900/40 border border-blue-500/50 text-blue-300" title="Mots bleus restants"><i class="fa-solid fa-circle text-[10px]"></i> <span id="score-blue">8</span></span>
+            </div>
+        </div>
+        <div id="codenames-clue-box" class="w-full text-center neon-border-dim p-3 rounded-xl text-slate-200 text-sm"></div>
+        <div id="codenames-grid" class="grid grid-cols-5 gap-2 sm:gap-3 w-full"></div>
+    </main>
+
     <main id="screen-results" class="hidden flex-1 flex flex-col justify-center items-center p-4">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-3xl w-full text-center space-y-6">
             <h2 class="text-3xl font-black sci-font text-white">Fin de Partie !</h2>
@@ -1625,6 +1643,9 @@ function launchGame() {
                         activeLocations: window.prepareGeoGame(rounds),
                         geoGame: null          // purge l'ancienne partie
                     });
+		} else if (state.selectedMode === 'codenames') {
+    			// Les équipes choisies dans le salon sont lues par startCodenamesGame()
+    			if (typeof window.startCodenamesGame === 'function') window.startCodenamesGame();
 		} else if (state.selectedMode === 'cine') {
     			const wantedRounds = parseInt(document.getElementById('setting-cine-rounds')?.value, 10) || 5;
     			const timer = Math.min(180, Math.max(15, parseInt(document.getElementById('input-host-timer')?.value, 10) || 90));
@@ -1667,7 +1688,7 @@ function showScreen(id) {
                 'screen-home', 'screen-lobby', 'screen-quiz-difficulty', 
                 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 
                 'screen-game-geoguessr', 'screen-round-summary', 'screen-impostor', 'screen-cine', 
-                'screen-petitsbac', 'screen-generic-game', 'screen-results'
+                'screen-petitsbac', 'screen-generic-game', 'screen-codenames', 'screen-results'
             ];
             
             // Masquer tous les écrans
