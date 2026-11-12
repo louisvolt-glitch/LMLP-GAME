@@ -310,7 +310,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     }
                 }
 
-		const justStarted = window._lastRoomStatus !== data.status;
+		const prevStatus = window._lastRoomStatus;
+		const justStarted = prevStatus !== data.status;
 		window._lastRoomStatus = data.status;
 
                 if (data.status === 'IN_GAME') {
@@ -340,9 +341,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         showScreen('screen-cine');
                     }
                 } else if (data.status === 'LOBBY') {
-                    // Si on revient au lobby, on réaffiche le lobby
-                    showScreen('screen-lobby');
-                }
+    			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
+    			showScreen('screen-lobby');
+		}
 
                 if (data.players) {
                     window.state.players = data.players;
@@ -1428,7 +1429,33 @@ function launchGame() {
             }
         }
 
+	function resetReadyState() {
+            isReady = false;
+            const btn = document.getElementById('deploy-btn');
+            if (btn) {
+                btn.className = "neon-glow-btn w-full py-2 sci-font font-extrabold text-xs tracking-[0.2em] rounded-sm cursor-pointer mt-1";
+                btn.innerText = "PRÊT POUR LE DÉPLOIEMENT";
+            }
+            if (window.state && window.state.players && window.myPlayerKey && window.state.players[window.myPlayerKey]) {
+                window.state.players[window.myPlayerKey].isReady = false;
+            }
+            if (window.currentCodeSalon && window.db && window.myPlayerKey) {
+                window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), {
+                    [`players/${window.myPlayerKey}/isReady`]: false
+                });
+            }
+        }
+
         function backToLobby() {
+            resetReadyState();
+
+            // L'hôte remet le salon en LOBBY et tout le monde en "non prêt", en un seul update
+            if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
+                const updates = { status: 'LOBBY' };
+                Object.keys(state.players || {}).forEach(k => { updates[`players/${k}/isReady`] = false; });
+                window.mettreAJourSalonFirebase(window.currentCodeSalon, updates);
+            }
+
             showScreen('screen-lobby');
             updateLobbyUI();
         }
