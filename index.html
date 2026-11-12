@@ -259,9 +259,53 @@
 
 window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         const salonRef = ref(db, 'salons/' + codeSalon);
+
+        // --- 🔌 PRÉSENCE : si ce joueur ferme la page / perd la connexion, il est retiré du salon ---
+        const armDisconnect = () => {
+            if (!window.myPlayerKey) return;
+            onDisconnect(ref(db, 'salons/' + codeSalon + '/players/' + window.myPlayerKey)).remove();
+        };
+        window._joinedRoom = codeSalon;
+        window._lastMyPlayer = null;
+        armDisconnect();
+
         onValue(salonRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // --- 🔌 Réintégration : coupure réseau brève (ou course lors d'un rafraîchissement) ---
+                // Si on a déjà été vu dans le salon mais qu'on n'y est plus, on se réinscrit.
+                if (window.myPlayerKey && window._joinedRoom === codeSalon) {
+                    const mine = data.players && data.players[window.myPlayerKey];
+                    if (mine) {
+                        window._lastMyPlayer = mine;
+                    } else if (window._lastMyPlayer && !window._rejoiningSelf) {
+                        window._rejoiningSelf = true;
+                        const others = Object.values(data.players || {}).filter(p => p && !p.isBot);
+                        const last = window._lastMyPlayer;
+                        update(ref(db, 'salons/' + codeSalon + '/players/' + window.myPlayerKey), {
+                            name: window.myPlayerKey,
+                            avatar: last.avatar || state.avatar,
+                            isBot: false,
+                            isHost: others.length === 0,
+                            score: last.score || 0,
+                            isReady: false
+                        }).then(armDisconnect).finally(() => {
+                            setTimeout(() => { window._rejoiningSelf = false; }, 1500);
+                        });
+                    }
+                }
+
+                // --- 👑 Transfert d'hôte : si l'hôte est parti, le premier joueur restant (ordre alphabétique) le devient ---
+                const humansNow = Object.values(data.players || {}).filter(p => p && !p.isBot);
+                if (humansNow.length > 0 && !humansNow.some(p => p.isHost)) {
+                    const newHost = humansNow.map(p => p.name).sort()[0];
+                    if (newHost === window.myPlayerKey) {
+                        update(ref(db, 'salons/' + codeSalon), {
+                            ['players/' + newHost + '/isHost']: true,
+                            host: newHost
+                        });
+                    }
+                }
                 window.currentRoom = data;
                 window.currentCodeSalon = codeSalon;
                 state.roomCode = codeSalon;
