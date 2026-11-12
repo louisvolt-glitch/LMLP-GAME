@@ -295,25 +295,25 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     }
                 }
 
-                                // Règle unique : 1 seul hôte. S'il y en a plusieurs, le premier (ordre alphabétique) gagne ;
-                // s'il n'y en a aucun, le premier joueur (ordre alphabétique) le devient.
+                                window._computedHost = null;
                 const humansNow = Object.values(data.players || {}).filter(p => p && !p.isBot && p.name);
                 if (humansNow.length > 0 && window.myPlayerKey) {
                     const hostNames = humansNow.filter(p => p.isHost).map(p => p.name).sort();
                     const wantedHost = hostNames.length > 0 ? hostNames[0] : humansNow.map(p => p.name).sort()[0];
+                    window._computedHost = wantedHost;   // hôte "théorique" : sert même si l'écriture Firebase échoue
                     const me = data.players && data.players[window.myPlayerKey];
                     if (me) {
                         if (wantedHost === window.myPlayerKey && !me.isHost) {
-                            update(ref(db, 'salons/' + codeSalon), {
-                                ['players/' + wantedHost + '/isHost']: true,
-                                host: wantedHost
-                            });
+                            update(ref(db, 'salons/' + codeSalon + '/players/' + wantedHost), { isHost: true })
+                                .catch(err => console.error("Transfert d'hôte automatique refusé :", err));
                         } else if (wantedHost !== window.myPlayerKey && me.isHost) {
-                            update(ref(db, 'salons/' + codeSalon + '/players/' + window.myPlayerKey), { isHost: false });
+                            update(ref(db, 'salons/' + codeSalon + '/players/' + window.myPlayerKey), { isHost: false })
+                                .catch(err => console.error("Retrait du rôle d'hôte refusé :", err));
                         }
                     }
                 }
                 window.currentRoom = data;
+		if (typeof renderChatMessages === 'function') renderChatMessages(data.chat);
                 window.currentCodeSalon = codeSalon;
                 state.roomCode = codeSalon;
 
@@ -360,7 +360,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		if (!window.isHost) renderNonHostSettings(data);
 
                 if (data.players && window.myPlayerKey && data.players[window.myPlayerKey]) {
-                    const estMaintenantHote = !!data.players[window.myPlayerKey].isHost;
+                    const estMaintenantHote = window._computedHost
+                        ? window._computedHost === window.myPlayerKey
+                        : !!data.players[window.myPlayerKey].isHost;
                     if (window.isHost !== estMaintenantHote) {
                         window.isHost = estMaintenantHote;
                         if (typeof setupLobbyViewForUser === 'function') setupLobbyViewForUser();
@@ -1500,10 +1502,9 @@ function transferHost(targetName) {
         return;
     }
 
-    window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), {
+        window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), {
         [`players/${me}/isHost`]: false,
-        [`players/${targetName}/isHost`]: true,
-        host: targetName
+        [`players/${targetName}/isHost`]: true
     }).then(() => showToast(`👑 ${targetName} est maintenant l'Hôte.`))
       .catch(err => console.error("Transfert d'hôte impossible :", err));
 }
@@ -1537,16 +1538,47 @@ function toggleReady() {
             }
         }
 
+        function escapeChatHTML(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // Affiche les messages du salon (appelé à chaque mise à jour Firebase).
+        function renderChatMessages(chat) {
+            const box = document.getElementById('chat-messages');
+            if (!box) return;
+
+            const entries = Object.keys(chat || {}).sort().slice(-60).map(k => chat[k]).filter(m => m && m.text);
+            const signature = entries.length + ':' + (entries.length ? entries[entries.length - 1].ts : 0);
+            if (box.dataset.sig === signature) return;   // rien de nouveau
+            box.dataset.sig = signature;
+
+            const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+
+            box.innerHTML = '<p><span class="text-cyan-400 font-bold">[COMMANDANT]</span> : Message sol reçu par commandement.</p>' +
+                entries.map(m => {
+                    const mine = m.name === window.myPlayerKey;
+                    return `<p><span class="${mine ? 'text-emerald-400' : 'text-amber-300'} font-bold">[${escapeChatHTML(m.name)}]</span> : ${escapeChatHTML(m.text)}</p>`;
+                }).join('');
+
+            if (nearBottom || entries.length) box.scrollTop = box.scrollHeight;
+        }
+
         function sendChatMessage() {
             const input = document.getElementById('chat-input');
-            const chatBox = document.getElementById('chat-messages');
-            if (!input.value.trim()) return;
+            if (!input || !input.value.trim()) return;
 
-            const p = document.createElement('p');
-            p.innerHTML = `<span class="text-emerald-400 font-bold">[${state.username}]</span> : ${input.value}`;
-            chatBox.appendChild(p);
+            const text = input.value.trim().slice(0, 200);
             input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (window.currentCodeSalon && window.db && window.update && window.ref) {
+                const key = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), {
+                    [`chat/${key}`]: { name: state.username, text: text, ts: Date.now() }
+                }).catch(err => console.error("Envoi du message impossible :", err));
+            } else {
+                // Hors ligne : affichage local seulement
+                renderChatMessages({ local: { name: state.username, text: text, ts: Date.now() } });
+            }
         }
 
 function launchGame() {
