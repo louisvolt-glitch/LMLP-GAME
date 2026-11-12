@@ -1315,10 +1315,18 @@ function launchGame() {
         }
 
         function showScreen(id) {
-            document.querySelectorAll('main').forEach(el => {
-                el.classList.add('hidden');
-                el.style.display = 'none';
+            // ── CORRECTION : Masquer tous les conteneurs principaux, y compris le lobby ──
+            const mainScreens = ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-impostor', 'screen-cine', 'screen-petitsbac', 'screen-generic-game', 'screen-results'];
+            
+            mainScreens.forEach(screenId => {
+                const el = document.getElementById(screenId);
+                if (el) {
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                }
             });
+
+            // Afficher uniquement l'écran cible demandé
             const target = document.getElementById(id);
             if (target) {
                 target.classList.remove('hidden');
