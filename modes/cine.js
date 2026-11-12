@@ -1,9 +1,30 @@
 // --- 5. CINÉMATOPHILE ---
 
-CINE_MOVIES.forEach(movie => {
-    const img = new Image();
-    img.src = movie.poster;
-});
+if (typeof CINE_MOVIES !== 'undefined' && Array.isArray(CINE_MOVIES)) {
+    CINE_MOVIES.forEach(movie => { const img = new Image(); img.src = movie.poster; });
+}
+
+window.prepareCineGame = function(rounds) {
+    const pool = (typeof CINE_MOVIES !== 'undefined' && Array.isArray(CINE_MOVIES))
+        ? CINE_MOVIES.filter(m => m && m.title && m.poster) : [];
+    const n = Math.max(1, Math.min(parseInt(rounds, 10) || 5, pool.length));
+    const shuffled = pool.slice().sort(() => Math.random() - 0.5).slice(0, n);
+    const movies = shuffled.map(m => JSON.parse(JSON.stringify({
+        title: m.title, poster: m.poster,
+        storyText: m.storyText || '', aliases: m.aliases || []
+    })));
+    return { movies: movies };
+};
+
+if (typeof window.rejoindreSalonFirebaseGet !== 'function') {
+    window.rejoindreSalonFirebaseGet = function(codeSalon, callback) {
+        if (!window.get || !window.ref || !window.db) return;
+        window.get(window.ref(window.db, 'salons/' + codeSalon)).then(snapshot => {
+            const data = snapshot.val();
+            if (data && typeof callback === 'function') callback(data);
+        }).catch(err => console.error('Lecture du salon impossible :', err));
+    };
+}
 
 let cineTimerInterval = null;
 let windowCineTextInterval = null;
@@ -65,8 +86,8 @@ function advanceCineRoundIfReady(data, gameData, roundNumber, sessionKey) {
     if (roundNumber >= Number(gameData.maxRounds || 1)) {
 
         updates = {
-            status: 'RESULTS',
-            cineGame: null
+            'cineGame/status': 'FINISHED',
+            'cineGame/readyForNext': null
         };
 
     } else {
@@ -86,12 +107,9 @@ function advanceCineRoundIfReady(data, gameData, roundNumber, sessionKey) {
         // Réinitialiser également le joueur local, y compris l'hôte.
         const localName = window.myPlayerKey || state.username;
 
-        if (localName) {
-            resetPlayerStatus[localName] = {
-                solved: false,
-                timedOut: false
-            };
-        }
+        if (localName && !resetPlayerStatus[localName]) {
+    		resetPlayerStatus[localName] = { solved: false, timedOut: false, lives: 3 };
+	}
 
         updates = {
             status: 'IN_GAME',
@@ -147,6 +165,32 @@ function renderCineScreen(data) {
             }
         }
     }
+
+    if (gameData.status === 'FINISHED') {
+    stopCineIntervals();
+    window.cineLastRenderedRound = 0;
+
+    const resultsScreen = document.getElementById('screen-results');
+    const alreadyShown = resultsScreen &&
+        !resultsScreen.classList.contains('hidden') &&
+        resultsScreen.style.display !== 'none';
+
+    const rankingRaw = data.players || {};
+    const ranking = (Array.isArray(rankingRaw) ? rankingRaw : Object.values(rankingRaw))
+        .filter(p => p && (p.name || p.pseudo) && !p.isBot)
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    const lb = document.getElementById('final-leaderboard');
+    if (lb) {
+        lb.innerHTML = ranking.map((p, i) => `
+            <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
+                <span class="font-bold">#${i + 1} - ${p.name || p.pseudo}</span>
+                <span class="font-mono text-emerald-400 font-bold text-sm">${p.score || 0} pts</span>
+            </div>`).join('');
+    }
+    if (!alreadyShown) showScreen('screen-results');
+    return;
+}
 
     const movies = Array.isArray(gameData.movies)
         ? gameData.movies
@@ -376,7 +420,7 @@ function renderCineScreen(data) {
             if (guessInput) {
 
                 guessInput.value = '';
-                guessInput.disabled = isSolved;
+                guessInput.disabled = isBlocked;
                 guessInput.placeholder = "Titre du film..."; // <-- Réinitialise le placeholder ici
             }
 
@@ -440,7 +484,7 @@ function renderCineScreen(data) {
                 const typingSpeed = Math.max(
                     20,
                     Math.floor(
-                        (timerDuration * 1000) /
+                        (timerDuration * 600) /
                         Math.max(fullText.length, 1)
                     )
                 );
@@ -635,12 +679,21 @@ function renderCineScreen(data) {
 
             cineCurrentImg.onload = initPosterGame;
 
-            cineCurrentImg.onerror = () => {
-                console.error(
-                    'Impossible de charger l’affiche du film :',
-                    currentMovie.poster
-                );
-            };
+            let retriedWithoutCors = false;
+
+cineCurrentImg.onerror = () => {
+    if (!retriedWithoutCors) {
+        retriedWithoutCors = true;
+        const retryImg = new Image();
+        retryImg.onload = initPosterGame;
+        retryImg.onerror = () => {
+            console.error('Impossible de charger l’affiche du film :', currentMovie.poster);
+            initPosterGame();   // la manche continue sans affiche
+        };
+        cineCurrentImg = retryImg;
+        retryImg.src = currentMovie.poster;
+    }
+};
 
             cineCurrentImg.src = currentMovie.poster;
 
@@ -678,7 +731,7 @@ function renderCineScreen(data) {
         }
 
         if (guessInput) {
-            guessInput.disabled = isSolved;
+            guessInput.disabled = isBlocked;
         }
 
 
@@ -819,6 +872,8 @@ function drawPixelatedPoster(img, pixelSize) {
 
     if (!canvas) return;
 
+    if (!img || !img.complete || !img.naturalWidth) return;
+
     const ctx = canvas.getContext(
         '2d',
         { willReadFrequently: true }
@@ -958,8 +1013,10 @@ window.submitCineGuess = function() {
             const myName =
                 window.myPlayerKey || state.username;
 
-            const pts =
-                500 + ((window.cineTimeLeft || 0) * 20);
+            const totalTime = Number(gameData.timer) || 90;
+const pts = 500 + Math.round(
+    1000 * Math.max(0, Math.min(1, (window.cineTimeLeft || 0) / totalTime))
+);
 
             const currentScore =
                 data.players[myName]?.score || 0;
