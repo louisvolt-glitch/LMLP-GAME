@@ -326,8 +326,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     } else if (selectedMode === 'petitsbac') {
                         showScreen('screen-petitsbac');
                     } else if (selectedMode === 'cine') {
-                        showScreen('screen-cine');
-                    }
+    			if (typeof renderCineScreen === 'function') renderCineScreen(data);
+		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
     			showScreen('screen-lobby');
@@ -819,6 +819,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     </div>
                 </div>
 
+                <!-- Options CINE -->
+		<div id="host-settings-cine" class="hidden space-y-1 text-xs shrink-0">
+    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS CINÉMATOPHILE</div>
+    <div>
+        <span class="text-slate-300 text-[11px]">Manches :</span>
+        <input type="number" id="setting-cine-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+    </div>
+    <div class="text-[10px] text-slate-500">Temps par manche : réglez le curseur ci-dessus (15 à 180 s).</div>
+</div>
+
                 <!-- Options Anomalies -->
                 <div id="host-settings-anomaly" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ANOMALIES 3D</div>
@@ -1059,6 +1069,28 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         </div>
     </main>
 
+    <!-- ÉCRAN CINE -->
+    <main id="screen-cine" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto w-full max-w-3xl mx-auto px-4 gap-3">
+    <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center gap-3 w-full">
+        <span id="cine-round-indicator" class="font-bold text-cyan-400 text-sm"><i class="fa-solid fa-film"></i> Cinématophile</span>
+        <div id="cine-hearts-container" class="flex gap-1 text-lg"></div>
+        <span id="cine-timer" class="font-mono text-xl font-bold bg-black/50 px-4 py-1 rounded-xl text-amber-400 border border-cyan-500/30">--s</span>
+    </div>
+    <div id="cine-players-status-bar" class="flex flex-wrap gap-2 justify-center text-xs w-full"></div>
+    <div class="flex flex-col md:flex-row gap-4 w-full items-start justify-center">
+        <canvas id="cine-canvas" width="400" height="600" class="rounded-xl border border-cyan-500/40 shadow-lg bg-black/60 w-full max-w-[260px] mx-auto md:mx-0 shrink-0"></canvas>
+        <div class="flex-1 w-full max-h-[420px] overflow-y-auto neon-border-dim p-4 rounded-xl text-sm text-slate-200 leading-relaxed">
+            <div id="cine-story-box"></div>
+        </div>
+    </div>
+    <div id="cine-winner-box" class="hidden"></div>
+    <div id="cine-input-area" class="w-full max-w-md flex gap-2">
+        <input type="text" id="input-cine-guess" placeholder="Titre du film..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') submitCineGuess()">
+        <button onclick="submitCineGuess()" class="neon-glow-btn font-bold px-5 rounded-xl uppercase tracking-wider text-xs cursor-pointer">Deviner</button>
+    </div>
+    <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">Prêt pour la suite</button>
+</main>
+
     <!-- ÉCRAN RÉSUMÉ DE MANCHE GEOGUESSR -->
     <main id="screen-round-summary" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto">
         <div class="neon-border-cyan bg-[#091424]/90 p-5 rounded-3xl max-w-3xl w-full space-y-4 shrink-0">
@@ -1294,6 +1326,9 @@ function joinRoom() {
             } else if (mode === 'geoguessr') {
                 displayEl.innerText = `${timer}s/manche | ${s.geoRounds || 5} manches`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+	    } else if (mode === 'cine') {
+    		displayEl.innerText = `${timer}s/manche | ${s.cineRounds || 5} manches`;
+    		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else {
                 // Autres modes : on n'affiche que le temps, sans les catégories du Quiz
                 displayEl.innerText = `${timer}s`;
@@ -1456,6 +1491,35 @@ function launchGame() {
                         activeLocations: window.prepareGeoGame(rounds),
                         geoGame: null          // purge l'ancienne partie
                     });
+		} else if (state.selectedMode === 'cine') {
+    			const wantedRounds = parseInt(document.getElementById('setting-cine-rounds')?.value, 10) || 5;
+    			const timer = Math.min(180, Math.max(15, parseInt(document.getElementById('input-host-timer')?.value, 10) || 90));
+    			const prepared = window.prepareCineGame(wantedRounds);
+    			if (!prepared.movies.length) {
+        			showToast("⚠️ Aucun film disponible pour le mode Cinématophile.");
+        			return;
+    			}
+    			const playerStatus = {};
+    			const resetScores = {};
+    			Object.values(state.players || {}).forEach(p => {
+        			if (!p || !p.name) return;
+        			resetScores[`players/${p.name}/score`] = 0;
+        			if (!p.isBot) playerStatus[p.name] = { solved: false, timedOut: false, lives: 3 };
+    			});
+    			window.mettreAJourSalonFirebase(window.currentCodeSalon, Object.assign({
+        			status: 'IN_GAME',
+        			'settings/timer': timer,
+        			'settings/cineRounds': prepared.movies.length,
+        			cineGame: {
+            				status: 'PLAYING',
+            				currentRound: 1,
+            				maxRounds: prepared.movies.length,
+            				timer: timer,
+            				movies: prepared.movies,
+            				playerStatus: playerStatus,
+            				startedAt: Date.now()
+        			}
+    			}, resetScores));
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -1463,7 +1527,7 @@ function launchGame() {
             }
         }
 
-        function showScreen(id) {
+function showScreen(id) {
             // Liste de tous les écrans principaux de l'application
             const mainScreens = [
                 'screen-home', 'screen-lobby', 'screen-quiz-difficulty', 
@@ -1551,13 +1615,15 @@ function launchGame() {
                 const categories = checkedBoxes.length > 0 ? Array.from(checkedBoxes).map(cb => cb.value) : ['geo'];
 
                 const geoRounds = document.getElementById('setting-rounds')?.value || 5;
+		const cineRounds = document.getElementById('setting-cine-rounds')?.value || 5;
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
                         questionsCount: questionsCount,
                         categories: categories,
-                        geoRounds: geoRounds
+                        geoRounds: geoRounds,
+			cineRounds: cineRounds
                     }
                 });
             }
@@ -1736,6 +1802,20 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
 
     const nonHostModeText = document.getElementById('non-host-target-mode');
     if (nonHostModeText) nonHostModeText.innerText = name;
+
+    const timerSlider = document.getElementById('input-host-timer');
+if (timerSlider) {
+    const wasCine = timerSlider.dataset.mode === 'cine';
+    if (modeKey === 'cine' && !wasCine) {
+        timerSlider.min = 15; timerSlider.max = 180; timerSlider.step = 5; timerSlider.value = 90;
+    } else if (modeKey !== 'cine' && wasCine) {
+        timerSlider.min = 5; timerSlider.max = 60; timerSlider.step = 1; timerSlider.value = 20;
+    }
+    timerSlider.dataset.mode = modeKey;
+    const sliderLabel = document.getElementById('slider1-val');
+    if (sliderLabel) sliderLabel.innerText = timerSlider.value + 's';
+    if (window.isHost && typeof updateHostSettings === 'function') updateHostSettings();
+}
 
     setupLobbyViewForUser();
 
