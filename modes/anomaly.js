@@ -70,14 +70,14 @@ window.loadPBRTexture = function(url, rx, ry, isColor) {
     const key = url + '|' + rx + '|' + ry;
     if (pbrCache[key]) return pbrCache[key];
     const tex = textureLoader.load(url, undefined, undefined, () => {
-        tex.userData.failed = true;
-        (tex.userData.users || []).forEach(u => {          // retire la texture manquante des matériaux déjà créés
+        tex._pbr.failed = true;
+        (tex._pbr.users || []).forEach(u => {          // retire la texture manquante des matériaux déjà créés
             u.mat[u.prop] = null;
             if (u.prop === 'map') u.mat.color.setHex(u.fallback);
             u.mat.needsUpdate = true;
         });
     });
-    tex.userData.users = [];
+    tex._pbr = { failed: false, users: [] };   // THREE r128 : pas de champ userData sur les textures
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(rx, ry);
     if (isColor) tex.encoding = THREE.sRGBEncoding;
@@ -94,9 +94,9 @@ window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallback
         const tex = window.loadPBRTexture(base + file + '.jpg', rx, ry, isColor);
         tex.anisotropy = maxAniso;
         tex.rotation = rotation || 0;
-        if (tex.userData.failed) return;
+        if (tex._pbr.failed) return;
         mat[prop] = tex;
-        tex.userData.users.push({ mat: mat, prop: prop, fallback: fallbackColor });
+        tex._pbr.users.push({ mat: mat, prop: prop, fallback: fallbackColor });
         if (prop === 'map') mat.color.setHex(0xffffff);
         if (prop === 'roughnessMap') mat.roughness = 1.0;
     });
