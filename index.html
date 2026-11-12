@@ -144,6 +144,30 @@
             border-radius: 1rem;
         }
 
+	/* --- Cinématophile : mise en page adaptative --- */
+#screen-cine {
+    /* hauteur de l'affiche = hauteur disponible, sans dépasser la largeur */
+    --cine-h: min(calc(100vh - 17rem), calc((100vw - 2rem) * 1.5));
+}
+@media (min-width: 768px) {
+    #screen-cine {
+        /* l'affiche occupe au plus ~42 % de la largeur */
+        --cine-h: min(calc(100vh - 17rem), calc((100vw - 4rem) * 0.42 * 1.5));
+    }
+}
+#cine-canvas {
+    height: var(--cine-h);
+    width: auto;
+    aspect-ratio: 2 / 3;
+}
+#cine-story-panel {
+    height: var(--cine-h);
+    font-size: clamp(0.95rem, 0.6rem + 0.9vw, 1.6rem);
+}
+@media (max-width: 767px) {
+    #cine-story-panel { height: auto; max-height: 35vh; }
+}
+
 /* --- ANIMATIONS HOLOGRAMMES --- */
 .hologram-avatar {
     display: inline-block;
@@ -1070,25 +1094,25 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     </main>
 
     <!-- ÉCRAN CINE -->
-    <main id="screen-cine" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto w-full max-w-3xl mx-auto px-4 gap-3">
+    <main id="screen-cine" class="hidden flex-1 flex flex-col items-center py-3 overflow-y-auto w-full max-w-7xl mx-auto px-4 gap-3">
     <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center gap-3 w-full">
-        <span id="cine-round-indicator" class="font-bold text-cyan-400 text-sm"><i class="fa-solid fa-film"></i> Cinématophile</span>
-        <div id="cine-hearts-container" class="flex gap-1 text-lg"></div>
-        <span id="cine-timer" class="font-mono text-xl font-bold bg-black/50 px-4 py-1 rounded-xl text-amber-400 border border-cyan-500/30">--s</span>
+        <span id="cine-round-indicator" class="font-bold text-cyan-400 text-sm md:text-base"><i class="fa-solid fa-film"></i> Cinématophile</span>
+        <div id="cine-hearts-container" class="flex gap-1 text-lg md:text-2xl"></div>
+        <span id="cine-timer" class="font-mono text-xl md:text-3xl font-bold bg-black/50 px-4 py-1 rounded-xl text-amber-400 border border-cyan-500/30">--s</span>
     </div>
-    <div id="cine-players-status-bar" class="flex flex-wrap gap-2 justify-center text-xs w-full"></div>
-    <div class="flex flex-col md:flex-row gap-4 w-full items-start justify-center">
-        <canvas id="cine-canvas" width="400" height="600" class="rounded-xl border border-cyan-500/40 shadow-lg bg-black/60 w-full max-w-[260px] mx-auto md:mx-0 shrink-0"></canvas>
-        <div class="flex-1 w-full max-h-[420px] overflow-y-auto neon-border-dim p-4 rounded-xl text-sm text-slate-200 leading-relaxed">
+    <div id="cine-players-status-bar" class="flex flex-wrap gap-2 justify-center text-xs md:text-sm w-full"></div>
+    <div class="flex flex-col md:flex-row gap-4 md:gap-6 w-full items-start justify-center">
+        <canvas id="cine-canvas" width="400" height="600" class="rounded-xl border border-cyan-500/40 shadow-lg bg-black/60 mx-auto md:mx-0 shrink-0"></canvas>
+        <div id="cine-story-panel" class="flex-1 w-full overflow-y-auto neon-border-dim p-4 md:p-6 rounded-xl text-slate-200 leading-relaxed">
             <div id="cine-story-box"></div>
         </div>
     </div>
     <div id="cine-winner-box" class="hidden"></div>
-    <div id="cine-input-area" class="w-full max-w-md flex gap-2">
-        <input type="text" id="input-cine-guess" placeholder="Titre du film..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') submitCineGuess()">
-        <button onclick="submitCineGuess()" class="neon-glow-btn font-bold px-5 rounded-xl uppercase tracking-wider text-xs cursor-pointer">Deviner</button>
+    <div id="cine-input-area" class="w-full max-w-xl flex gap-2">
+        <input type="text" id="input-cine-guess" placeholder="Titre du film..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 md:py-4 md:text-lg text-white focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') submitCineGuess()">
+        <button onclick="submitCineGuess()" class="neon-glow-btn font-bold px-5 md:px-8 rounded-xl uppercase tracking-wider text-xs md:text-sm cursor-pointer">Deviner</button>
     </div>
-    <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-md bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">Prêt pour la suite</button>
+    <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">Prêt pour la suite</button>
 </main>
 
     <!-- ÉCRAN RÉSUMÉ DE MANCHE GEOGUESSR -->
