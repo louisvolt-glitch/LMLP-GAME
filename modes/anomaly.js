@@ -11,14 +11,14 @@ const THEMES_CONFIG = {
                 floorTexture: 'https://images.unsplash.com/photo-1596205739343-41bbd9c7bb7f?auto=format&fit=crop&w=1024&q=80',
                 lightColor: 0xfffbeb,
                 anomalies: {
-                    1: "Une seule dalle du plafond est décalée de 5 centimètres",
+                    1: "Les néons du couloir virent au rouge",
                     2: "Noir complet (Coupure de courant)",
                     3: "Portes du métro qui s'ouvrent sur le vide",
                     4: "Le panneau indique une direction satanique",
-                    5: "Les bandes podotactiles jaunes sont inversées avec le béton",
-                    6: "Une ombre immense est projetée au fond du couloir sans source",
+                    5: "Une bande jaune brillante apparaît au sol",
+                    6: "Une silhouette sombre se tient au fond du couloir",
                     7: "L'affiche publicitaire vous fixe des yeux",
-                    8: "Le couloir est plus étroit de 30 centimètres"
+                    8: "Le couloir est plus étroit"
                 }
             },
             hopital: {
@@ -26,14 +26,14 @@ const THEMES_CONFIG = {
                 floorTexture: 'https://images.unsplash.com/photo-1581404118991-381bb4542289?auto=format&fit=crop&w=1024&q=80',
                 lightColor: 0xe0f2fe,
                 anomalies: {
-                    1: "Le néon central clignote en morse (S.O.S)",
-                    2: "Bruit de respiration artificielle",
+                    1: "Une grosse caisse bloque le couloir",
+                    2: "Le couloir palpite comme s'il respirait",
                     3: "Une porte respire imperceptiblement (échelle dynamique)",
-                    4: "Le mur de gypse est percé, montrant de l'isolant acoustique",
+                    4: "Un trou sombre est percé dans le mur",
                     5: "Plafond qui s'effondre partiellement",
                     6: "Une porte d'isolement est grande ouverte",
                     7: "L'extincteur a disparu",
-                    8: "Le couloir s'incline de 5 degrés vers le bas"
+                    8: "Le couloir est penché sur le côté"
                 }
             },
             hotel: {
@@ -42,11 +42,11 @@ const THEMES_CONFIG = {
                 lightColor: 0xffedd5,
                 anomalies: {
                     1: "Les motifs géométriques de la moquette pivotent de 90 degrés",
-                    2: "Deux portes portent le numéro 237",
-                    3: "La poignée d'une porte est montée à l'envers",
+                    2: "Une porte est peinte en rouge",
+                    3: "Un landau sombre bloque le couloir",
                     4: "Le papier peint pèle subtilement",
                     5: "La hauteur du couloir rétrécit brutalement",
-                    6: "Les ombres des chaises sont projetées dans la mauvaise direction",
+                    6: "Le couloir est plus étroit",
                     7: "Tableaux dont les personnages ont disparu",
                     8: "Lumières qui s'éteignent une à une derrière vous"
                 }
@@ -54,6 +54,9 @@ const THEMES_CONFIG = {
         };
 
 const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('anonymous');   // obligatoire pour utiliser des images d'un autre domaine dans WebGL
+state.anomalyData = state.anomalyData || {};
+state.anomalySettings = state.anomalySettings || { targetStages: 8, maxTime: 300 };
 const textureCache = {};
 
 window.loadRealTexture = function(url, repeatX = 1, repeatY = 1) {
@@ -168,70 +171,176 @@ window.createStageSignTexture = function(stage, hasAnomaly, anomalyId) {
             return new THREE.CanvasTexture(canvas);
 }
 
-window.startAnomalyMode = function() {
-            showScreen('screen-generic-game');
-            document.getElementById('generic-game-title').innerText = "Couloir des Anomalies 3D";
-            
-            state.anomalyGame = {
-                stage: 0,
-                maxStageReached: 0,
-                theme: (window.currentRoom && window.currentRoom.settings && window.currentRoom.settings.anomalyTheme) || 'metro', // NOUVEAU
-                targetStages: (window.currentRoom && window.currentRoom.settings && window.currentRoom.settings.anomalyStages) || state.anomalySettings.targetStages || 8,
-                timeLeft: (window.currentRoom && window.currentRoom.settings && window.currentRoom.settings.anomalyTimer) || state.anomalySettings.maxTime || 300,
-                // ... (laissez le reste de l'objet tel quel)
-                timerInterval: null,
-                hasAnomaly: false,
-                anomalyId: -1,
-                playerX: 0,
-                playerZ: 10,
-                yaw: 0,
-                pitch: 0,
-                walkTime: 0,
-                isTransitioning: false,
-                keys: {},
-                historyLog: []
-            };
-            
-            // CORRECTION : Éviter le crash en convertissant l'objet Firebase en tableau
-            const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
-            playersArr.forEach(p => {
-                if (p) p.maxStage = 0;
-            });
+// Lancement (hôte) : lit les paramètres du salon
+window.startAnomalyGame = function() {
+    if (!window.isHost) return;
+    const code = window.currentCodeSalon || state.roomCode;
+    if (!code || !window.mettreAJourSalonFirebase) return;
 
-            document.getElementById('generic-game-content').innerHTML = `
-                <div class="space-y-3 w-full relative">
-                    <div class="flex justify-between items-center px-2">
-                        <span class="text-xs font-bold text-indigo-400">Sortie actuelle : <span id="anomaly-stage-display" class="text-amber-400 text-sm font-black">Sortie 0</span> / ${state.anomalyGame.targetStages}</span>
-                        <span class="text-[11px] text-slate-400 font-medium">Contrôles : ZQSD ou Flèches | Souris pour regarder | <b class="text-indigo-300">Shift</b> pour courir</span>
-                    </div>
+    const stages = Math.max(1, Math.min(20, parseInt(document.getElementById('setting-anomaly-stages')?.value, 10) || 8));
+    const theme = document.getElementById('setting-anomaly-theme')?.value || 'metro';
+    const timer = Math.max(60, Math.min(600, parseInt(document.getElementById('input-host-timer')?.value, 10) || 300));
 
-                    <div id="anomaly-canvas-container" class="relative cursor-pointer rounded-xl overflow-hidden shadow-2xl border border-slate-700">
-                        <div class="absolute top-2 left-2 z-10 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] text-slate-300 pointer-events-none">
-                            <i class="fa-solid fa-mouse mr-1 text-indigo-400"></i> Cliquez pour capturer la souris
-                        </div>
-                        <div id="anomaly-hint-banner" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 px-5 py-2.5 rounded-full border border-indigo-500/30 text-xs text-indigo-300 pointer-events-none text-center shadow-lg transition-opacity duration-500">
-                            <b class="text-emerald-400"><i class="fa-solid fa-shield-halved"></i> Sortie 0 : Observez bien la référence (0 anomalie)</b>
-                        </div>
-                    </div>
+    const updates = {
+        status: 'IN_GAME',
+        selectedMode: 'anomaly',
+        'settings/timer': timer,
+        'settings/anomalyStages': stages,
+        'settings/anomalyTheme': theme,
+        'settings/anomalyTimer': timer,
+        anomalyGame: { status: 'PLAYING', targetStages: stages, theme: theme, timer: timer, startedAt: Date.now() }
+    };
+    Object.values(state.players || {}).forEach(p => { if (p && p.name) updates[`players/${p.name}/score`] = 0; });
+    window.mettreAJourSalonFirebase(code, updates);
+};
+
+// Appelé à chaque mise à jour Firebase pendant le mode Anomalies
+window.renderAnomalyScreen = function(data) {
+    const g = data && data.anomalyGame;
+    if (!g) return;
+    window.latestAnomalyData = data;
+    const sess = String(g.startedAt || 'anomaly');
+
+    if (g.status === 'FINISHED') {
+        if (window.anomalyShownResults !== sess) {
+            window.anomalyShownResults = sess;
+            if (state.anomalyGame) { state.anomalyGame.finished = true; clearInterval(state.anomalyGame.timerInterval); }
+            if (document.pointerLockElement) document.exitPointerLock();
+            const ranking = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot)
+                .sort((x, y) => (y.score || 0) - (x.score || 0));
+            const progress = g.progress || {};
+            const lb = document.getElementById('final-leaderboard');
+            if (lb) {
+                lb.innerHTML = ranking.map((p, i) => `
+                    <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
+                        <span class="font-bold">#${i + 1} - ${anomalyEsc(p.name)} <span class="text-slate-400 font-normal">(sortie ${(progress[p.name] || {}).max || 0}/${g.targetStages})</span></span>
+                        <span class="font-mono text-emerald-400 font-bold text-sm">${p.score || 0} pts</span>
+                    </div>`).join('');
+            }
+            showScreen('screen-results');
+        }
+        return;
+    }
+
+    // Démarre la partie une seule fois par session (et non à chaque mise à jour Firebase)
+    if (window.anomalySession !== sess) {
+        window.anomalySession = sess;
+        window.startAnomalyMode(g);
+    }
+    anomalyUpdateHud(data);
+    if (window.isHost) anomalyHostAdvance(data);
+};
+
+function anomalyEsc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function anomalyUpdateHud(data) {
+    const el = document.getElementById('anomaly-progress');
+    if (!el) return;
+    const g = data.anomalyGame;
+    const progress = g.progress || {};
+    el.innerHTML = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot).map(p => {
+        const pr = progress[p.name] || {};
+        return `<span class="px-2 py-1 rounded-lg border ${pr.done ? 'border-emerald-500/50 text-emerald-300' : 'border-slate-700 text-slate-300'} bg-slate-900/70">
+            ${anomalyEsc(p.name)} : ${pr.max || 0}/${g.targetStages} ${pr.done ? '✓' : ''}</span>`;
+    }).join('');
+}
+
+// Hôte : quand tous les joueurs présents ont fini, calcule les scores et termine la partie
+function anomalyHostAdvance(data) {
+    const g = data.anomalyGame;
+    if (!window.isHost || !g || g.status !== 'PLAYING') return;
+    const present = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot).map(p => p.name);
+    const progress = g.progress || {};
+    if (!present.length || !present.every(n => progress[n] && progress[n].done)) return;
+
+    const key = 'fin:' + g.startedAt;
+    if (window.anomalyLock === key) return;
+    window.anomalyLock = key;
+
+    const updates = { 'anomalyGame/status': 'FINISHED' };
+    present.forEach(n => { updates[`players/${n}/score`] = (progress[n].max || 0) * 1000 + (progress[n].bonus || 0); });
+    window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates)
+        .catch(err => { window.anomalyLock = null; console.error('Fin de partie Anomalies impossible :', err); });
+}
+
+window.anomalyPushProgress = function(done) {
+    const code = window.currentCodeSalon || state.roomCode;
+    const me = window.myPlayerKey || state.username;
+    const g = state.anomalyGame;
+    if (!code || !me || !g || !window.update) return;
+    const bonus = (done && g.maxStageReached >= g.targetStages) ? Math.max(0, g.timeLeft) * 2 : 0;
+    window.update(window.ref(window.db, `salons/${code}`), {
+        [`anomalyGame/progress/${me}`]: { stage: g.stage, max: g.maxStageReached, done: !!done, bonus: bonus }
+    }).catch(err => console.error('Progression Anomalies non envoyée :', err));
+};
+
+window.startAnomalyMode = function(cfg) {
+    cfg = cfg || {};
+    showScreen('screen-generic-game');
+    document.getElementById('generic-game-title').innerText = "Couloir des Anomalies 3D";
+
+    if (state.anomalyGame) clearInterval(state.anomalyGame.timerInterval);
+
+    state.anomalyGame = {
+        stage: 0,
+        maxStageReached: 0,
+        theme: THEMES_CONFIG[cfg.theme] ? cfg.theme : 'metro',
+        targetStages: Number(cfg.targetStages) || 8,
+        timeLeft: Number(cfg.timer) || 300,
+        timerInterval: null,
+        finished: false,
+        hasAnomaly: false,
+        anomalyId: -1,
+        playerX: 0,
+        playerZ: 10,
+        yaw: 0,
+        pitch: 0,
+        walkTime: 0,
+        isTransitioning: false,
+        keys: {},
+        historyLog: []
+    };
+
+    document.getElementById('generic-game-content').innerHTML = `
+        <div class="space-y-3 w-full relative">
+            <div class="flex justify-between items-center px-2 flex-wrap gap-2">
+                <span class="text-xs font-bold text-indigo-400">Sortie actuelle : <span id="anomaly-stage-display" class="text-amber-400 text-sm font-black">Sortie 0</span> / ${state.anomalyGame.targetStages}</span>
+                <span class="text-[11px] text-slate-400 font-medium">Contrôles : ZQSD ou Flèches | Souris pour regarder | <b class="text-indigo-300">Shift</b> pour courir</span>
+            </div>
+            <div id="anomaly-progress" class="flex flex-wrap gap-2 px-2 text-[11px] font-mono"></div>
+
+            <div id="anomaly-canvas-container" class="relative cursor-pointer rounded-xl overflow-hidden shadow-2xl border border-slate-700">
+                <div class="absolute top-2 left-2 z-10 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] text-slate-300 pointer-events-none">
+                    <i class="fa-solid fa-mouse mr-1 text-indigo-400"></i> Cliquez pour capturer la souris
                 </div>
-            `;
+                <div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:rgba(255,255,255,0.6);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5"></div>
+                <div id="anomaly-hint-banner" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 px-5 py-2.5 rounded-full border border-indigo-500/30 text-xs text-indigo-300 pointer-events-none text-center shadow-lg transition-opacity duration-500">
+                    <b class="text-emerald-400"><i class="fa-solid fa-shield-halved"></i> Sortie 0 : Observez bien la référence (0 anomalie)</b>
+                    <div class="text-[10px] text-slate-400 mt-1">Avancez si tout est normal, faites demi-tour s'il y a une anomalie.</div>
+                </div>
+            </div>
+        </div>
+    `;
+    // Le conteneur est recréé à chaque partie : on (re)branche le clic ici
+    document.getElementById('anomaly-canvas-container').addEventListener('click', anomalyRequestLock);
 
-            clearInterval(state.anomalyGame.timerInterval);
-            state.anomalyGame.timerInterval = setInterval(() => {
-                state.anomalyGame.timeLeft--;
-                const timerEl = document.getElementById('generic-game-timer');
-                if (timerEl) {
-                    let mins = Math.floor(state.anomalyGame.timeLeft / 60);
-                    let secs = state.anomalyGame.timeLeft % 60;
-                    timerEl.innerText = `Temps : ${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                }
-                if (state.anomalyGame.timeLeft <= 0) {
-                    clearInterval(state.anomalyGame.timerInterval);
-                    finishAnomalyGame();
-                }
-            }, 1000);
-            
-            setupAnomalyStage(10);
+    const tick = () => {
+        const g = state.anomalyGame;
+        if (!g || g.finished) return;
+        g.timeLeft--;
+        const timerEl = document.getElementById('generic-game-timer');
+        if (timerEl) {
+            const mins = Math.floor(Math.max(0, g.timeLeft) / 60), secs = Math.max(0, g.timeLeft) % 60;
+            timerEl.innerText = `Temps : ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        if (g.timeLeft <= 0) finishAnomalyGame();
+    };
+    tick();
+    state.anomalyGame.timerInterval = setInterval(tick, 1000);
+
+    setupAnomalyStage(10);
 }
 
 window.triggerBlinkTransition = function(callback) {
@@ -302,6 +411,15 @@ window.anomalyMouseMove = function(e) {
             }
 }
 
+window.anomalyResize = function() {
+            const container = document.getElementById('anomaly-canvas-container');
+            const d = state.anomalyData;
+            if (!container || !d.camera || !d.renderer || !container.clientWidth) return;
+            d.camera.aspect = container.clientWidth / container.clientHeight;
+            d.camera.updateProjectionMatrix();
+            d.renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
 window.anomalyRequestLock = function() {
             const container = document.getElementById('anomaly-canvas-container');
             if (container) {
@@ -310,6 +428,10 @@ window.anomalyRequestLock = function() {
 }
 
 window.handleKeyDown = function(e) {
+            if (!state.anomalyGame || state.anomalyGame.finished) return;
+            const tag = (e.target && e.target.tagName) || '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            if (e.key.startsWith('Arrow')) e.preventDefault();
             const key = e.key.toLowerCase();
             if (key === 'w' || key === 'z' || key === 'arrowup') state.anomalyGame.keys['forward'] = true;
             if (key === 's' || key === 'arrowdown') state.anomalyGame.keys['backward'] = true;
@@ -319,6 +441,7 @@ window.handleKeyDown = function(e) {
 }
 
 window.handleKeyUp = function(e) {
+            if (!state.anomalyGame) return;
             const key = e.key.toLowerCase();
             if (key === 'w' || key === 'z' || key === 'arrowup') state.anomalyGame.keys['forward'] = false;
             if (key === 's' || key === 'arrowdown') state.anomalyGame.keys['backward'] = false;
@@ -347,45 +470,25 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 window.addEventListener('keydown', handleKeyDown);
                 window.addEventListener('keyup', handleKeyUp);
                 document.addEventListener('mousemove', anomalyMouseMove);
-                container.addEventListener('click', anomalyRequestLock);
+                window.addEventListener('resize', window.anomalyResize);
                 window.anomalyEventsBound = true;
             }
 
-            // GESTION DU MOTEUR
+            // GESTION DU MOTEUR : un seul renderer réutilisé, replacé dans le nouveau conteneur à chaque partie
             if (!state.anomalyData.renderer) {
                 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-                renderer.setSize(container.clientWidth || 800, container.clientHeight || 500);
                 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-                
-                // NOUVEAU : Traitement colorimétrique réaliste
                 renderer.outputEncoding = THREE.sRGBEncoding;
                 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                renderer.toneMappingExposure = 0.8; // Assombrit légèrement l'image globale
-
-                container.appendChild(renderer.domElement);
+                renderer.toneMappingExposure = 0.8;
                 state.anomalyData.renderer = renderer;
-
-                // Réticule (Crosshair) pour le confort
-                const crosshair = document.createElement('div');
-                crosshair.style.position = 'absolute';
-                crosshair.style.top = '50%'; crosshair.style.left = '50%';
-                crosshair.style.width = '6px'; crosshair.style.height = '6px';
-                crosshair.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                crosshair.style.borderRadius = '50%';
-                crosshair.style.transform = 'translate(-50%, -50%)';
-                crosshair.style.pointerEvents = 'none';
-                container.appendChild(crosshair);
-
-                window.addEventListener('resize', () => {
-                    if (state.anomalyData.camera && state.anomalyData.renderer && document.getElementById('screen-generic-game').classList.contains('hidden') === false) {
-                        state.anomalyData.camera.aspect = container.clientWidth / container.clientHeight;
-                        state.anomalyData.camera.updateProjectionMatrix();
-                        state.anomalyData.renderer.setSize(container.clientWidth, container.clientHeight);
-                    }
-                });
             }
+            if (state.anomalyData.renderer.domElement.parentNode !== container) {
+                container.insertBefore(state.anomalyData.renderer.domElement, container.firstChild);
+            }
+            state.anomalyData.renderer.setSize(container.clientWidth || 800, container.clientHeight || 500);
 
             if (state.anomalyData.animId) cancelAnimationFrame(state.anomalyData.animId);
 
@@ -436,9 +539,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             const floorTex = loadRealTexture(fTexUrl, 2, 15);
             floorTex.anisotropy = maxAnisotropy;
 
-            if (hasAnomaly && currentTheme === 'hotel' && anomalyId === 1) {
-                floorTex.rotation = Math.PI / 2; // Moquette inversée
-            }
+            floorTex.rotation = (hasAnomaly && currentTheme === 'hotel' && anomalyId === 1) ? Math.PI / 2 : 0; // Moquette inversée
 
             // Modifiez la déclaration de floorMat et wallMat dans GÉOMÉTRIE & MATÉRIAUX
             const floorMat = new THREE.MeshStandardMaterial({ 
@@ -465,7 +566,8 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 ceilingHeight = 2.1; // Plafond s'effondre / rétrécit
             }
             
-            const wallDist = 3.5;
+            const narrow = hasAnomaly && ((currentTheme === 'metro' && anomalyId === 8) || (currentTheme === 'hotel' && anomalyId === 6));
+            const wallDist = narrow ? 2.5 : 3.5;
 
             // Structure principale (Groupe permettant des rotations globales)
             const corridorGroup = new THREE.Group();
@@ -519,9 +621,13 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             }
 
             // Portes
+            let breathingDoor = null;
             [-18, -6, 6].forEach((zPos, dIdx) => {
                 const doorGroup = new THREE.Group();
-                const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 1.4), doorMat);
+                const redDoor = hasAnomaly && currentTheme === 'hotel' && anomalyId === 2 && dIdx === 1;
+                const thisDoorMat = redDoor ? new THREE.MeshStandardMaterial({ color: 0xb91c1c, metalness: 0.2, roughness: 0.5 }) : doorMat;
+                const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 1.4), thisDoorMat);
+                if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 3 && dIdx === 1) breathingDoor = doorGroup;
                 doorMesh.position.set(0, 1.2, 0);
                 
                 const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 12), new THREE.MeshStandardMaterial({color:0x94a3b8, metalness: 0.8}));
@@ -570,22 +676,25 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 corridorGroup.add(poster);
             });
 
-            // Anomalies Physiques (Sang / Encombrements)
-            if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 3) {
-                const bloodMat = new THREE.MeshStandardMaterial({color: 0x7f1d1d, roughness: 0.1, transparent: true, opacity: 0.8});
-                for(let i=0; i<5; i++) {
-                    const splat = new THREE.Mesh(new THREE.CircleGeometry(0.5 + Math.random(), 16), bloodMat);
-                    splat.rotation.x = -Math.PI/2;
-                    splat.position.set((Math.random()-0.5)*2, 0.01, -10 + (Math.random()-0.5)*10);
-                    corridorGroup.add(splat);
-                }
+            // Anomalies visuelles supplémentaires
+            if (hasAnomaly && currentTheme === 'metro' && anomalyId === 5) {
+                const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 60), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+                strip.rotation.x = -Math.PI / 2; strip.position.set(0, 0.02, -10); corridorGroup.add(strip);
+            }
+            if (hasAnomaly && currentTheme === 'metro' && anomalyId === 6) {
+                const shadow = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.6, 0.3), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+                shadow.position.set(0, 1.3, -20); corridorGroup.add(shadow);
+            }
+            if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 4) {
+                const hole = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ color: 0x050505 }));
+                hole.rotation.y = Math.PI / 2; hole.position.set(-wallDist + 0.02, 1.2, -4); corridorGroup.add(hole);
             }
 
             const extGroup = new THREE.Group();
             const extincteur = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.7, 16), new THREE.MeshStandardMaterial({color:0xdc2626, metalness:0.3}));
             extGroup.add(extincteur);
             extGroup.position.set(-wallDist + 0.2, 1.0, -12);
-            corridorGroup.add(extGroup);
+            if (!(hasAnomaly && currentTheme === 'hopital' && anomalyId === 7)) corridorGroup.add(extGroup);   // Hôpital 7 : extincteur disparu
 
             // Objets bloquants (Chaises / Landau)
             if (hasAnomaly) {
@@ -609,7 +718,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
 	    const clock = new THREE.Clock();
 
 window.renderLoop = function() {
-                if (document.getElementById('screen-generic-game').classList.contains('hidden')) {
+                if (document.getElementById('screen-generic-game').classList.contains('hidden') || state.anomalyGame.finished) {
                     return; 
                 }
                 
@@ -617,8 +726,9 @@ window.renderLoop = function() {
 
                 // Animations en direct
                 if (hasAnomaly) {
-                    if (currentTheme === 'hopital' && anomalyId === 3) {
-                        doorGroup.scale.set(1, 1 + Math.sin(Date.now() * 0.002) * 0.02, 1); // La porte respire
+                    if (currentTheme === 'hopital' && anomalyId === 3 && breathingDoor) {
+                        const k = Math.sin(Date.now() * 0.002) * 0.06;
+                        breathingDoor.scale.set(1, 1 + k, 1 + k); // La porte respire
                     }
                     if (currentTheme === 'hotel' && anomalyId === 8) {
                         pointLights.forEach((pl) => {
@@ -708,10 +818,9 @@ window.renderLoop = function() {
                     if (state.anomalyGame.stage > state.anomalyGame.maxStageReached) {
                         state.anomalyGame.maxStageReached = state.anomalyGame.stage;
                     }
+                    window.anomalyPushProgress(false);
 
                     if (state.anomalyGame.stage >= state.anomalyGame.targetStages) {
-                        clearInterval(state.anomalyGame.timerInterval);
-                        if (document.pointerLockElement) document.exitPointerLock();
                         finishAnomalyGame();
                         return;
                     }
@@ -731,31 +840,27 @@ window.renderLoop = function() {
 }
 
 window.finishAnomalyGame = function() {
-            clearInterval(state.anomalyGame.timerInterval);
-            if (document.pointerLockElement) document.exitPointerLock();
-            
-            const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
-            
-            playersArr.forEach(p => {
-                if (p && p.isBot) {
-                    p.maxStage = Math.floor(Math.random() * (state.anomalyGame.targetStages + 1));
-                    p.score = p.maxStage * 1000;
-                } else if (p) {
-                    p.maxStage = state.anomalyGame.maxStageReached;
-                    p.score = state.anomalyGame.maxStageReached * 1000;
-                }
-            });
+    const g = state.anomalyGame;
+    if (!g || g.finished) return;
+    g.finished = true;
+    clearInterval(g.timerInterval);
+    if (document.pointerLockElement) document.exitPointerLock();
+    if (state.anomalyData.animId) cancelAnimationFrame(state.anomalyData.animId);
 
-            if (window.isHost && window.currentCodeSalon) {
-                const updates = {};
-                playersArr.forEach(p => {
-                    if (p && p.name) updates[`players/${p.name}/score`] = p.score;
-                });
-                window.update(window.ref(window.db, `salons/${window.currentCodeSalon}`), updates);
-            }
+    // Score calculé par l'hôte quand tout le monde a fini : ici on envoie seulement notre progression
+    window.anomalyPushProgress(true);
 
-            if (typeof showFinalResults === 'function') {
-                showFinalResults();
-            }
+    const content = document.getElementById('generic-game-content');
+    if (content) {
+        content.innerHTML = `
+            <div class="max-w-md mx-auto p-8 bg-slate-900 border border-slate-700 rounded-2xl text-center space-y-3">
+                <div class="text-2xl font-black text-emerald-400">Terminé !</div>
+                <div class="text-sm text-slate-300">Sortie atteinte : <b class="text-amber-400">${g.maxStageReached} / ${g.targetStages}</b></div>
+                <div class="text-amber-400 animate-pulse text-sm"><i class="fa-solid fa-hourglass-half"></i> En attente des autres joueurs...</div>
+                <div id="anomaly-progress" class="flex flex-wrap gap-2 justify-center text-[11px] font-mono"></div>
+            </div>`;
+        if (window.latestAnomalyData) anomalyUpdateHud(window.latestAnomalyData);
+    }
+    const timerEl = document.getElementById('generic-game-timer');
+    if (timerEl) timerEl.innerText = 'Terminé';
 }
-
