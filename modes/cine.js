@@ -138,6 +138,42 @@ function advanceCineRoundIfReady(data, gameData, roundNumber, sessionKey) {
     });
 }
 
+// Ajuste la taille du texte pour que TOUT le texte tienne dans l'encadré.
+function fitCineStoryText(text) {
+
+    const box = document.getElementById('cine-story-box');
+    const panel = document.getElementById('cine-story-panel');
+
+    if (!box || !panel || panel.clientHeight === 0) return;
+
+    const previous = box.innerHTML;
+
+    box.textContent = text;
+
+    let low = 10, high = 28, best = low;
+
+    while (low <= high) {
+
+        const mid = Math.floor((low + high) / 2);
+
+        box.style.fontSize = mid + 'px';
+
+        if (panel.scrollHeight <= panel.clientHeight + 1) {
+            best = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    box.style.fontSize = best + 'px';
+    box.innerHTML = previous;
+}
+
+// Réajuste si la fenêtre est redimensionnée.
+window.addEventListener('resize', () => {
+    if (window.cineCurrentStoryText) fitCineStoryText(window.cineCurrentStoryText);
+});
 
 function renderCineScreen(data) {
 
@@ -479,6 +515,9 @@ function renderCineScreen(data) {
                 const fullText = currentMovie.storyText ||
                     'Le texte narratif de ce film n\'a pas encore été configuré dans les données.';
 
+		window.cineCurrentStoryText = fullText;
+                fitCineStoryText(fullText);
+
                 const textStartTime = Date.now();
                 const totalMs = timerDuration * 1000;
 
@@ -773,7 +812,9 @@ cineCurrentImg.onerror = () => {
         }
 
 
-        if (storyBox) {
+                if (storyBox) {
+            window.cineCurrentStoryText = currentMovie.storyText || '';
+            fitCineStoryText(window.cineCurrentStoryText);
             storyBox.innerHTML = currentMovie.storyText || '';
         }
 
