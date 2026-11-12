@@ -403,8 +403,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             if (typeof loadGoogleMapsApi === 'function') loadGoogleMapsApi(() => startNextRound());
                         }
                     } else if (selectedMode === 'anomaly') {
-                        showScreen('screen-generic-game');
-                        if (typeof startAnomalyMode === 'function') startAnomalyMode();
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderAnomalyScreen === 'function') renderAnomalyScreen(data);
                     } else if (selectedMode === 'petitsbac') {
     			if (justStarted) showScreen('screen-petitsbac');
     			if (typeof renderPetitsBacScreen === 'function') renderPetitsBacScreen(data);
@@ -930,11 +930,19 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                 <!-- Options Anomalies -->
                 <div id="host-settings-anomaly" class="hidden space-y-1 text-xs shrink-0">
-                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ANOMALIES 3D</div>
                     <div>
-                        <span class="text-slate-300 text-[11px]">Étapes max :</span>
-                        <input type="number" id="setting-anomaly-stages" min="1" max="20" value="8" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                    </div>
+    <span class="text-slate-300 text-[11px]">Sorties à atteindre (1-20) :</span>
+    <input type="number" id="setting-anomaly-stages" min="1" max="20" value="8" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+</div>
+<div>
+    <span class="text-slate-300 text-[11px]">Décor :</span>
+    <select id="setting-anomaly-theme" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+        <option value="metro">Métro</option>
+        <option value="hopital">Hôpital</option>
+        <option value="hotel">Hôtel</option>
+    </select>
+</div>
+<div class="text-[10px] text-slate-500">Temps total : réglez le curseur ci-dessus (1 à 10 min).</div>
                 </div>
 
                 <!-- Options Petits Bac -->
@@ -1264,6 +1272,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <div id="impostor-main-area" class="w-full text-center"></div>
 </main>
 
+    <!-- ÉCRAN ANOMALY -->
+<main id="screen-generic-game" class="hidden flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto w-full max-w-6xl mx-auto gap-3">
+    <div class="w-full flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4">
+        <h2 id="generic-game-title" class="text-xs sm:text-sm font-bold text-indigo-300 uppercase tracking-wider"></h2>
+        <div id="generic-game-timer" class="text-xs sm:text-sm font-mono text-amber-400"></div>
+    </div>
+    <div id="generic-game-content" class="w-full"></div>
+</main>
+
     <main id="screen-results" class="hidden flex-1 flex flex-col justify-center items-center p-4">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-3xl w-full text-center space-y-6">
             <h2 class="text-3xl font-black sci-font text-white">Fin de Partie !</h2>
@@ -1562,6 +1579,10 @@ if (mode === 'codenames') {
 	    } else if (mode === 'petitsbac') {
     		displayEl.innerText = `${timer}s/manche | ${s.bacRounds || 3} manches | ${s.bacCategories || 5} catégories`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+	    } else if (mode === 'anomaly') {
+    		const themeNames = { metro: 'Métro', hopital: 'Hôpital', hotel: 'Hôtel' };
+    		displayEl.innerText = `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, '0')} | ${s.anomalyStages || 8} sorties | ${themeNames[s.anomalyTheme] || 'Métro'}`;
+    		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
 	    } else if (mode === 'impostor') {
     		displayEl.innerText = `${timer}s/indice | ${s.impostorRounds || 2} tours`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
@@ -1815,6 +1836,8 @@ function launchGame() {
             				startedAt: Date.now()
         			}
     			}, resetScores));
+		} else if (state.selectedMode === 'anomaly') {
+    			if (typeof window.startAnomalyGame === 'function') window.startAnomalyGame();
 		} else if (state.selectedMode === 'impostor') {
     			if (typeof window.startImpostorGame === 'function') window.startImpostorGame();
                 } else {
@@ -1919,6 +1942,9 @@ function showScreen(id) {
 
 		const impostorRounds = document.getElementById('setting-impostor-rounds')?.value || 2;
 
+		const anomalyStages = document.getElementById('setting-anomaly-stages')?.value || 8;
+		const anomalyTheme = document.getElementById('setting-anomaly-theme')?.value || 'metro';
+
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
@@ -1928,7 +1954,9 @@ function showScreen(id) {
 			cineRounds: cineRounds,
 			bacRounds: bacRounds,
 			bacCategories: bacCategories,
-			impostorRounds: impostorRounds
+			impostorRounds: impostorRounds,
+			anomalyStages: anomalyStages,
+			anomalyTheme: anomalyTheme
                     }
                 });
             }
@@ -2114,6 +2142,7 @@ if (timerSlider) {
     cine:      { min: 15, max: 180, step: 5, value: 90 },
     petitsbac: { min: 20, max: 180, step: 5, value: 60 },
     impostor:  { min: 10, max: 90,  step: 5, value: 30 },
+    anomaly:   { min: 60, max: 600, step: 30, value: 300 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
