@@ -310,19 +310,21 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     }
                 }
 
+		const justStarted = window._lastRoomStatus !== data.status;
+		window._lastRoomStatus = data.status;
+
                 if (data.status === 'IN_GAME') {
                     // On ne vérifie pas si le lobby est affiché, si le statut est IN_GAME on force l'affichage du jeu pour tout le monde
                     const selectedMode = data.selectedMode || 'quiz';
                     
                     if (selectedMode === 'quiz') {
                         // Pour le quiz, le processus commence par le choix de la difficulté
-                        if (typeof prepareNextQuizQuestion === 'function') {
-                            // Ne relance pas startQuizMode si c'est déjà en cours
-                            if (!state.quizGame || typeof state.quizGame.currentIndex === 'undefined') {
-                               if (window.isHost) window.startQuizMode();
-                            } else {
-                               showScreen('screen-quiz-difficulty');
-                            }
+                        if (justStarted && !window.isHost && typeof prepareNextQuizQuestion === 'function') {
+    				state.quizGame.currentIndex = 0;
+    				state.quizGame.answersLog = [];
+    				state.quizGame.currentRoundAnswers = {};
+    				prepareNextQuizQuestion();
+				}
                         } else {
                             showScreen('screen-quiz-difficulty');
                         }
@@ -930,10 +932,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             </button>
         </div>
     </div>
-
+</div>
 </div>
 
-    <!-- ÉCRAN DE CHOIX DE DIFFICULTÉ DU QUIZ -->
+    <!-- SCREEN QUIZ DIFFICULTY -->
     <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-lg w-full text-center space-y-6">
             <h3 class="text-xl font-black sci-font text-white">Choisissez la Difficulté</h3>
@@ -951,6 +953,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         </div>
     </main>
 
+    <!-- SCREEN QUIZ -->    
     <main id="screen-quiz" class="hidden flex-1 flex flex-col space-y-4 max-w-4xl mx-auto w-full p-4">
         <div class="neon-border-dim p-4 rounded-xl flex justify-between items-center">
             <span id="quiz-progress" class="font-bold text-cyan-400 text-sm">Question 1 / 10</span>
@@ -962,6 +965,58 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         </div>
     </main>
 
+        <!-- ÉCRAN RÉSUMÉ DE LA QUESTION DU QUIZ -->
+    <main id="screen-quiz-summary" class="hidden flex-1 flex flex-col items-center py-6 overflow-y-auto">
+        <div class="neon-border-cyan bg-[#091424]/90 p-6 rounded-3xl max-w-2xl w-full space-y-4">
+
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-black sci-font text-white">Résumé de la question</h3>
+                <span id="quiz-round-points" class="font-mono text-sm text-slate-400 font-bold">+0 pts</span>
+            </div>
+
+            <div id="summary-question-title" class="text-white font-bold text-base"></div>
+
+            <div class="p-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10">
+                <div class="text-[10px] uppercase tracking-wider text-emerald-300/80 mb-1">Bonne réponse</div>
+                <div id="summary-correct-answer" class="text-emerald-300 font-bold"></div>
+            </div>
+
+            <div class="p-3 rounded-xl border border-slate-700 bg-slate-950/60">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Explication</div>
+                <div id="summary-explanation" class="text-xs text-slate-300"></div>
+            </div>
+
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Réponses des joueurs</div>
+                <div id="summary-players-answers" class="space-y-2"></div>
+            </div>
+
+            <!-- IMPORTANT : doit rester le PREMIER <button> de cet écran (quiz.js utilise querySelector('button')) -->
+            <button onclick="nextQuizQuestionOrFinish()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-indigo-500/20">
+                Question Suivante <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </main>
+
+    <!-- ÉCRAN RÉCAP FINAL DU QUIZ -->
+    <main id="screen-quiz-recap" class="hidden flex-1 flex flex-col items-center py-6 overflow-y-auto">
+        <div class="neon-border-cyan bg-[#091424]/90 p-6 rounded-3xl max-w-2xl w-full space-y-5">
+
+            <h3 class="text-xl font-black sci-font text-white text-center">🏆 Classement final</h3>
+            <div id="quiz-final-leaderboard" class="space-y-2"></div>
+
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Votre historique</div>
+                <div id="quiz-history-table"></div>
+            </div>
+
+            <button onclick="backToLobby()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition">
+                Retour au salon
+            </button>
+        </div>
+    </main>
+
+    <!-- SCREEN GEOGUESSR -->
     <main id="screen-game-geoguessr" class="hidden flex-1 flex flex-col space-y-3 relative w-full mx-auto">
         <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center z-10">
             <span id="round-indicator" class="font-bold text-emerald-400 text-sm">Manche 1 / 5</span>
@@ -1306,12 +1361,14 @@ function launchGame() {
                         const totalQ = document.getElementById('input-quiz-questions-count')?.value || 10;
                         const timer = document.getElementById('input-host-timer')?.value || 20;
                         
-                        window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
-                            status: 'IN_GAME',
-                            settings: { questionsCount: totalQ, timer: timer }
-                        });
-                        
-                        window.startQuizMode(); 
+			window.startQuizMode(); 
+
+                        window.mettreAJourSalonFirebase(window.currentCodeSalon, {
+    				status: 'IN_GAME',
+    				'settings/questionsCount': totalQ,
+    				'settings/timer': timer,
+    				categoriesSequence: state.quizGame.categoriesSequence
+			});
                     }
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
