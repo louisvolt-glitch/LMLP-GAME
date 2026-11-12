@@ -55,8 +55,6 @@ const THEMES_CONFIG = {
 
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');   // obligatoire pour utiliser des images d'un autre domaine dans WebGL
-state.anomalyData = state.anomalyData || {};
-state.anomalySettings = state.anomalySettings || { targetStages: 8, maxTime: 300 };
 const textureCache = {};
 
 window.loadRealTexture = function(url, repeatX = 1, repeatY = 1) {
@@ -278,6 +276,7 @@ window.anomalyPushProgress = function(done) {
 
 window.startAnomalyMode = function(cfg) {
     cfg = cfg || {};
+    state.anomalyData = state.anomalyData || {};
     showScreen('screen-generic-game');
     document.getElementById('generic-game-title').innerText = "Couloir des Anomalies 3D";
 
