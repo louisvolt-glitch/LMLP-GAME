@@ -933,14 +933,20 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
 </div>
 
-    <!-- ÉCRANS DE JEU SECONDAIRES -->
+    <!-- ÉCRAN DE CHOIX DE DIFFICULTÉ DU QUIZ -->
     <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-lg w-full text-center space-y-6">
             <h3 class="text-xl font-black sci-font text-white">Choisissez la Difficulté</h3>
+            
+            <!-- Badge dynamique de la catégorie en cours -->
+            <div id="diff-theme-badge" class="inline-block px-3 py-1 bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 rounded-full text-xs font-bold tracking-wider">
+                Chargement du thème...
+            </div>
+
             <div class="grid grid-cols-1 gap-3">
-                <button onclick="chooseQuizDifficulty('easy')" class="p-4 bg-slate-900 hover:bg-emerald-500/10 border border-slate-700 rounded-xl text-emerald-400 font-bold cursor-pointer">Facile (x1)</button>
-                <button onclick="chooseQuizDifficulty('medium')" class="p-4 bg-slate-900 hover:bg-amber-500/10 border border-slate-700 rounded-xl text-amber-400 font-bold cursor-pointer">Modéré (x2)</button>
-                <button onclick="chooseQuizDifficulty('hard')" class="p-4 bg-slate-900 hover:bg-red-500/10 border border-slate-700 rounded-xl text-red-400 font-bold cursor-pointer">Difficile (x3.5)</button>
+                <button onclick="chooseQuizDifficulty('easy')" class="p-4 bg-slate-900 hover:bg-emerald-500/10 border border-slate-700 rounded-xl text-emerald-400 font-bold cursor-pointer transition">Facile (x1)</button>
+                <button onclick="chooseQuizDifficulty('medium')" class="p-4 bg-slate-900 hover:bg-amber-500/10 border border-slate-700 rounded-xl text-amber-400 font-bold cursor-pointer transition">Modéré (x2)</button>
+                <button onclick="chooseQuizDifficulty('hard')" class="p-4 bg-slate-900 hover:bg-red-500/10 border border-slate-700 rounded-xl text-red-400 font-bold cursor-pointer transition">Difficile (x3.5)</button>
             </div>
         </div>
     </main>
@@ -1315,9 +1321,15 @@ function launchGame() {
         }
 
         function showScreen(id) {
-            // ── CORRECTION : Masquer tous les conteneurs principaux, y compris le lobby ──
-            const mainScreens = ['screen-home', 'screen-lobby', 'screen-quiz-difficulty', 'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 'screen-game-geoguessr', 'screen-impostor', 'screen-cine', 'screen-petitsbac', 'screen-generic-game', 'screen-results'];
+            // Liste de tous les écrans principaux de l'application
+            const mainScreens = [
+                'screen-home', 'screen-lobby', 'screen-quiz-difficulty', 
+                'screen-quiz', 'screen-quiz-summary', 'screen-quiz-recap', 
+                'screen-game-geoguessr', 'screen-impostor', 'screen-cine', 
+                'screen-petitsbac', 'screen-generic-game', 'screen-results'
+            ];
             
+            // Masquer tous les écrans
             mainScreens.forEach(screenId => {
                 const el = document.getElementById(screenId);
                 if (el) {
@@ -1326,11 +1338,12 @@ function launchGame() {
                 }
             });
 
-            // Afficher uniquement l'écran cible demandé
+            // Afficher uniquement l'écran cible demandé en s'assurant de retirer 'hidden'
             const target = document.getElementById(id);
             if (target) {
                 target.classList.remove('hidden');
-                target.style.display = '';
+                // On applique 'flex' car ces écrans utilisent un positionnement flexible centré
+                target.style.display = 'flex';
             }
         }
 
