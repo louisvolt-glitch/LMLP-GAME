@@ -1,56 +1,17 @@
-// --- LOGIQUE DRAG & DROP CODENAMES ---
-window.initCodenamesDragDrop = function() {
-    if (!window.isHost) return;
-    const pool = document.getElementById('cn-pool');
-    if (!pool) return;
-    
-    let playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
-    playersArr = playersArr.filter(p => p && !p.isBot && p.name);
-    
-    // Réinitialise les boîtes
-    document.getElementById('cn-red-spy').innerHTML = '';
-    document.getElementById('cn-red-op').innerHTML = '';
-    document.getElementById('cn-blue-spy').innerHTML = '';
-    document.getElementById('cn-blue-op').innerHTML = '';
-    pool.innerHTML = '';
-    
-    // Ajoute les joueurs disponibles dans le Pool
-    playersArr.forEach(p => {
-        const safeName = p.name.replace(/'/g, "\\'");
-        pool.innerHTML += `<div id="drag-${safeName}" draggable="true" ondragstart="drag(event)" data-name="${p.name}" class="text-xs font-bold bg-slate-700 hover:bg-slate-600 text-white px-2 py-1.5 rounded cursor-grab border border-slate-500 select-none shadow-sm flex items-center gap-2"><i class="fa-solid fa-user text-indigo-300"></i> ${p.name}</div>`;
-    });
+// --- ASSISTANTS ÉQUIPES ---
+window.cnOtherTeam = function(team) { return team === 'red' ? 'blue' : 'red'; };
+
+// Noms des joueurs PRÉSENTS dans le salon qui appartiennent à une équipe
+window.cnTeamNames = function(data, team) {
+    const roles = (data.codenamesGame && data.codenamesGame.roles) || {};
+    const present = new Set(Object.values(data.players || {}).map(p => p && p.name));
+    return Object.keys(roles).filter(n => present.has(n) && roles[n].team === team);
 };
 
-window.allowDrop = function(ev) {
-    ev.preventDefault();
-};
-
-window.drag = function(ev) {
-    ev.dataTransfer.setData("text", ev.target.id);
-};
-
-window.drop = function(ev, targetZone) {
-    ev.preventDefault();
-    const data = ev.dataTransfer.getData("text");
-    const draggedElement = document.getElementById(data);
-    if (!draggedElement) return;
-
-    // Trouver la vraie boîte de destination même si on lâche sur un autre joueur
-    let targetContainer = ev.target;
-    while(targetContainer && !targetContainer.id.startsWith('cn-')) {
-        targetContainer = targetContainer.parentElement;
-    }
-    if (!targetContainer) return;
-
-    // Bloquer à 1 seul joueur dans les cases Maître-Espion
-    if (targetZone === 'red-spy' || targetZone === 'blue-spy') {
-        if (targetContainer.children.length >= 1) {
-            // Renvoie le joueur actuel dans le pool avant de le remplacer
-            document.getElementById('cn-pool').appendChild(targetContainer.children[0]);
-        }
-    }
-    
-    targetContainer.appendChild(draggedElement);
+// Équipe suivante : l'autre équipe si elle a des joueurs, sinon la même (mode coopératif)
+window.cnNextTurn = function(data, currentTeam) {
+    const other = window.cnOtherTeam(currentTeam);
+    return window.cnTeamNames(data, other).length > 0 ? other : currentTeam;
 };
 
 // --- 3. CODENAMES ---
@@ -60,86 +21,93 @@ window.startCodenamesGame = function() {
     let playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
     playersArr = playersArr.filter(p => p && !p.isBot && p.name);
 
-    if (playersArr.length < 4) {
-    alert("Il faut au moins 4 joueurs (2 Maîtres-Espions, 2 Opérateurs) !");
-    return;
+    if (playersArr.length < 2) {
+        showToast("⚠️ Il faut au moins 2 joueurs pour jouer à Codenames.");
+        return;
     }
 
+    // 1. Rôles : ceux choisis dans le salon (glisser-déposer), sinon répartition aléatoire
     let roles = {};
+    const hasManual = playersArr.some(p => p.team === 'red' || p.team === 'blue');
 
-    const redSpy = document.getElementById('cn-red-spy')?.children;
-    const blueSpy = document.getElementById('cn-blue-spy')?.children;
-    const redOps = document.getElementById('cn-red-op')?.children;
-    const blueOps = document.getElementById('cn-blue-op')?.children;
-
-    let manualConfigured = (redSpy && redSpy.length > 0) || (blueSpy && blueSpy.length > 0) || (redOps && redOps.length > 0) || (blueOps && blueOps.length > 0);
-
-    if (manualConfigured) {
-        if (redSpy && redSpy.length > 0) roles[redSpy[0].dataset.name] = { team: 'red', isSpymaster: true };
-        if (blueSpy && blueSpy.length > 0) roles[blueSpy[0].dataset.name] = { team: 'blue', isSpymaster: true };
-        
-        if (redOps) Array.from(redOps).forEach(el => roles[el.dataset.name] = { team: 'red', isSpymaster: false });
-        if (blueOps) Array.from(blueOps).forEach(el => roles[el.dataset.name] = { team: 'blue', isSpymaster: false });
-        
+    if (hasManual) {
         playersArr.forEach(p => {
-            if (!roles[p.name]) roles[p.name] = { team: 'spectator', isSpymaster: false };
+            roles[p.name] = (p.team === 'red' || p.team === 'blue')
+                ? { team: p.team, isSpymaster: p.role === 'spymaster' }
+                : { team: 'spectator', isSpymaster: false };
         });
     } else {
-        let shuffled = [...playersArr].sort(() => 0.5 - Math.random());
-        
-        // CORRECTION: À 2 joueurs, on les force dans l'équipe Rouge (coop)
-        if (shuffled.length === 2) {
-            roles[shuffled[0].name] = { team: 'red', isSpymaster: true };
-            roles[shuffled[1].name] = { team: 'red', isSpymaster: false };
+        const shuffled = [...playersArr].sort(() => 0.5 - Math.random());
+        if (shuffled.length < 4) {
+            // Moins de 4 joueurs : tous dans la même équipe (coopératif)
+            shuffled.forEach((p, i) => { roles[p.name] = { team: 'red', isSpymaster: i === 0 }; });
         } else {
-            let mid = Math.ceil(shuffled.length / 2);
-            shuffled.forEach((p, idx) => {
-                let team = idx < mid ? 'red' : 'blue';
-                let isSpymaster = (idx === 0 || idx === mid);
-                roles[p.name] = { team: team, isSpymaster: isSpymaster };
+            const mid = Math.ceil(shuffled.length / 2);
+            shuffled.forEach((p, i) => {
+                roles[p.name] = { team: i < mid ? 'red' : 'blue', isSpymaster: (i === 0 || i === mid) };
             });
         }
     }
 
+    // 2. Chaque équipe présente : exactement 1 maître-espion et au moins 1 agent
+    const teamsPresent = [];
+    for (const team of ['red', 'blue']) {
+        const names = Object.keys(roles).filter(n => roles[n].team === team);
+        if (names.length === 0) continue;
+        if (names.length < 2) {
+            showToast(`⚠️ L'équipe ${team === 'red' ? 'Rouge' : 'Bleue'} doit avoir au moins 2 joueurs (1 Maître-Espion + 1 Agent).`);
+            return;
+        }
+        const spies = names.filter(n => roles[n].isSpymaster);
+        const keepSpy = spies.length > 0 ? spies[0] : names[0];
+        names.forEach(n => { roles[n].isSpymaster = (n === keepSpy); });
+        teamsPresent.push(team);
+    }
+    if (teamsPresent.length === 0) {
+        showToast("⚠️ Aucun joueur n'est assigné à une équipe.");
+        return;
+    }
+
+    // 3. Grille : l'équipe qui commence a 9 mots, l'autre 8 (ou 0 si elle est vide)
+    const startTeam = teamsPresent.includes('red') ? 'red' : 'blue';
+    const otherTeam = window.cnOtherTeam(startTeam);
+    const otherCount = teamsPresent.includes(otherTeam) ? 8 : 0;
+
     const dictionary = [
-        "AGENT", "EUROPE", "AVION", "MINE", "FEU", "NOTE", "BOMBE", "ROI", "LUNE", "CARTE", 
-        "MIEL", "OR", "TEMPLE", "MARS", "SCIANT", "TOUR", "POISSON", "GHOST", "CHEF", "PAIX", 
-        "TABLE", "POMME", "CHAPEAU", "SALON", "BLANC", "PLAGE", "NINJA", "ROUGE", "MAGIE", "BOIS", 
+        "AGENT", "EUROPE", "AVION", "MINE", "FEU", "NOTE", "BOMBE", "ROI", "LUNE", "CARTE",
+        "MIEL", "OR", "TEMPLE", "MARS", "SCIE", "TOUR", "POISSON", "GHOST", "CHEF", "PAIX",
+        "TABLE", "POMME", "CHAPEAU", "SALON", "BLANC", "PLAGE", "NINJA", "ROUGE", "MAGIE", "BOIS",
         "BATEAU", "CHAT", "VERRE", "PIED", "COEUR", "GLACE", "MUR", "TISSU", "LION", "POCHE",
         "ARC", "SABLE", "PAPIER", "VENT", "PORTE", "ETOILE", "LUNETTES", "VOITURE", "CLE", "FER"
     ];
-    let selectedWords = dictionary.sort(() => 0.5 - Math.random()).slice(0, 25);
+    const selectedWords = [...dictionary].sort(() => 0.5 - Math.random()).slice(0, 25);
 
-    let types = [
-        ...Array(9).fill('red'),
-        ...Array(8).fill('blue'),
-        ...Array(7).fill('neutral'),
+    const types = [
+        ...Array(9).fill(startTeam),
+        ...Array(otherCount).fill(otherTeam),
+        ...Array(15 - otherCount).fill('neutral'),
         'assassin'
     ].sort(() => 0.5 - Math.random());
 
-    let gridWords = selectedWords.map((w, idx) => ({
-        word: w,
-        type: types[idx],
-        revealed: false
-    }));
+    const gridWords = selectedWords.map((w, idx) => ({ word: w, type: types[idx], revealed: false }));
 
     const roomCode = window.currentCodeSalon || state.roomCode;
     if (roomCode && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(roomCode, {
-    status: 'IN_GAME',
-    selectedMode: 'codenames',
-    codenamesGame: {
-        words: gridWords,
-        roles: roles,
-        currentTurn: 'red',
-        redLeft: 9,
-        blueLeft: 8,
-        currentClue: "",
-        currentCount: 1,
-        guessesMade: 0, // <-- NOUVEAU : Suivi des essais
-        status: "PLAYING"
-    }
-});
+            status: 'IN_GAME',
+            selectedMode: 'codenames',
+            codenamesGame: {
+                words: gridWords,
+                roles: roles,
+                currentTurn: startTeam,
+                redLeft: startTeam === 'red' ? 9 : otherCount,
+                blueLeft: startTeam === 'blue' ? 9 : otherCount,
+                currentClue: "",
+                currentCount: 1,
+                guessesMade: 0,
+                status: "PLAYING"
+            }
+        });
     }
 }
 
@@ -150,7 +118,35 @@ window.renderCodenamesScreen = function(data) {
 
     const myName = window.myPlayerKey || state.username;
     const myRole = (gameData.roles && gameData.roles[myName]) ? gameData.roles[myName] : { team: 'spectator', isSpymaster: false };
-    const isMyTurn = (myRole.team === gameData.currentTurn);
+        const isMyTurn = (myRole.team === gameData.currentTurn);
+    const esc = (v) => (typeof escapeChatHTML === 'function') ? escapeChatHTML(v) : String(v);
+    const roomCodeCn = window.currentCodeSalon || state.roomCode;
+
+    // L'hôte garde la partie fluide si des joueurs quittent en cours de route
+    if (window.isHost && gameData.status === "PLAYING" && roomCodeCn) {
+        const cur = gameData.currentTurn;
+        const members = window.cnTeamNames(data, cur).sort();
+        if (members.length === 0 && window.cnTeamNames(data, window.cnOtherTeam(cur)).length > 0) {
+            window.mettreAJourSalonFirebase(roomCodeCn, {
+                "codenamesGame/currentTurn": window.cnOtherTeam(cur),
+                "codenamesGame/currentClue": "",
+                "codenamesGame/guessesMade": 0
+            });
+            return;
+        }
+        if (members.length > 0 && !members.some(n => gameData.roles[n].isSpymaster)) {
+            window.mettreAJourSalonFirebase(roomCodeCn, { [`codenamesGame/roles/${members[0]}/isSpymaster`]: true });
+            return;
+        }
+    }
+
+    // Badge : rôle du joueur local
+    const roleBadge = document.getElementById('codenames-role-badge');
+    if (roleBadge) {
+        const teamLabel = myRole.team === 'red' ? 'Équipe Rouge' : (myRole.team === 'blue' ? 'Équipe Bleue' : 'Spectateur');
+        const teamColor = myRole.team === 'red' ? 'text-red-400' : (myRole.team === 'blue' ? 'text-blue-400' : 'text-slate-400');
+        roleBadge.innerHTML = `<span class="${teamColor} font-bold">${teamLabel}</span>${myRole.team !== 'spectator' ? ' — ' + (myRole.isSpymaster ? '🕵️ Maître-Espion' : 'Agent') : ''}`;
+    }
     
     // UI Scores et Tour
     const turnIndicator = document.getElementById('codenames-turn-indicator');
@@ -174,7 +170,7 @@ window.renderCodenamesScreen = function(data) {
         const pts = gameData.pointsWon || 1000;
         
         // Vérifie si le joueur local a déjà voté pour le retour au salon
-const hasVoted = window.hasVotedForLobby || (data.quizGame && data.quizGame.lobbyVotes && data.quizGame.lobbyVotes[myName]);
+const hasVoted = !!(data.lobbyReturn && data.lobbyReturn[myName]);
 
         clueBox.innerHTML = `
             <div class="text-xl font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-4">
@@ -199,12 +195,12 @@ const hasVoted = window.hasVotedForLobby || (data.quizGame && data.quizGame.lobb
         let bonusText = (gameData.guessesMade === gameData.currentCount) ? " (Essai bonus !)" : "";
 
         clueBox.innerHTML = `
-            Indice actuel : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${gameData.currentClue} (${gameData.currentCount})</strong>
+            Indice actuel : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${esc(gameData.currentClue)} (${gameData.currentCount})</strong>
             <span class="text-xs text-slate-300 ml-2">Coups restants : <b class="text-white">${guessesLeft}</b>${bonusText}</span>
             <button onclick="passCodenamesTurn()" class="ml-4 bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded text-xs font-bold transition shadow">Fin de tour</button>
         `;
     } else {
-        const clueText = gameData.currentClue ? `${gameData.currentClue} (${gameData.currentCount})` : "En attente du Maître-Espion...";
+        const clueText = gameData.currentClue ? `${esc(gameData.currentClue)} (${gameData.currentCount})` : "En attente du Maître-Espion...";
         clueBox.innerHTML = `Indice en cours : <strong class="text-amber-400 text-sm uppercase tracking-wider">${clueText}</strong>`;
     }
 
@@ -244,7 +240,7 @@ const hasVoted = window.hasVotedForLobby || (data.quizGame && data.quizGame.lobb
 
 window.submitCodenamesClue = function() {
     const word = document.getElementById('cn-clue-word').value.trim();
-    const count = parseInt(document.getElementById('cn-clue-count').value);
+    const count = Math.max(0, Math.min(9, parseInt(document.getElementById('cn-clue-count').value, 10) || 0));
     const roomCode = window.currentCodeSalon || state.roomCode;
     
     if (!word || !roomCode) return;
@@ -288,7 +284,7 @@ window.clickCodenamesWord = function(idx) {
             
             // Si le max d'essais est atteint (Nombre de l'espion + 1 bonus), le tour passe
             if (status === "PLAYING" && gameData.guessesMade > gameData.currentCount) {
-                nextTurn = currentTeam === 'red' ? 'blue' : 'red';
+                nextTurn = window.cnNextTurn(data, currentTeam);
                 gameData.currentClue = "";
                 gameData.guessesMade = 0;
             }
@@ -303,7 +299,7 @@ window.clickCodenamesWord = function(idx) {
                     if (gameData.redLeft <= 0) status = 'RED_WIN';
                 }
             }
-            nextTurn = currentTeam === 'red' ? 'blue' : 'red';
+            nextTurn = window.cnNextTurn(data, currentTeam);
             gameData.currentClue = "";
             gameData.guessesMade = 0;
         }
@@ -339,7 +335,7 @@ window.passCodenamesTurn = function() {
         let gameData = data.codenamesGame;
         if (!gameData || gameData.status !== "PLAYING") return;
         
-        gameData.currentTurn = gameData.currentTurn === 'red' ? 'blue' : 'red';
+        gameData.currentTurn = window.cnNextTurn(data, gameData.currentTurn);
         gameData.currentClue = "";
         gameData.guessesMade = 0; // <-- NOUVEAU
         window.mettreAJourSalonFirebase(roomCode, { codenamesGame: gameData });
