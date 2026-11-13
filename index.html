@@ -225,6 +225,7 @@
     <script src="./modes/anomaly.js"></script>
     <script src="./modes/codenames.js"></script>
     <script src="./modes/petitbac.js"></script>
+    <script src="./modes/references.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -335,6 +336,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'petitsbac': { name: 'Petit Bac', icon: '📝', desc: 'Trouvez des mots par catégorie avec la lettre imposée.' },
                         'impostor': { name: 'Impostor', icon: '🥷', desc: 'Démasquez l impostor ou bluffez pour survivre incognito.' },
                         'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Surveillez le couloir infini et détectez les anomalies visuelles.' }
+			'references': { name: 'Références Gaming', icon: '🎮', desc: 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -407,6 +409,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     } else if (selectedMode === 'anomaly') {
     			if (justStarted) showScreen('screen-generic-game');
     			if (typeof renderAnomalyScreen === 'function') renderAnomalyScreen(data);
+		    } else if (selectedMode === 'references') {
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderReferencesScreen === 'function') renderReferencesScreen(data);
                     } else if (selectedMode === 'petitsbac') {
     			if (justStarted) showScreen('screen-petitsbac');
     			if (typeof renderPetitsBacScreen === 'function') renderPetitsBacScreen(data);
@@ -807,6 +812,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Anomalies</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
+		    <div onclick="selectProtocol('Références Gaming', '🎮', 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.', 'references')" id="protocol-btn-references" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+    <span class="text-slate-200">Références Gaming</span>
+    <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+</div>
                 </div>
             </div>
 
@@ -1840,6 +1849,8 @@ function launchGame() {
     			}, resetScores));
 		} else if (state.selectedMode === 'anomaly') {
     			if (typeof window.startAnomalyGame === 'function') window.startAnomalyGame();
+		} else if (state.selectedMode === 'references') {
+    			if (typeof window.startReferencesGame === 'function') window.startReferencesGame();
 		} else if (state.selectedMode === 'impostor') {
     			if (typeof window.startImpostorGame === 'function') window.startImpostorGame();
                 } else {
@@ -2056,7 +2067,18 @@ const protocolData = {
         sync: "50%",
         settingsId: "host-settings-anomaly",
 	video: "./videos/anomaly-simulation.mp4"
-    }
+    },
+'references': {
+    rules: [
+        "Une image cache 35 références à des jeux vidéo.",
+        "Cliquez sur une référence et nommez le jeu. Chaque erreur coûte une vie (3 vies).",
+        "Plus vous en trouvez dans le temps imparti, plus vous marquez de points."
+    ],
+    players: "1 - 8 JOUEURS",
+    duration: "5-10 MIN",
+    complexity: "60%",
+    sync: "70%"
+}
 };
 
 function selectProtocol(name, icon, desc, modeKey) {
@@ -2145,6 +2167,7 @@ if (timerSlider) {
     petitsbac: { min: 20, max: 180, step: 5, value: 60 },
     impostor:  { min: 10, max: 90,  step: 5, value: 30 },
     anomaly:   { min: 60, max: 600, step: 30, value: 300 },
+    references: { min: 60, max: 600, step: 30, value: 240 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
