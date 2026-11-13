@@ -11,7 +11,7 @@ const REFERENCES_SETS = [
     {
         id: 'gamers-vault',
         title: "Gamer's Vault",
-        src: './images/guess-game1.png',
+        src: './guess-game1.png',
         w: 1942, h: 1080,
         refs: [
             { id: 1,  name: 'Halo',                 item: 'Figurine',        rect: [5, 0, 115, 172],      aliases: ['halo', 'halo infinite', 'halo reach', 'halo combat evolved', 'halo 3', 'master chief'] },
