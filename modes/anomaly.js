@@ -38,21 +38,21 @@ const MODELS = {
 const THEMES_CONFIG = {
     metro: {
         pbr: true, texDir: 'metro',
-        hdr: 'metro.hdr', envIntensity: 0.55,
+        hdr: 'metro_vijzelgracht_2k.hdr', envIntensity: 0.55,
         fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
         lightColor: 0xfffbeb, fogColor: 0x0c1118, fogNear: 5, fogFar: 26, ambient: 0.05,
         posters: true, anomalies: {}
     },
     hopital: {
         pbr: true, texDir: 'hospital',
-        hdr: 'hopital.hdr', envIntensity: 0.5,
+        hdr: 'hospital_room_2_2k.hdr', envIntensity: 0.5,
         fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
         lightColor: 0xe0f2fe, fogColor: 0x0b1411, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
     },
     hotel: {
         pbr: true, texDir: 'hotel',
-        hdr: 'hotel.hdr', envIntensity: 0.45,
+        hdr: 'entrance_hall_2k.hdr', envIntensity: 0.45,
         fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
         lightColor: 0xffedd5, fogColor: 0x140c08, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
@@ -89,6 +89,7 @@ const PROP_LAYOUT = {
         { id: 'dbl',   k: 'dbl_door', side: 'R', z: -14, h: 2.3 },
         { id: 'cart',  k: 'cart',  side: 'R', z: -8,  h: 0.95, solid: true },
         { id: 'chair', k: 'wheelchair', side: 'R', z: 2, h: 1.0, solid: true },
+        { id: 'frameH', k: 'frame2', side: 'R', z: -3.5, h: 0.8, yb: 1.3 },
         { id: 'clock', k: 'clock', side: 'R', z: -20, h: 0.4, yb: 2.3, clock: true },
         { id: 'cam',   k: 'camera', side: 'R', z: -2, h: 0.25, top: 0.4, yaw: 0.5 }
     ],
@@ -166,6 +167,112 @@ function anomalySilhouette() {
     add(new THREE.SphereGeometry(0.022, 8, 8), eye, -0.06, 1.88, 0.14);             // yeux
     add(new THREE.SphereGeometry(0.022, 8, 8), eye, 0.06, 1.88, 0.14);
     return g;
+}
+
+// =============================================================
+// ÉLÉMENTS D'ANOMALIES SPECTACULAIRES (monstres, yeux, portraits, empreintes...) : tout est fait en code
+// =============================================================
+function anomalyGlowTexture() {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(32, 32, 1, 32, 32, 30);
+    grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.25, 'rgba(255,40,30,1)'); grad.addColorStop(1, 'rgba(120,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+}
+function anomalyEyes(sep, size) {        // paire d'yeux rouges lumineux, visibles même dans le noir
+    const tex = anomalyGlowTexture();
+    const grp = new THREE.Group();
+    [-sep / 2, sep / 2].forEach(x => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 0.55), new THREE.MeshBasicMaterial({
+            map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+        m.position.x = x; grp.add(m);
+    });
+    return grp;
+}
+function anomalyHandprints() {
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(95,8,8,0.92)';
+    for (let i = 0; i < 11; i++) {
+        const x = 90 + Math.random() * 840, y = 90 + Math.random() * 300, s = 0.7 + Math.random() * 0.6, rot = (Math.random() - 0.5) * 0.8;
+        g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s);
+        g.beginPath(); g.ellipse(0, 0, 30, 36, 0, 0, Math.PI * 2); g.fill();                                  // paume
+        [[-26, -34, -0.35, 12, 30], [-9, -46, -0.1, 11, 34], [10, -46, 0.1, 11, 34], [27, -34, 0.35, 10, 28]]
+            .forEach(f => { g.beginPath(); g.ellipse(f[0], f[1], f[3], f[4], f[2], 0, Math.PI * 2); g.fill(); }); // doigts
+        g.beginPath(); g.ellipse(-38, 6, 11, 24, -0.9, 0, Math.PI * 2); g.fill();                             // pouce
+        g.fillRect(-9, 30, 18, 60 + Math.random() * 80);                                                       // coulure
+        g.restore();
+    }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+}
+// Portrait peint qui se transforme : k de 0 (visage normal) à 1 (yeux rouges, bouche béante)
+function anomalyPortrait(flipY) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+    const g = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.flipY = !!flipY;
+    const p = { tex: tex, last: -1, draw: function(k, blink) {
+        const bg = g.createRadialGradient(128, 130, 20, 128, 160, 200);
+        bg.addColorStop(0, '#3a2a1c'); bg.addColorStop(1, '#0d0906'); g.fillStyle = bg; g.fillRect(0, 0, 256, 320);
+        g.fillStyle = '#16110e'; g.beginPath(); g.ellipse(128, 330, 110, 90, 0, 0, Math.PI * 2); g.fill();     // buste
+        g.fillStyle = '#0c0805'; g.beginPath(); g.ellipse(128, 120, 66, 84, 0, 0, Math.PI * 2); g.fill();      // cheveux
+        g.fillStyle = k < 0.5 ? '#cdb797' : '#b3b0a4'; g.beginPath(); g.ellipse(128, 138, 52, 70, 0, 0, Math.PI * 2); g.fill();   // visage
+        [-20, 20].forEach(dx => {
+            g.fillStyle = '#e8e2d0'; g.beginPath(); g.ellipse(128 + dx, 124, 11 + 5 * k, blink ? 1.5 : (7 + 10 * k) * 0.6 + 2, 0, 0, Math.PI * 2); g.fill();
+            if (!blink) { g.fillStyle = k > 0.35 ? '#e00000' : '#2a1a10'; g.beginPath(); g.arc(128 + dx, 124, 4 + 4 * k, 0, Math.PI * 2); g.fill(); }
+        });
+        g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.moveTo(128, 134); g.lineTo(124, 160); g.lineTo(132, 160); g.stroke();
+        g.fillStyle = k > 0.6 ? '#120000' : '#7a3b30';
+        g.beginPath(); g.ellipse(128, 184, 18 + 16 * k, 3 + 22 * Math.max(0, k - 0.4), 0, 0, Math.PI * 2); g.fill();
+        if (k > 0.8) { g.fillStyle = '#e8e2d0'; for (let i = -3; i <= 3; i++) g.fillRect(128 + i * 6 - 2, 176, 3, 8); }
+        tex.needsUpdate = true;
+    } };
+    p.draw(0, false);
+    return p;
+}
+// Créature humanoïde simple (monstre, statue, ombre) ; face avant = +z ; membres animables via userData.limbs
+function anomalyFigure(o) {
+    o = o || {};
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: o.color != null ? o.color : 0x0b0b0b, roughness: 0.9, metalness: 0 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: o.eye != null ? o.eye : 0xff1a1a, fog: false });
+    const body = new THREE.Group(); g.add(body);
+    const add = (geo, m, x, y, z) => { const s = new THREE.Mesh(geo, m); s.position.set(x, y, z); body.add(s); return s; };
+    add(new THREE.CylinderGeometry(0.2, 0.27, 0.95, 12), mat, 0, 1.25, 0);                   // torse
+    const head = add(new THREE.SphereGeometry(0.17, 14, 12), mat, 0, 1.9, 0.06);              // tête allongée
+    head.scale.set(0.85, 1.3, 0.95);
+    add(new THREE.SphereGeometry(0.026, 8, 8), eyeMat, -0.06, 1.94, 0.2);                     // yeux
+    add(new THREE.SphereGeometry(0.026, 8, 8), eyeMat, 0.06, 1.94, 0.2);
+    const limb = (r, len, x, y) => {
+        const pv = new THREE.Group(); pv.position.set(x, y, 0);
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.7, len, 8), mat); m.position.y = -len / 2;
+        pv.add(m); body.add(pv); return pv;
+    };
+    g.userData.limbs = {
+        body: body,
+        armL: limb(0.045, 1.35, -0.3, 1.65), armR: limb(0.045, 1.35, 0.3, 1.65),
+        legL: limb(0.07, 0.9, -0.12, 0.85),  legR: limb(0.07, 0.9, 0.12, 0.85)
+    };
+    return g;
+}
+// Fait pivoter un objet autour de sa charnière (bord à z -/+ de la porte) ; renvoie le pivot à faire tourner
+function anomalyHinge(o, S, edge) {
+    const half = (o.userData.size ? o.userData.size.z : 1) / 2;
+    const pivot = new THREE.Group();
+    pivot.position.set(o.position.x, o.position.y, o.position.z + edge * half);
+    S.group.add(pivot);
+    S.group.remove(o);
+    pivot.add(o);
+    o.position.set(0, 0, -edge * half);
+    return pivot;
+}
+// Fond noir derrière une porte (ce qu'on voit quand elle s'entrouvre)
+function anomalyDoorVoid(o, S) {
+    const sz = o.userData.size || { y: 2.3, z: 1 };
+    const wx = -S.wallDist + 0.012;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(sz.z, sz.y), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    m.rotation.y = Math.PI / 2; m.position.set(wx, o.position.y, o.position.z); S.group.add(m);
+    return { x: wx, z: o.position.z, w: sz.z, h: sz.y };
 }
 
 const AN = {
@@ -278,6 +385,407 @@ Object.keys(SFX_BY_FACTORY).forEach(k => {
     AN[k] = function() { const r = f.apply(null, arguments); r.sfx = SFX_BY_FACTORY[k]; return r; };
 });
 
+// ------------------ ANOMALIES SPECTACULAIRES (communes aux trois décors) ------------------
+Object.assign(AN, {
+    waterRise: (n) => ({ name: n, sfx: 'none', fx: P => P.post.push(S => {
+        const geo = new THREE.PlaneGeometry((S.wallDist - 0.05) * 2, 40, 8, 40);
+        const base = geo.attributes.position.array.slice();
+        const water = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+            color: 0x0d2a36, transparent: true, opacity: 0.8, roughness: 0.06, metalness: 0.15, envMapIntensity: 1.2, side: THREE.DoubleSide }));
+        water.rotation.x = -Math.PI / 2; water.position.set(0, 0.02, -6); water.visible = false; S.group.add(water);
+        let started = false, drown = 0;
+        S.anim.push((t, dt) => {
+            const tt = t - 1.5; if (tt < 0) return;
+            if (!started) { started = true; water.visible = true; window.anomalyAudio.play('water'); }
+            const level = Math.min(2.0, 0.17 * tt);
+            water.position.y = level;
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(base[i * 3] * 2.2 + t * 2.4) * 0.03 + Math.sin(base[i * 3 + 1] * 1.3 + t * 1.7) * 0.04);
+            pos.needsUpdate = true;
+            S.speedMul = level > 0.45 ? 0.6 : 1;                         // l'eau ralentit
+            S.underwater = S.camera.position.y < level;
+            if (S.underwater) { drown += dt; if (drown > 2.2) S.caught = true; } else drown = Math.max(0, drown - dt);
+        });
+    }) }),
+
+    spikeCeiling: (n) => ({ name: n, sfx: 'none', fx: P => P.post.push(S => {
+        const W = S.wallDist * 2 - 0.1, L = 40;
+        const grp = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0x70767f, metalness: 0.8, roughness: 0.35 });
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(W, 0.1, L), mat); slab.position.y = 0.05; grp.add(slab);
+        const nx = Math.max(3, Math.round(W / 1.1)), nz = Math.round(L / 1.1);
+        const inst = new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.6, 6), mat, nx * nz);
+        inst.frustumCulled = false;
+        const d = new THREE.Object3D(); let i = 0;
+        for (let a = 0; a < nx; a++) for (let b = 0; b < nz; b++) {
+            d.position.set(-W / 2 + (a + 0.5) * W / nx, -0.3, -L / 2 + (b + 0.5) * L / nz);
+            d.rotation.set(Math.PI, 0, 0); d.updateMatrix(); inst.setMatrixAt(i++, d.matrix);
+        }
+        inst.instanceMatrix.needsUpdate = true; grp.add(inst);
+        const y0 = S.ceilingHeight + 0.75;                                 // départ caché derrière le plafond
+        grp.position.set(0, y0, -8); S.group.add(grp);
+        let started = false;
+        S.anim.push(t => {
+            const tt = t - 1; if (tt < 0) return;
+            if (!started) { started = true; window.anomalyAudio.play('grind'); }
+            grp.position.y = y0 - 0.025 * tt * tt;                           // descente de plus en plus rapide
+            if (grp.position.y - 0.6 < S.camera.position.y + 0.1) S.caught = true;   // écrasé par les pics
+        });
+    }) }),
+
+    doorEyes: (id, n) => ({ name: n, sfx: 'breath', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const v = anomalyDoorVoid(o, S);
+        const pivot = anomalyHinge(o, S, -1);
+        pivot.rotation.y = 0.9;                                            // porte entrouverte
+        const eyes = anomalyEyes(0.13, 0.085);
+        eyes.rotation.y = Math.PI / 2;
+        eyes.position.set(v.x + 0.01, 1.72, v.z + v.w * Math.cos(0.9) / 2);
+        S.group.add(eyes);
+        S.anim.push(t => {
+            const blink = ((t * 0.8) % 4) > 3.0 && ((t * 0.8) % 4) < 3.15;
+            eyes.scale.y = blink ? 0.08 : 1;
+            eyes.children.forEach(m => { m.material.opacity = 0.75 + Math.sin(t * 3) * 0.25; });
+        });
+    } }) }),
+
+    doorSlam: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        anomalyDoorVoid(o, S);
+        const pivot = anomalyHinge(o, S, -1);
+        let opened = false, closed = false;
+        S.anim.push(t => {
+            const tt = t - 2.5; if (tt < 0) return;
+            if (tt < 0.25) { pivot.rotation.y = 1.5 * (tt / 0.25); if (!opened) { opened = true; window.anomalyAudio.play('slam'); } }
+            else if (tt < 1.4) pivot.rotation.y = 1.5;
+            else if (tt < 1.55) pivot.rotation.y = 1.5 * (1 - (tt - 1.4) / 0.15);
+            else if (!closed) { closed = true; pivot.rotation.y = 0; window.anomalyAudio.play('slam'); }
+        });
+    } }) }),
+
+    monsterChase: (id, z, opts, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        anomalyDoorVoid(o, S);
+        const pivot = anomalyHinge(o, S, -1);
+        let st = 0, t0 = 0, mon = null, ph = 0;
+        S.anim.push((t, dt) => {
+            const cam = S.camera.position;
+            if (st === 0 && (cam.z < z + 7 || t > 20)) { st = 1; t0 = t; window.anomalyAudio.play('slam'); }
+            if (st === 1) {                                                // la porte s'ouvre à la volée
+                const k = Math.min(1, (t - t0) / 0.22);
+                pivot.rotation.y = 1.5 * k;
+                if (k >= 1) {
+                    mon = anomalyFigure(opts); mon.position.set(-S.wd + 0.5, 0, z); S.group.add(mon);
+                    st = 2; window.anomalyAudio.play('roar');
+                }
+            }
+            if (st === 2) {                                                // il fonce sur le joueur
+                const dx = cam.x - mon.position.x, dz = cam.z - mon.position.z, d = Math.hypot(dx, dz) || 1;
+                const sp = (opts && opts.speed) || 3.4;
+                mon.position.x += dx / d * sp * dt; mon.position.z += dz / d * sp * dt;
+                mon.rotation.y = Math.atan2(dx, dz);
+                ph += dt * 11;
+                const L = mon.userData.limbs;
+                L.legL.rotation.x = Math.sin(ph) * 0.9;  L.legR.rotation.x = -Math.sin(ph) * 0.9;
+                L.armL.rotation.x = -1.0 + Math.sin(ph + 1) * 0.5; L.armR.rotation.x = -1.0 - Math.sin(ph + 1) * 0.5;
+                L.body.rotation.x = 0.25; mon.position.y = Math.abs(Math.sin(ph)) * 0.06;
+                if (d < 0.9) S.caught = true;
+            }
+        });
+    } }) }),
+
+    statue: (z, n) => ({ name: n, sfx: 'none', fx: P => P.post.push(S => {
+        const f = anomalyFigure({ color: 0xcfcfc6, eye: 0x101010 });
+        f.userData.limbs.armL.rotation.x = -1.35; f.userData.limbs.armR.rotation.x = -1.35;
+        f.position.set(0.5, 0, z); S.group.add(f);
+        S.anim.push((t, dt) => {
+            const cam = S.camera.position, g = state.anomalyGame;
+            const dx = f.position.x - cam.x, dz = f.position.z - cam.z, d = Math.hypot(dx, dz) || 1;
+            const looking = (dx * -Math.sin(g.yaw) + dz * -Math.cos(g.yaw)) / d > 0.55;
+            f.rotation.y = Math.atan2(-dx, -dz);
+            if (!looking && t > 2) { f.position.x -= dx / d * 1.7 * dt; f.position.z -= dz / d * 1.7 * dt; }   // elle n'avance que hors de votre champ de vision
+            if (d < 0.95) S.caught = true;
+        });
+    }) }),
+
+    runner: (z, n) => ({ name: n, sfx: 'none', fx: P => P.post.push(S => {
+        const f = anomalyFigure({ color: 0x000000, eye: 0xffffff });
+        f.visible = false; S.group.add(f);
+        let started = false, done = false;
+        S.anim.push(t => {
+            const tt = t - 2.8; if (tt < 0 || done) return;
+            if (!started) { started = true; f.visible = true; window.anomalyAudio.play('whoosh'); }
+            const x = -S.wd + 0.4 + tt * 8;
+            f.position.set(x, Math.abs(Math.sin(tt * 18)) * 0.05, z); f.rotation.y = Math.PI / 2;
+            const L = f.userData.limbs, ph = tt * 18;
+            L.legL.rotation.x = Math.sin(ph) * 0.9; L.legR.rotation.x = -Math.sin(ph) * 0.9;
+            L.armL.rotation.x = Math.sin(ph) * 0.7; L.armR.rotation.x = -Math.sin(ph) * 0.7;
+            if (x > S.wd - 0.3) { done = true; f.visible = false; window.anomalyAudio.play('slam'); }
+        });
+    }) }),
+
+    eyesDark: (n) => ({ name: n, sfx: 'breath', fx: P => {
+        P.blackout = true;
+        P.post.push(S => {
+            const e = anomalyEyes(0.16, 0.1); e.position.set(0.3, 1.75, -15); S.group.add(e);
+            S.anim.push((t, dt) => {
+                const cam = S.camera.position;
+                const dx = cam.x - e.position.x, dz = cam.z - e.position.z, d = Math.hypot(dx, dz) || 1;
+                e.rotation.y = Math.atan2(dx, dz);
+                if (d > 2.6) { e.position.x += dx / d * 0.35 * dt; e.position.z += dz / d * 0.35 * dt; }
+                e.visible = d > 2.6;
+                e.scale.y = ((t * 0.7) % 3) > 2.85 ? 0.08 : 1;
+            });
+        });
+    } }),
+
+    wallsClose: (n) => ({ name: n, sfx: 'grind', fx: P => P.anim.push((t, dt, S) => {
+        const d = Math.max(1.3, S.wallDist0 - 0.22 * Math.max(0, t - 1.5));
+        S.wd = d;
+        S.walls.left.position.x = -d - 0.25; S.walls.right.position.x = d + 0.25;
+        (S.bases || []).forEach(b => { b.m.position.x = b.sd * (d - 0.02); });
+        const shift = S.wallDist0 - d;
+        Object.keys(S.props).forEach(id => {
+            const o = S.props[id];
+            if (!o || o.parent !== S.group || o.userData.baseX == null) return;
+            if (o.userData.side === 'L') o.position.x = o.userData.baseX + shift;
+            else if (o.userData.side === 'R') o.position.x = o.userData.baseX - shift;
+        });
+    }) }),
+
+    quake: (n) => ({ name: n, sfx: 'none', fx: P => { let started = false; P.anim.push((t, dt, S) => {
+        if (t < 1.2) return;
+        if (!started) { started = true; window.anomalyAudio.play('rumble'); }
+        S.shake = 0.035 * Math.min(1, (t - 1.2) / 1.5);
+    }); } }),
+
+    floatAll: (n) => ({ name: n, sfx: 'whisper', fx: P => P.anim.push((t, dt, S) => {
+        const k = Math.min(1, Math.max(0, t - 1) / 2.5);
+        Object.keys(S.props).forEach((id, i) => {
+            const o = S.props[id];
+            if (!o || o.parent !== S.group || /^door|^dbl/.test(id)) return;
+            if (o.userData.fy == null) o.userData.fy = o.position.y;
+            o.position.y = o.userData.fy + k * (0.5 + Math.sin(t * 1.3 + i) * 0.12);
+            o.rotation.z = Math.sin(t * 0.9 + i) * 0.15 * k;
+        });
+    }) }),
+
+    bloodFlow: (z, n) => ({ name: n, sfx: 'drip', fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 5), new THREE.MeshStandardMaterial({
+            map: anomalyBloodTexture(), transparent: true, depthWrite: false, roughness: 0.15, polygonOffset: true, polygonOffsetFactor: -2 }));
+        m.rotation.x = -Math.PI / 2; m.position.set(-S.wallDist + 1.3, 0.012, z); m.scale.set(0.05, 0.05, 1); S.group.add(m);
+        S.anim.push(t => { const k = Math.min(1, Math.max(0.05, (t - 1) / 10)); m.scale.set(k, k, 1); });
+    }) }),
+
+    handprints: (n) => ({ name: n, sfx: 'whisper', fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.5), new THREE.MeshBasicMaterial({ map: anomalyHandprints(), transparent: true, depthWrite: false }));
+        m.rotation.y = -Math.PI / 2; m.position.set(S.wallDist - 0.015, 1.5, -12); S.group.add(m);
+    }) }),
+
+    portrait: (id, n) => ({ name: n, sfx: 'breath', fx: P => P.mod(id, { portrait: true }) }),
+    posterPortrait: (n) => ({ name: n, sfx: 'breath', fx: P => { P.posterPortrait = true; } }),
+
+    frameFall: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const h = (o.userData.size && o.userData.size.y) || 0.5;
+        let vy = 0, landed = false;
+        S.anim.push((t, dt) => {
+            const tt = t - 3; if (tt < 0 || landed) return;
+            if (tt < 1) { o.rotation.z = Math.sin(tt * 45) * 0.05 * tt; return; }          // le cadre tremble
+            vy += 9.8 * dt; o.position.y -= vy * dt; o.rotation.z += 0.7 * dt;
+            if (o.position.y <= 0.15 + h * 0.2) { landed = true; o.position.y = 0.12; o.rotation.set(-Math.PI / 2 * 0.9, 0, 0.4); window.anomalyAudio.play('crash'); }
+        });
+    } }) })
+});
+
+// =============================================================
+// ANOMALIES SUR LES OBJETS EXISTANTS (caméra, téléphone, extincteur, alarme, lampe, traces de pas)
+// =============================================================
+function anomalyFootprintTexture(color) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 300;
+    const g = c.getContext('2d');
+    g.fillStyle = color;
+    const el = (x, y, rx, ry) => { g.beginPath(); g.ellipse(64 + x, 150 + y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
+    el(0, -40, 34, 56); el(-3, 28, 20, 28); el(0, 86, 24, 34);                                     // avant-pied, voûte, talon
+    [[-26, -110, 10], [-10, -122, 11], [8, -124, 10], [24, -116, 9], [35, -100, 8]]                // orteils
+        .forEach(t => { g.beginPath(); g.arc(64 + t[0], 150 + t[1], t[2], 0, Math.PI * 2); g.fill(); });
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+}
+function anomalyFootprint(tex, mirror) {      // empreinte au sol, orteils vers +z (tourner le groupe pour changer de direction)
+    const grp = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.38), new THREE.MeshStandardMaterial({
+        map: tex, transparent: true, depthWrite: false, roughness: 0.2, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.rotation.set(-Math.PI / 2, 0, Math.PI);
+    m.scale.x = mirror ? -1 : 1;
+    m.position.y = 0.014;
+    grp.add(m);
+    return grp;
+}
+function anomalySmokeTexture() {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+}
+function anomalyCamFollowFn(id) {
+    return (t, dt, S) => {
+        const o = S.props[id]; if (!o) return;
+        o.rotation.y = Math.atan2(S.camera.position.x - o.position.x, S.camera.position.z - o.position.z) - (o.userData.faceAngle || 0);
+    };
+}
+function anomalyRingBehavior(o, S) {          // le téléphone sonne et vibre
+    let last = -1;
+    S.anim.push(t => {
+        if (t < 2) return;
+        const idx = Math.floor((t - 2) / 6), cyc = (t - 2) % 6;
+        if (idx !== last) { last = idx; window.anomalyAudio.play('ring'); }
+        o.rotation.z = cyc < 2.2 ? Math.sin(t * 60) * 0.03 : 0;
+    });
+}
+function anomalyLampFlicker(o, S) {           // la lampe clignote et éclaire vraiment le couloir
+    const mats = [];
+    o.traverse(m => { if (m.isMesh && m.material && m.material.emissive) mats.push(m.material); });
+    const pl = new THREE.PointLight(0xffd9a0, 0, 12);
+    pl.position.set(o.position.x, o.position.y - 0.2, o.position.z); S.group.add(pl);
+    let on = true, next = 0;
+    S.anim.push(t => {
+        if (t >= next) {
+            on = !on; next = t + (on ? 0.1 + Math.random() * 0.5 : 0.03 + Math.random() * 0.2);
+            if (Math.random() < 0.12) { on = false; next = t + 0.8 + Math.random(); }
+        }
+        mats.forEach(mt => { mt.emissiveIntensity = on ? 3 : 0.02; });
+        pl.intensity = on ? 2.4 : 0;
+    });
+}
+
+Object.assign(AN, {
+    // ----- Caméra de surveillance -----
+    camJerk: (id, n) => ({ name: n, sfx: 'static', fx: P => {
+        let next = 0, off = 0;
+        P.anim.push((t, dt, S) => {
+            const o = S.props[id]; if (!o) return;
+            if (t >= next) { off = (Math.random() - 0.5) * 2.4; next = t + 0.5 + Math.random() * 0.8; }
+            o.rotation.y = off;
+        });
+    } }),
+    camRed: (id, n) => ({ name: n, sfx: 'static', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000, fog: false }));
+        led.position.set(0, ((o.userData.size && o.userData.size.y) || 0.25) * 0.3, 0); o.add(led);
+        const pl = new THREE.PointLight(0xff0000, 0, 5); led.add(pl);
+        S.anim.push(t => { const on = Math.sin(t * 5) > 0; led.visible = on; pl.intensity = on ? 1.6 : 0; });
+    } }) }),
+    camBack: (id, n) => ({ name: n, sfx: 'creak', fx: P => P.mod(id, { yaw: Math.PI }) }),
+    camExtra: (def, n) => ({ name: n, sfx: 'static', fx: P => {
+        P.add(Object.assign({ k: 'camera', side: 'R', h: 0.25, top: 0.4, yaw: 0.5 }, def));
+        P.anim.push(anomalyCamFollowFn(def.id));
+    } }),
+
+    // ----- Téléphone public -----
+    phoneRing: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: anomalyRingBehavior }) }),
+    phoneExtra: (def, n) => ({ name: n, sfx: 'none', fx: P => {
+        P.add(Object.assign({ k: 'phone', h: 0.85, yb: 0.95 }, def));
+        P.mod(def.id, { onPlaced: anomalyRingBehavior });
+    } }),
+
+    // ----- Extincteur -----
+    extFoam: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const tex = anomalySmokeTexture(), dir = o.userData.side === 'R' ? -1 : 1;
+        const sz = o.userData.size || { y: 0.7 };
+        const ox = o.position.x + dir * 0.12, oy = o.position.y + sz.y * 0.4, oz = o.position.z;
+        const parts = [];
+        for (let i = 0; i < 24; i++) {
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0 }));
+            sp.visible = false; S.group.add(sp); parts.push({ sp: sp, born: -1, vx: 0, vy: 0, vz: 0 });
+        }
+        let started = false, next = 0;
+        S.anim.push(t => {
+            if (t < 2) return;
+            if (!started) { started = true; window.anomalyAudio.play('hiss'); }
+            parts.forEach(p => {
+                if (p.born < 0 || t - p.born > 1.7) {
+                    if (t < 9 && t >= next) {
+                        next = t + 0.06; p.born = t;
+                        p.vx = dir * (1.5 + Math.random() * 1.2); p.vy = 0.2 + Math.random() * 0.5; p.vz = (Math.random() - 0.5) * 1.4;
+                    } else { p.sp.visible = false; p.born = -1; return; }
+                }
+                const a = t - p.born;
+                p.sp.visible = true;
+                p.sp.position.set(ox + p.vx * a, oy + p.vy * a, oz + p.vz * a);
+                p.sp.scale.setScalar(0.25 + a * 0.9);
+                p.sp.material.opacity = 0.55 * (1 - a / 1.7);
+            });
+        });
+    } }) }),
+    extTopple: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const sz = o.userData.size || { x: 0.28, y: 0.66 }, dir = o.userData.side === 'R' ? -1 : 1;
+        const y0 = o.position.y, x0 = o.position.x;
+        let landed = false;
+        S.anim.push(t => {
+            const tt = t - 3; if (tt < 0 || landed) return;
+            const k = Math.min(1, tt / 0.6), e = k * k;
+            o.rotation.z = -dir * (Math.PI / 2) * e;
+            o.position.y = y0 + (sz.x / 2 + 0.02 - y0) * e;
+            o.position.x = x0 + dir * (sz.y / 2 - sz.x / 2) * e;
+            if (k >= 1) { landed = true; window.anomalyAudio.play('crash'); }
+        });
+    } }) }),
+
+    // ----- Alarme incendie -----
+    alarmTrigger: (id, z, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const lever = o.getObjectByName('fire_alarm_lever');
+        const pl = new THREE.PointLight(0xff0000, 0, 9);
+        pl.position.set(-S.wallDist + 0.6, 1.8, z); S.group.add(pl);
+        let pulled = false, last = -1;
+        S.anim.push(t => {
+            if (t < 2) return;
+            if (!pulled) { pulled = true; if (lever && lever.position) lever.position.y -= 0.03; }
+            const idx = Math.floor((t - 2) / 5);
+            if (idx !== last) { last = idx; window.anomalyAudio.play('alarm'); }
+            pl.intensity = Math.sin(t * 7) > 0 ? 3.5 : 0.1;
+        });
+    } }) }),
+    alarmExtra: (def, n) => ({ name: n, sfx: 'static', fx: P => P.add(Object.assign({ id: 'x_alarm', k: 'alarm', side: 'R', h: 0.18, yb: 1.3 }, def)) }),
+
+    // ----- Traces de pas -----
+    footprintsWalk: (n) => ({ name: n, sfx: 'none', fx: P => P.post.push(S => {
+        const tex = anomalyFootprintTexture('rgba(15,24,34,0.8)');
+        const prints = [];
+        for (let i = 0; i < 20; i++) {
+            const fp = anomalyFootprint(tex, i % 2 === 1);
+            fp.position.set((i % 2 ? 0.22 : -0.22) + (Math.random() - 0.5) * 0.1, 0, -20 + i * 1.2);
+            fp.visible = false; S.group.add(fp); prints.push({ fp: fp, at: 1.5 + i * 0.45, shown: false });
+        }
+        S.anim.push(t => prints.forEach(p => {
+            if (!p.shown && t >= p.at) { p.shown = true; p.fp.visible = true; window.anomalyAudio.play('step', { hard: true, loud: 0.12 }); }
+        }));
+    }) }),
+    footprintsBlood: (doorZ, n) => ({ name: n, sfx: 'drip', fx: P => P.post.push(S => {
+        const tex = anomalyFootprintTexture('rgba(110,8,8,0.88)');
+        const x0 = 0.4, z0 = 5, x1 = -S.wallDist + 0.75, z1 = doorZ, N = 10;
+        const heading = Math.atan2(x1 - x0, z1 - z0);
+        for (let i = 0; i < N; i++) {
+            const k = i / (N - 1), fp = anomalyFootprint(tex, i % 2 === 1);
+            fp.position.set(x0 + (x1 - x0) * k + (i % 2 ? 0.14 : -0.14), 0, z0 + (z1 - z0) * k);
+            fp.rotation.y = heading; S.group.add(fp);
+        }
+    }) }),
+
+    // ----- Lampe suspendue -----
+    lampFlicker: (ids, n) => ({ name: n, sfx: 'buzz', fx: P => ids.forEach(id => P.mod(id, { cloneMat: true, onPlaced: anomalyLampFlicker })) }),
+    lampExtra: (def, n) => ({ name: n, sfx: 'buzz', fx: P => {
+        P.add(Object.assign({ id: 'x_lamp', k: 'lamp', side: 'C', len: 0.9, top: 0, face: 'back' }, def));
+        P.mod(def.id || 'x_lamp', { cloneMat: true, onPlaced: anomalyLampFlicker });
+    } }),
+    lampFall: (id, n) => ({ name: n, sfx: 'none', fx: P => P.mod(id, { onPlaced: (o, S) => {
+        const h = (o.userData.size && o.userData.size.y) || 0.5;
+        let vy = 0, landed = false;
+        S.anim.push((t, dt) => {
+            const tt = t - 3; if (tt < 0 || landed) return;
+            if (tt < 1) { o.rotation.z = Math.sin(tt * 40) * 0.05 * tt; return; }
+            vy += 9.8 * dt; o.position.y -= vy * dt;
+            if (o.position.y <= 0.15 + h / 2) { landed = true; o.position.y = 0.1 + h / 2; o.rotation.z = 0.6; window.anomalyAudio.play('crash'); }
+        });
+    } }) })
+});
+
 const ANOMALY_DEFS = {};
 function defineAnomalies(theme, list) {
     ANOMALY_DEFS[theme] = {};
@@ -306,7 +814,35 @@ defineAnomalies('metro', [
     AN.hide('clock', "L'horloge murale a disparu"),
     AN.fog(), AN.neonsDie(), AN.strobe(), AN.tilt(),
     AN.wallTint(0xe08a8a, "Les murs prennent une teinte rougeâtre"),
-    AN.sway(['lamp1', 'lamp2'], "Les lampes se balancent dans le vide")
+    AN.sway(['lamp1', 'lamp2'], "Les lampes se balancent dans le vide"),
+    AN.waterRise("L'eau monte rapidement dans le couloir"),
+    AN.spikeCeiling("Le plafond descend, hérissé de pics métalliques"),
+    AN.doorEyes('door2', "Une porte est entrouverte : deux yeux rouges brillent dans le noir"),
+    AN.monsterChase('door1', -18, { color: 0x070707, speed: 3.4 }, "Une porte s'ouvre à la volée : un monstre en sort et vous court après"),
+    AN.statue(-20, "Une statue pâle avance dès que vous détournez le regard"),
+    AN.wallsClose("Les murs se rapprochent lentement"),
+    AN.eyesDark("Deux yeux rouges vous observent dans l'obscurité"),
+    AN.bloodFlow(-18, "Du sang coule sous une porte"),
+    AN.floatAll("Tous les objets se mettent à léviter"),
+    AN.quake("Le couloir tremble violemment"),
+    AN.runner(-10, "Une ombre traverse le couloir en courant"),
+    AN.handprints("Des empreintes de mains sanglantes couvrent le mur"),
+    AN.doorSlam('door1', "Une porte s'ouvre brutalement puis claque"),
+    AN.posterPortrait("L'affiche se transforme peu à peu en visage aux yeux rouges"),
+    AN.camJerk('cam', "La caméra de surveillance pivote par à-coups"),
+    AN.camRed('cam', "Un voyant rouge clignote sur la caméra de surveillance"),
+    AN.camBack('cam', "La caméra de surveillance regarde le mur"),
+    AN.camExtra({ id: 'x_cam', z: -14 }, "Une deuxième caméra est apparue et vous suit du regard"),
+    AN.phoneRing('phone', "Le téléphone public sonne et vibre"),
+    AN.extFoam('ext', "L'extincteur se met à cracher de la mousse"),
+    AN.extTopple('ext', "L'extincteur se renverse tout seul"),
+    AN.block({ id: 'x_ext', k: 'ext', x: -0.5, z: -9, h: 0.7 }, "Un extincteur est posé au milieu du couloir"),
+    AN.alarmTrigger('alarm', -12, "Le levier de l'alarme incendie est baissé : la sirène retentit"),
+    AN.alarmExtra({ z: -14.5 }, "Une deuxième alarme incendie est apparue en face"),
+    AN.footprintsWalk("Des empreintes de pas invisibles se rapprochent sur le sol"),
+    AN.footprintsBlood(-6, "Des pas ensanglantés mènent à une porte"),
+    AN.lampFlicker(['lamp1', 'lamp2'], "Les lampes suspendues clignotent violemment"),
+    AN.lampFall('lamp1', "Une lampe suspendue se décroche et s'écrase")
 ]);
 
 // ------------------------------ HÔPITAL ------------------------------
@@ -334,7 +870,36 @@ defineAnomalies('hopital', [
     AN.alarmFlash(-12),
     AN.hole(-1, "Un trou noir est percé dans le mur"),
     AN.wet(),
-    AN.wallTint(0x9fc7a0, "Les murs ont une teinte verdâtre malsaine")
+    AN.wallTint(0x9fc7a0, "Les murs ont une teinte verdâtre malsaine"),
+    AN.waterRise("L'eau monte rapidement dans le couloir"),
+    AN.spikeCeiling("Le plafond descend, hérissé de pics métalliques"),
+    AN.doorEyes('door1', "Une porte est entrouverte : deux yeux rouges brillent dans le noir"),
+    AN.monsterChase('door2', -6, { color: 0x8f8a82, speed: 3.3 }, "Une porte s'ouvre à la volée : une créature pâle en sort et vous court après"),
+    AN.statue(-20, "Une statue pâle avance dès que vous détournez le regard"),
+    AN.wallsClose("Les murs se rapprochent lentement"),
+    AN.eyesDark("Deux yeux rouges vous observent dans l'obscurité"),
+    AN.bloodFlow(-18, "Du sang coule sous une porte"),
+    AN.floatAll("Tous les objets se mettent à léviter"),
+    AN.quake("Le couloir tremble violemment"),
+    AN.runner(-10, "Une ombre traverse le couloir en courant"),
+    AN.handprints("Des empreintes de mains sanglantes couvrent le mur"),
+    AN.doorSlam('door1', "Une porte s'ouvre brutalement puis claque"),
+    AN.portrait('frameH', "Le portrait du cadre change peu à peu : ses yeux deviennent rouges"),
+    AN.frameFall('frameH', "Un cadre se décroche et s'écrase au sol"),
+    AN.camJerk('cam', "La caméra de surveillance pivote par à-coups"),
+    AN.camRed('cam', "Un voyant rouge clignote sur la caméra de surveillance"),
+    AN.camBack('cam', "La caméra de surveillance regarde le mur"),
+    AN.camFollow('cam'),
+    AN.camExtra({ id: 'x_cam', z: -12 }, "Une deuxième caméra est apparue et vous suit du regard"),
+    AN.phoneExtra({ id: 'x_phone', side: 'R', z: -17 }, "Un téléphone public est apparu sur le mur : il sonne"),
+    AN.extFoam('ext', "L'extincteur se met à cracher de la mousse"),
+    AN.extTopple('ext', "L'extincteur se renverse tout seul"),
+    AN.block({ id: 'x_ext', k: 'ext', x: -0.5, z: -9, h: 0.7 }, "Un extincteur est posé au milieu du couloir"),
+    AN.alarmTrigger('alarm', -12, "Le levier de l'alarme incendie est baissé : la sirène retentit"),
+    AN.alarmExtra({ z: -11 }, "Une deuxième alarme incendie est apparue en face"),
+    AN.footprintsWalk("Des empreintes de pas invisibles se rapprochent sur le sol"),
+    AN.footprintsBlood(-6, "Des pas ensanglantés mènent à une porte"),
+    AN.lampExtra({ id: 'x_lamp', z: -9 }, "Une lampe suspendue est apparue : elle clignote violemment")
 ]);
 
 // ------------------------------- HÔTEL -------------------------------
@@ -361,7 +926,32 @@ defineAnomalies('hotel', [
     AN.hide('ext', "L'extincteur a disparu"),
     AN.wet(),
     AN.wallTint(0x6e4a3f, "Le papier peint noircit comme s'il moisissait"),
-    AN.throb()
+    AN.throb(),
+    AN.waterRise("L'eau monte rapidement dans le couloir"),
+    AN.spikeCeiling("Le plafond descend, hérissé de pics métalliques"),
+    AN.doorEyes('door2', "Une porte est entrouverte : deux yeux rouges brillent dans le noir"),
+    AN.monsterChase('door1', -18, { color: 0x0a0806, speed: 3.4 }, "Une porte s'ouvre à la volée : un monstre en sort et vous court après"),
+    AN.statue(-20, "Une statue pâle avance dès que vous détournez le regard"),
+    AN.wallsClose("Les murs se rapprochent lentement"),
+    AN.eyesDark("Deux yeux rouges vous observent dans l'obscurité"),
+    AN.bloodFlow(-18, "Du sang coule sous une porte"),
+    AN.floatAll("Tous les objets se mettent à léviter"),
+    AN.quake("Le couloir tremble violemment"),
+    AN.runner(-10, "Une ombre traverse le couloir en courant"),
+    AN.handprints("Des empreintes de mains sanglantes couvrent le mur"),
+    AN.doorSlam('door3', "Une porte s'ouvre brutalement puis claque"),
+    AN.portrait('frameA', "Le portrait du cadre change peu à peu : ses yeux deviennent rouges"),
+    AN.frameFall('frameC', "Un tableau se décroche et s'écrase au sol"),
+    AN.camExtra({ id: 'x_cam', z: -6 }, "Une caméra de surveillance est apparue et vous suit du regard"),
+    AN.phoneExtra({ id: 'x_phone', side: 'L', z: -3 }, "Un téléphone public est apparu sur le mur : il sonne"),
+    AN.extFoam('ext', "L'extincteur se met à cracher de la mousse"),
+    AN.extTopple('ext', "L'extincteur se renverse tout seul"),
+    AN.block({ id: 'x_ext', k: 'ext', x: -0.5, z: -5, h: 0.7 }, "Un extincteur est posé au milieu du couloir"),
+    AN.alarmTrigger('alarm', 0, "Le levier de l'alarme incendie est baissé : la sirène retentit"),
+    AN.alarmExtra({ z: -5 }, "Une deuxième alarme incendie est apparue en face"),
+    AN.footprintsWalk("Des empreintes de pas invisibles se rapprochent sur le sol"),
+    AN.footprintsBlood(-6, "Des pas ensanglantés mènent à une porte"),
+    AN.lampExtra({ id: 'x_lamp', z: -9 }, "Une lampe suspendue est apparue : elle clignote violemment")
 ]);
 
 
@@ -497,7 +1087,7 @@ window.ensureAnomalyRenderer = function() {
 };
 
 // --- PRÉCHARGEMENT : télécharge et envoie au GPU textures, modèles et HDR d'un décor ---
-const EXTRA_MODELS = { metro: ['bin', 'wet'], hopital: ['wheelchair', 'wet'], hotel: ['sofa', 'wet'] };
+const EXTRA_MODELS = { metro: ['bin', 'wet'], hopital: ['wheelchair', 'wet', 'phone', 'lamp'], hotel: ['sofa', 'wet', 'phone', 'camera', 'lamp'] };
 const SURFACE_REPEATS = { wall: [37, 2], floor: [4, 34], ceiling: [3, 26] };
 const preloadJobs = {};
 const TEX_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'alphaMap'];
@@ -813,7 +1403,17 @@ window.anomalyAudio = (function() {
         rattle:() => { const t = now(), p = (Math.random() - 0.5) * 1.2; for (let i = 0; i < 16; i++) burst('lowpass', 220 + Math.random() * 90, 0.8, 0.2, 0.15, p, t + i * 0.22); },
         drip:  () => { const t = now(), p = (Math.random() - 0.5) * 1.4; tone('sine', 1800, 900, 0.12, 0.08, p, t); tone('sine', 1500, 800, 0.12, 0.05, p, t + 0.65); },
         whirr: () => burst('bandpass', 900, 1.0, 2.8, 0.07, 0, now(), 0.5),
-        buzz:  () => { const t = now(); tone('sawtooth', 100, 100, 3, 0.035, 0, t); burst('highpass', 4000, 0.7, 3, 0.03, 0, t, 0.3); }
+        buzz:  () => { const t = now(); tone('sawtooth', 100, 100, 3, 0.035, 0, t); burst('highpass', 4000, 0.7, 3, 0.03, 0, t, 0.3); },
+        roar:  () => { const t = now(); tone('sawtooth', 130, 55, 1.1, 0.25, 0, t); tone('square', 90, 45, 1.0, 0.12, 0, t); burst('bandpass', 700, 0.8, 1.0, 0.18, 0, t, 0.05); },
+        scream:() => { const t = now(); tone('sawtooth', 700, 1900, 0.8, 0.14, 0, t); tone('square', 1100, 2300, 0.7, 0.07, 0, t); burst('highpass', 3000, 0.7, 0.8, 0.14, 0, t, 0.03); tone('sine', 120, 35, 0.9, 0.4, 0, t); },
+        breath:() => { const t = now(), p = (Math.random() - 0.5) * 1.2; for (let i = 0; i < 3; i++) burst('bandpass', 900, 0.8, 0.9, 0.08, p, t + i * 1.7, 0.6); },
+        crash: () => { const t = now(); burst('lowpass', 1400, 0.6, 0.6, 0.5, 0, t); tone('sine', 130, 50, 0.45, 0.4, 0, t); [880, 1230, 1670].forEach((f, i) => tone('triangle', f, f, 0.5, 0.04, (i - 1) * 0.5, t + 0.02 * i)); },
+        water: () => { const t = now(); burst('bandpass', 420, 0.5, 8, 0.13, 0, t, 3); for (let i = 0; i < 6; i++) tone('sine', 1400 - i * 60, 700, 0.1, 0.04, (Math.random() - 0.5), t + i * 1.2); },
+        grind: () => { const t = now(); burst('lowpass', 140, 0.8, 8, 0.28, 0, t, 2); SFX.creak(); },
+        rumble:() => burst('lowpass', 80, 0.8, 6, 0.4, 0, now(), 0.3),
+        ring:  () => { const t = now(); for (let i = 0; i < 16; i++) { tone('sine', i % 2 ? 1250 : 1050, i % 2 ? 1250 : 1050, 0.07, 0.07, 0, t + i * 0.09); tone('triangle', 2500, 2500, 0.05, 0.02, 0, t + i * 0.09); } for (let i = 0; i < 16; i++) { tone('sine', i % 2 ? 1250 : 1050, i % 2 ? 1250 : 1050, 0.07, 0.07, 0, t + 1.3 + i * 0.09); } },
+        hiss:  () => burst('highpass', 5000, 0.7, 7, 0.14, 0, now(), 0.3),
+        knock: () => { const t = now(); for (let i = 0; i < 3; i++) tone('sine', 150, 90, 0.12, 0.4, 0, t + i * 0.25); }
     };
 
     function loadBuffer(url, cb) {
@@ -881,7 +1481,7 @@ window.anomalyAudio = (function() {
         if (amb) amb.buzzGain.gain.setTargetAtTime(info.blackout ? 0 : amb.buzzBase, now(), 0.2);
         if (info.hasAnomaly) {
             const name = info.sfx || SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
-            later(1500 + Math.random() * 5500, () => play(name));
+            if (name !== 'none') later(1500 + Math.random() * 5500, () => play(name));
         } else if (info.stage > 0 && Math.random() < 0.2) {
             later(2500 + Math.random() * 7000, () => play(Math.random() < 0.5 ? 'creak' : 'drip'));
         }
@@ -1353,8 +1953,12 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             const S = {
                 scene: scene, camera: camera, group: null, props: {}, lamps: [], colliders: [],
                 anim: P.anim, wallDist: P.wallDist, ceilingHeight: P.ceilingHeight,
-                clocks: [], spinners: [], noFlicker: false
+                clocks: [], spinners: [], noFlicker: false,
+                wd: P.wallDist, wallDist0: P.wallDist, walls: null, bases: [], portraits: [],
+                speedMul: 1, caught: false, shake: 0, underwater: false
             };
+
+            state.anomalyData.S = S;
 
             scene.add(new THREE.AmbientLight(0xffffff, P.ambient));
 
@@ -1389,12 +1993,14 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             leftWall.position.set(-wallDist - 0.25, ceilingHeight / 2, -10); corridorGroup.add(leftWall);
             const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, ceilingHeight, 60), wallMat);
             rightWall.position.set(wallDist + 0.25, ceilingHeight / 2, -10); corridorGroup.add(rightWall);
+            S.walls = { left: leftWall, right: rightWall };
 
             // Plinthes collées aux murs
             const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
             [-1, 1].forEach(sd => {
                 const bb = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 60), baseboardMat);
                 bb.position.set(sd * (wallDist - 0.02), 0.075, -10); corridorGroup.add(bb);
+                S.bases.push({ m: bb, sd: sd });
             });
 
             if (P.tilt) corridorGroup.rotation.z = P.tilt;
@@ -1417,7 +2023,8 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             // ---- AFFICHES (métro) ----
             if (themeData.posters) {
                 [-12, 0].forEach((zPos, idx) => {
-                    const pTex = (P.eyesPoster && idx === 1) ? createPosterTexture('eyes') : createPosterTexture('normal');
+                    let pTex = (P.eyesPoster && idx === 1) ? createPosterTexture('eyes') : createPosterTexture('normal');
+                    if (P.posterPortrait && idx === 1) { const pp = anomalyPortrait(true); S.portraits.push(pp); pTex = pp.tex; }
                     const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.25), new THREE.MeshStandardMaterial({ map: pTex, roughness: 0.2 }));
                     poster.rotation.y = -Math.PI / 2;
                     poster.position.set(wallDist - 0.01, 1.5, zPos);
@@ -1446,10 +2053,11 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                     // matériaux : intensité de l'environnement, teinte, tableaux vides
                     obj.traverse(m => {
                         if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
-                        if (mo.tint != null || mo.blank) m.material = m.material.clone();
+                        if (mo.tint != null || mo.blank || mo.portrait || mo.cloneMat) m.material = m.material.clone();
                         const mat = m.material;
                         if (mo.tint != null && mat.color) mat.color.setHex(mo.tint);
                         if (mo.blank && /canvas|artwork/i.test(mat.name || '')) { mat.map = null; if (mat.color) mat.color.setHex(0x060606); mat.needsUpdate = true; }
+                        if (mo.portrait && /canvas|artwork/i.test(mat.name || '')) { const pt = anomalyPortrait(false); S.portraits.push(pt); mat.map = pt.tex; if (mat.color) mat.color.setHex(0xffffff); mat.needsUpdate = true; }
                         mat.envMapIntensity = P.envIntensity;
                     });
 
@@ -1490,6 +2098,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                     if (mo.flip) outer.rotation.x = Math.PI;
                     corridorGroup.add(outer);
                     S.props[d.id] = outer;
+                    outer.userData.side = side; outer.userData.baseX = outer.position.x;
 
                     if (d.solid && !mo.noSolid) {
                         S.colliders.push({ minX: outer.position.x - size.x / 2, maxX: outer.position.x + size.x / 2,
@@ -1502,6 +2111,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                         S.clocks.push({ sec: hand('wall_clock_second_hand'), min: hand('wall_clock_minute_hand'), hour: hand('wall_clock_hours_hand') });
                     }
                     if (d.onPlaced) d.onPlaced(outer, S);
+                    if (mo.onPlaced) mo.onPlaced(outer, S);
                 });
             };
             (PROP_LAYOUT[currentTheme] || []).forEach(placeProp);
@@ -1519,7 +2129,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             }
 
             window.anomalyAudio.onScene({ theme: currentTheme, hasAnomaly: !!anomalyDef, sfx: anomalyDef && anomalyDef.sfx, blackout: isBlackout, stage: state.anomalyGame.stage });
-            let lastStep = 0;
+            let lastStep = 0, lastUnder = false;
 
             const clock = new THREE.Clock();
             const flickerLight = S.lamps[2] ? S.lamps[2].light : null;
@@ -1537,6 +2147,45 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 // Animations propres à l'anomalie
                 P.anim.forEach(fn => { try { fn(t, delta, S); } catch (e) { /* une animation ne doit jamais casser le jeu */ } });
 
+                // Portraits qui se transforment
+                S.portraits.forEach(pt => {
+                    const f = Math.floor(t * 6);
+                    if (f === pt.last) return;
+                    pt.last = f;
+                    pt.draw(Math.min(1, Math.max(0, (t - 1) / 9)), ((t * 0.7) % 3) > 2.85);
+                });
+
+                // Sous l'eau : brouillard bleu opaque
+                if (S.underwater !== lastUnder) {
+                    lastUnder = S.underwater;
+                    if (lastUnder) { scene.fog.color.setHex(0x0a2a35); scene.fog.near = 0.1; scene.fog.far = 6; }
+                    else { scene.fog.color.setHex(P.fogColor); scene.fog.near = P.fogNear; scene.fog.far = P.fogFar; }
+                }
+
+                // Attrapé (monstre, pics, noyade...) : retour à la sortie 0
+                if (S.caught && !g.isTransitioning) {
+                    g.isTransitioning = true;
+                    window.anomalyAudio.play('scream');
+                    const cont = document.getElementById('anomaly-canvas-container');
+                    if (cont) {
+                        const fl = document.createElement('div');
+                        fl.className = 'absolute inset-0 pointer-events-none';
+                        fl.style.cssText = 'background:#b91c1c;opacity:0.9;z-index:60;transition:opacity .5s';
+                        cont.appendChild(fl);
+                        setTimeout(() => { fl.style.opacity = '0'; }, 60);
+                        setTimeout(() => { if (fl.parentNode) fl.parentNode.removeChild(fl); }, 650);
+                    }
+                    g.historyLog.push({
+                        stage: g.stage, hasAnomaly: g.hasAnomaly, anomalyId: g.anomalyId,
+                        anomalyName: THEMES_CONFIG[currentTheme].anomalies[g.anomalyId] || "Anomalie",
+                        action: "Attrapé", success: false
+                    });
+                    g.stage = 0;
+                    window.anomalyPushProgress(false);
+                    triggerBlinkTransition(() => { g.isTransitioning = false; g.yaw = 0; g.pitch = 0; setupAnomalyStage(10); });
+                    return;
+                }
+
                 // Objets animés en permanence (ventilateur, aiguilles)
                 S.spinners.forEach(sp => { sp.obj.rotation.y += sp.speed * delta; });
                 S.clocks.forEach(c => {
@@ -1553,7 +2202,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 }
 
                 // Déplacements stabilisés par delta time
-                const speed = (g.keys['shift'] ? 4.5 : 2.0) * delta;
+                const speed = (g.keys['shift'] ? 4.5 : 2.0) * delta * S.speedMul;
                 const forwardX = -Math.sin(g.yaw), forwardZ = -Math.cos(g.yaw);
                 const rightX = Math.cos(g.yaw), rightZ = -Math.sin(g.yaw);
                 let dx = 0, dz = 0;
@@ -1564,7 +2213,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 const isMoving = dx !== 0 || dz !== 0;
 
                 // Collisions : murs et objets solides (axe par axe pour glisser le long des obstacles)
-                const limitX = wallDist - 0.4;
+                const limitX = S.wd - 0.4;
                 const stuck = hitCollider(g.playerX, g.playerZ);
                 const nx = Math.max(-limitX, Math.min(limitX, g.playerX + dx));
                 if (stuck || !hitCollider(nx, g.playerZ)) g.playerX = nx;
@@ -1580,6 +2229,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 camera.position.z = g.playerZ;
                 const throb = P.camThrob ? Math.sin(Date.now() * 0.005) * P.camThrob : 0;
                 camera.position.y = (1.6 + throb) + Math.sin(g.walkTime) * 0.05;
+                if (S.shake) { camera.position.x += (Math.random() - 0.5) * S.shake; camera.position.y += (Math.random() - 0.5) * S.shake; }
                 camera.rotation.y = g.yaw;
                 camera.rotation.x = g.pitch;
 
@@ -1619,7 +2269,8 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                     window.anomalyAudio.play(success ? 'chime' : 'fail');
                     triggerBlinkTransition(() => {
                         g.isTransitioning = false;
-                        setupAnomalyStage(wentForward ? 10 : -12);
+                        if (!wentForward) { g.yaw = 0; g.pitch = 0; }   // après un demi-tour : retour au début du couloir, face au couloir
+                        setupAnomalyStage(10);
                     });
                     return;
                 }
