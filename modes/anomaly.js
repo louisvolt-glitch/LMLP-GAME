@@ -4,60 +4,352 @@
 ///////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////
 
-// --- LISTE DES ANOMALIES 3D (Style Exit 8) ---
+// =============================================================
+// MODÈLES 3D : chemin dans ./models/, axe « profondeur » (x ou z) et sens de la face avant (+1 / -1).
+// Si un objet apparaît à l'envers (dos au couloir), mets front: -1 pour ce modèle.
+// =============================================================
+const MODELS = {
+    bench:      { path: 'bench/scene.gltf',                                   depth: 'z', front: 1 },
+    bin:        { path: 'bin_metro/scene.gltf',                               depth: 'z', front: 1 },
+    door_metro: { path: 'door_metro/scene.gltf',                              depth: 'z', front: 1 },
+    door_hosp:  { path: 'door_hospital/scene.gltf',                           depth: 'x', front: 1 },
+    door_hotel: { path: 'door_hotel/scene.gltf',                              depth: 'x', front: 1 },
+    dbl_door:   { path: 'double_door_hospital/scene.gltf',                    depth: 'z', front: 1 },
+    ext:        { path: 'extinguisher/korean_fire_extinguisher_01_2k.gltf',   depth: 'z', front: 1 },
+    alarm:      { path: 'fire_alarm/fire_alarm_2k.gltf',                      depth: 'z', front: 1 },
+    phone:      { path: 'payphone/korean_public_payphone_01_2k.gltf',         depth: 'z', front: 1 },
+    clock:      { path: 'wall_clock/wall_clock_2k.gltf',                      depth: 'z', front: 1 },
+    camera:     { path: 'security_camera/security_camera_02_2k.gltf',         depth: 'z', front: 1 },
+    lamp:       { path: 'caged_hanging_light/caged_hanging_light_2k.gltf',    depth: 'z', front: 1 },
+    fan:        { path: 'ceiling_fan/ceiling_fan_2k.gltf',                    depth: 'z', front: 1 },
+    console:    { path: 'classic_Console/ClassicConsole_01_2k.gltf',          depth: 'z', front: 1 },
+    frame1:     { path: 'fancy_picture_frame/fancy_picture_frame_01_2k.gltf', depth: 'z', front: 1 },
+    frame2:     { path: 'fancy_picture_frame2/fancy_picture_frame_02_2k.gltf',depth: 'z', front: 1 },
+    frame3:     { path: 'hanging_picture_frame/hanging_picture_frame_03_2k.gltf', depth: 'z', front: 1 },
+    sofa:       { path: 'sofa/Sofa_01_2k.gltf',                               depth: 'z', front: 1 },
+    cart:       { path: 'tool_cart/tool_cart_2k.gltf',                        depth: 'z', front: 1 },
+    wheelchair: { path: 'wheelchair/wheelchair_01_2k.gltf',                   depth: 'z', front: 1 },
+    wet:        { path: 'wet_floor_sign/WetFloorSign_01_2k.gltf',             depth: 'z', front: 1 }
+};
+
+// =============================================================
+// DÉCORS : textures (./textures/<texDir>/), éclairage HDR (./hdr/), ambiance (brouillard, lumière)
+// =============================================================
 const THEMES_CONFIG = {
-            metro: {
-                pbr: true,   // textures locales dans ./textures/metro/ (mur, sol, plafond)
-                fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
-                wallTexture: 'https://images.unsplash.com/photo-1617391764619-3c7d674eb8f7?auto=format&fit=crop&w=1024&q=80',
-                floorTexture: 'https://images.unsplash.com/photo-1596205739343-41bbd9c7bb7f?auto=format&fit=crop&w=1024&q=80',
-                lightColor: 0xfffbeb,
-                anomalies: {
-                    1: "Les néons du couloir virent au rouge",
-                    2: "Noir complet (Coupure de courant)",
-                    3: "Portes du métro qui s'ouvrent sur le vide",
-                    4: "Le panneau indique une direction satanique",
-                    5: "Une bande jaune brillante apparaît au sol",
-                    6: "Une silhouette sombre se tient au fond du couloir",
-                    7: "L'affiche publicitaire vous fixe des yeux",
-                    8: "Le couloir est plus étroit"
-                }
-            },
-            hopital: {
-                pbr: false,  // passer à true quand ./textures/hopital/ est rempli
-                fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
-                wallTexture: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=1024&q=80',
-                floorTexture: 'https://images.unsplash.com/photo-1581404118991-381bb4542289?auto=format&fit=crop&w=1024&q=80',
-                lightColor: 0xe0f2fe,
-                anomalies: {
-                    1: "Une grosse caisse bloque le couloir",
-                    2: "Le couloir palpite comme s'il respirait",
-                    3: "Une porte respire imperceptiblement (échelle dynamique)",
-                    4: "Un trou sombre est percé dans le mur",
-                    5: "Plafond qui s'effondre partiellement",
-                    6: "Une porte d'isolement est grande ouverte",
-                    7: "L'extincteur a disparu",
-                    8: "Le couloir est penché sur le côté"
-                }
-            },
-            hotel: {
-                pbr: false,  // passer à true quand ./textures/hotel/ est rempli
-                fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
-                wallTexture: 'https://images.unsplash.com/photo-1615800098779-1be32e60cca3?auto=format&fit=crop&w=1024&q=80',
-                floorTexture: 'https://images.unsplash.com/photo-1533256926955-4c07c2dc1b9f?auto=format&fit=crop&w=1024&q=80',
-                lightColor: 0xffedd5,
-                anomalies: {
-                    1: "Les motifs géométriques de la moquette pivotent de 90 degrés",
-                    2: "Une porte est peinte en rouge",
-                    3: "Un landau sombre bloque le couloir",
-                    4: "Le papier peint pèle subtilement",
-                    5: "La hauteur du couloir rétrécit brutalement",
-                    6: "Le couloir est plus étroit",
-                    7: "Tableaux dont les personnages ont disparu",
-                    8: "Lumières qui s'éteignent une à une derrière vous"
-                }
-            }
-        };
+    metro: {
+        pbr: true, texDir: 'metro',
+        hdr: 'metro.hdr', envIntensity: 0.55,
+        fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
+        lightColor: 0xfffbeb, fogColor: 0x0c1118, fogNear: 5, fogFar: 26, ambient: 0.05,
+        posters: true, anomalies: {}
+    },
+    hopital: {
+        pbr: true, texDir: 'hospital',
+        hdr: 'hopital.hdr', envIntensity: 0.5,
+        fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
+        lightColor: 0xe0f2fe, fogColor: 0x0b1411, fogNear: 4, fogFar: 24, ambient: 0.05,
+        posters: false, anomalies: {}
+    },
+    hotel: {
+        pbr: true, texDir: 'hotel',
+        hdr: 'hotel.hdr', envIntensity: 0.45,
+        fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
+        lightColor: 0xffedd5, fogColor: 0x140c08, fogNear: 4, fogFar: 24, ambient: 0.05,
+        posters: false, anomalies: {}
+    }
+};
+
+// =============================================================
+// DISPOSITION NORMALE DES OBJETS (identique à chaque sortie : c'est la « référence » à mémoriser)
+// side : L (mur gauche) / R (mur droit) / C (centre) | z : position le long du couloir
+// h : hauteur voulue (m) | len : longueur voulue | yb : hauteur du bas | top : distance sous le plafond
+// solid : on ne peut pas traverser | spin : rotation (rad/s) | clock : aiguilles animées
+// =============================================================
+const PROP_LAYOUT = {
+    metro: [
+        { id: 'door1', k: 'door_metro', side: 'L', z: -18, h: 2.3 },
+        { id: 'door2', k: 'door_metro', side: 'L', z: -6,  h: 2.3 },
+        { id: 'door3', k: 'door_metro', side: 'L', z: 6,   h: 2.3 },
+        { id: 'ext',   k: 'ext',   side: 'L', z: -12, h: 0.7 },
+        { id: 'alarm', k: 'alarm', side: 'L', z: -12, h: 0.18, yb: 1.3 },
+        { id: 'bench', k: 'bench', side: 'R', z: -6,  len: 1.8, solid: true },
+        { id: 'clock', k: 'clock', side: 'R', z: -6,  h: 0.4, yb: 2.15, clock: true },
+        { id: 'bin',   k: 'bin',   side: 'R', z: -9.5, h: 0.95, solid: true },
+        { id: 'phone', k: 'phone', side: 'R', z: -18.5, h: 0.85, yb: 0.95 },
+        { id: 'cam',   k: 'camera', side: 'R', z: 2, h: 0.25, top: 0.4, yaw: 0.5 },
+        { id: 'lamp1', k: 'lamp',  side: 'C', z: -10, len: 0.9, top: 0, face: 'back' },
+        { id: 'lamp2', k: 'lamp',  side: 'C', z: -18, len: 0.9, top: 0, face: 'back' }
+    ],
+    hopital: [
+        { id: 'door1', k: 'door_hosp', side: 'L', z: -18, h: 2.3 },
+        { id: 'door2', k: 'door_hosp', side: 'L', z: -6,  h: 2.3 },
+        { id: 'door3', k: 'door_hosp', side: 'L', z: 6,   h: 2.3 },
+        { id: 'ext',   k: 'ext',   side: 'L', z: -12, h: 0.7 },
+        { id: 'alarm', k: 'alarm', side: 'L', z: -12, h: 0.18, yb: 1.3 },
+        { id: 'dbl',   k: 'dbl_door', side: 'R', z: -14, h: 2.3 },
+        { id: 'cart',  k: 'cart',  side: 'R', z: -8,  h: 0.95, solid: true },
+        { id: 'chair', k: 'wheelchair', side: 'R', z: 2, h: 1.0, solid: true },
+        { id: 'clock', k: 'clock', side: 'R', z: -20, h: 0.4, yb: 2.3, clock: true },
+        { id: 'cam',   k: 'camera', side: 'R', z: -2, h: 0.25, top: 0.4, yaw: 0.5 }
+    ],
+    hotel: [
+        { id: 'door1', k: 'door_hotel', side: 'L', z: -18, h: 2.3 },
+        { id: 'door2', k: 'door_hotel', side: 'L', z: -6,  h: 2.3 },
+        { id: 'door3', k: 'door_hotel', side: 'L', z: 6,   h: 2.3 },
+        { id: 'frameA', k: 'frame2', side: 'L', z: -12, h: 0.8, yb: 1.3 },
+        { id: 'alarm', k: 'alarm', side: 'L', z: 0, h: 0.18, yb: 1.3 },
+        { id: 'ext',   k: 'ext',   side: 'L', z: -9, h: 0.7 },
+        { id: 'sofa',  k: 'sofa',  side: 'R', z: -8, h: 0.8, solid: true },
+        { id: 'frameC', k: 'frame3', side: 'R', z: -2, h: 0.55, yb: 1.35 },
+        { id: 'clock', k: 'clock', side: 'R', z: -12.5, h: 0.4, yb: 2.0, clock: true },
+        { id: 'console', k: 'console', side: 'R', z: -17, h: 0.95, solid: true },
+        { id: 'frameB', k: 'frame1', side: 'R', z: -17, h: 0.5, yb: 1.5 },
+        { id: 'fan',   k: 'fan', side: 'C', z: -14, len: 1.3, top: 0, face: 'back', spin: 0.9 }
+    ]
+};
+
+// =============================================================
+// FABRIQUES D'ANOMALIES. Chaque anomalie = { name, fx(P) } ; fx modifie les paramètres de construction P :
+// P.hide(id) · P.mod(id, {...}) · P.add(objet) · P.anim.push(fn(t, dt, S)) · P.post.push(fn(S))
+// =============================================================
+function anomalyCanvasText(lines, w, h, color, font) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = font;
+    g.shadowColor = color; g.shadowBlur = 18;
+    const step = h / (lines.length + 1);
+    lines.forEach((l, i) => g.fillText(l, w / 2 + (Math.random() * 6 - 3), step * (i + 1) + (Math.random() * 6 - 3)));
+    g.shadowBlur = 0;
+    g.fillStyle = color;
+    for (let i = 0; i < 14; i++) {              // coulures
+        const x = w * 0.15 + Math.random() * w * 0.7;
+        g.fillRect(x, h * 0.55, 3 + Math.random() * 3, 20 + Math.random() * 70);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+}
+
+function anomalyBloodTexture() {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 1024;
+    const g = c.getContext('2d');
+    for (let i = 0; i < 70; i++) {
+        const x = 256 + (Math.random() - 0.5) * 300, y = Math.random() * 1024, r = 4 + Math.random() * 28;
+        g.fillStyle = `rgba(${70 + Math.random() * 40},4,4,${0.55 + Math.random() * 0.4})`;
+        g.beginPath(); g.ellipse(x, y, r, r * (0.6 + Math.random() * 0.8), Math.random() * 3, 0, Math.PI * 2); g.fill();
+    }
+    g.strokeStyle = 'rgba(90,5,5,0.85)'; g.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {               // traînées
+        g.lineWidth = 8 + Math.random() * 18;
+        g.beginPath(); g.moveTo(256 + (Math.random() - 0.5) * 120, 1024);
+        g.bezierCurveTo(256 + (Math.random() - 0.5) * 200, 800, 256 + (Math.random() - 0.5) * 200, 400, 256 + (Math.random() - 0.5) * 120, 40 + Math.random() * 300);
+        g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+}
+
+function anomalySilhouette() {
+    const g = new THREE.Group();
+    const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const eye = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const add = (geo, mat, x, y, z, rz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rz) m.rotation.z = rz; g.add(m); return m; };
+    add(new THREE.CylinderGeometry(0.2, 0.25, 0.85, 12), black, 0, 1.25, 0);        // torse
+    add(new THREE.SphereGeometry(0.16, 14, 12), black, 0, 1.85, 0);                 // tête
+    add(new THREE.CylinderGeometry(0.1, 0.09, 0.85, 8), black, -0.11, 0.42, 0);     // jambes
+    add(new THREE.CylinderGeometry(0.1, 0.09, 0.85, 8), black, 0.11, 0.42, 0);
+    add(new THREE.CylinderGeometry(0.05, 0.04, 0.95, 8), black, -0.29, 1.15, 0);    // bras pendants
+    add(new THREE.CylinderGeometry(0.05, 0.04, 0.95, 8), black, 0.29, 1.15, 0);
+    add(new THREE.SphereGeometry(0.022, 8, 8), eye, -0.06, 1.88, 0.14);             // yeux
+    add(new THREE.SphereGeometry(0.022, 8, 8), eye, 0.06, 1.88, 0.14);
+    return g;
+}
+
+const AN = {
+    redNeons:   () => ({ name: "Les néons virent au rouge",      fx: P => { P.neonColor = 0xff1a1a; } }),
+    blackout:   () => ({ name: "Coupure de courant totale",       fx: P => { P.blackout = true; } }),
+    narrow:     () => ({ name: "Le couloir est plus étroit",      fx: P => { P.wallDist = 2.5; } }),
+    lowCeiling: () => ({ name: "Le plafond est plus bas",         fx: P => { P.ceilingHeight = 2.1; } }),
+    tilt:       () => ({ name: "Le couloir est penché sur le côté", fx: P => { P.tilt = Math.PI / 12; } }),
+    fog:        () => ({ name: "Une brume épaisse envahit le couloir", fx: P => { P.fogNear = 1.5; P.fogFar = 11; } }),
+    throb:      () => ({ name: "Le couloir palpite comme s'il respirait", fx: P => { P.camThrob = 0.1; } }),
+    wallTint:   (c, n) => ({ name: n, fx: P => { P.wallTint = c; } }),
+    sign:       () => ({ name: "Le panneau de sortie indique « NE PAS SORTIR »", fx: P => { P.satanic = true; } }),
+    eyes:       () => ({ name: "L'affiche vous fixe des yeux", fx: P => { P.eyesPoster = true; } }),
+    carpet:     () => ({ name: "Les motifs de la moquette ont pivoté de 90 degrés", fx: P => { P.floorRot = Math.PI / 2; } }),
+
+    strobe: () => ({ name: "Les néons clignotent frénétiquement", fx: P => {
+        P.anim.push((t, dt, S) => {
+            const on = Math.floor(t * 14) % 2 === 0;
+            S.noFlicker = true;
+            S.lamps.forEach(l => { if (l.light) l.light.intensity = on ? 1.6 : 0; l.mat.emissiveIntensity = on ? 1.4 : 0; });
+        });
+    } }),
+    neonsDie: () => ({ name: "Les néons s'éteignent un à un derrière vous", fx: P => {
+        P.anim.push((t, dt, S) => {
+            S.noFlicker = true;
+            S.lamps.forEach(l => { if (S.camera.position.z < l.z - 0.5) { if (l.light) l.light.intensity = 0; l.mat.emissiveIntensity = 0; } });
+        });
+    } }),
+
+    hide:   (id, n) => ({ name: n, fx: P => P.hide(id) }),
+    flip:   (id, n) => ({ name: n, fx: P => P.mod(id, { flip: true }) }),
+    tint:   (id, c, n) => ({ name: n, fx: P => P.mod(id, { tint: c }) }),
+    shift:  (id, dz, n) => ({ name: n, fx: P => P.mod(id, { dz: dz }) }),
+    mirror: (id, n) => ({ name: n, fx: P => P.mod(id, { flipSide: true }) }),
+    blank:  (ids, n) => ({ name: n, fx: P => ids.forEach(i => P.mod(i, { blank: true })) }),
+    float:  (id, n) => ({ name: n, fx: P => {
+        P.mod(id, { dy: 0.55 });
+        P.anim.push((t, dt, S) => {
+            const o = S.props[id]; if (!o) return;
+            if (o.userData.y0 == null) o.userData.y0 = o.position.y;
+            o.position.y = o.userData.y0 + Math.sin(t * 1.5) * 0.12;
+        });
+    } }),
+    spin:   (id, v, n) => ({ name: n, fx: P => P.mod(id, { spin: v }) }),
+    clockSpin: (f, n) => ({ name: n, fx: P => { P.clockSpeed = f; } }),
+    sway:   (ids, n) => ({ name: n, fx: P => {
+        P.anim.push((t, dt, S) => ids.forEach((id, i) => { const o = S.props[id]; if (o) o.rotation.z = Math.sin(t * 1.4 + i) * 0.35; }));
+    } }),
+
+    block: (def, n) => ({ name: n, fx: P => P.add(Object.assign({ solid: true, side: 'C', face: 'back' }, def)) }),
+    approach: (def, from, to, speed, n) => ({ name: n, fx: P => P.add(Object.assign({}, def, {
+        side: 'C', face: 'back', z: from,
+        onPlaced: (o, S) => S.anim.push((t, dt) => { o.position.z = Math.min(to, o.position.z + speed * dt); })
+    })) }),
+
+    silhouette: (n) => ({ name: n || "Une silhouette sombre se tient au fond du couloir", fx: P => P.post.push(S => {
+        const s = anomalySilhouette(); s.position.set(0.4, 0, -21); S.group.add(s);
+    }) }),
+    silhouetteApproach: () => ({ name: "Une silhouette avance lentement vers vous", fx: P => P.post.push(S => {
+        const s = anomalySilhouette(); s.position.set(-0.5, 0, -24); S.group.add(s);
+        S.anim.push((t, dt) => { s.position.z = Math.min(-4, s.position.z + 0.35 * dt); });
+    }) }),
+
+    blood: () => ({ name: "Des traces de sang maculent le sol", fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(S.wallDist * 0.9, 12), new THREE.MeshStandardMaterial({
+            map: anomalyBloodTexture(), transparent: true, depthWrite: false, roughness: 0.15, metalness: 0,
+            polygonOffset: true, polygonOffsetFactor: -2
+        }));
+        m.rotation.x = -Math.PI / 2; m.position.set(0, 0.012, -12); S.group.add(m);
+    }) }),
+    strip: () => ({ name: "Une bande jaune brillante apparaît au sol", fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 60), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+        m.rotation.x = -Math.PI / 2; m.position.set(0, 0.02, -10); S.group.add(m);
+    }) }),
+    wallText: (lines, z, n) => ({ name: n || "Un message est écrit sur le mur", fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.9), new THREE.MeshBasicMaterial({
+            map: anomalyCanvasText(lines, 1024, 330, '#b30000', 'bold 110px sans-serif'), transparent: true, depthWrite: false }));
+        m.rotation.y = -Math.PI / 2; m.position.set(S.wallDist - 0.015, 1.7, z); S.group.add(m);
+    }) }),
+    hole: (z, n) => ({ name: n, fx: P => P.post.push(S => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.7), new THREE.MeshBasicMaterial({ color: 0x030303 }));
+        m.rotation.y = Math.PI / 2; m.position.set(-S.wallDist + 0.03, 1.1, z); S.group.add(m);
+    }) }),
+    alarmFlash: (z, n) => ({ name: n || "L'alarme incendie clignote en rouge", fx: P => P.post.push(S => {
+        const pl = new THREE.PointLight(0xff0000, 0, 9);
+        pl.position.set(-S.wallDist + 0.6, 1.8, z); S.group.add(pl);
+        S.anim.push(t => { pl.intensity = Math.sin(t * 7) > 0 ? 3.5 : 0.1; });
+    }) }),
+    camFollow: (id, n) => ({ name: n || "La caméra de surveillance vous suit du regard", fx: P => {
+        P.anim.push((t, dt, S) => {
+            const o = S.props[id]; if (!o) return;
+            const target = Math.atan2(S.camera.position.x - o.position.x, S.camera.position.z - o.position.z);
+            o.rotation.y = target - (o.userData.faceAngle || 0);
+        });
+    } }),
+    wet: (n) => AN.block({ id: 'x_wet', k: 'wet', x: 0.6, z: -9, h: 0.65 }, n || "Un panneau « sol glissant » est apparu")
+};
+
+const ANOMALY_DEFS = {};
+function defineAnomalies(theme, list) {
+    ANOMALY_DEFS[theme] = {};
+    THEMES_CONFIG[theme].anomalies = {};
+    list.forEach((a, i) => { ANOMALY_DEFS[theme][i + 1] = a; THEMES_CONFIG[theme].anomalies[i + 1] = a.name; });
+}
+
+// ------------------------------- MÉTRO -------------------------------
+defineAnomalies('metro', [
+    AN.redNeons(), AN.blackout(), AN.sign(), AN.narrow(), AN.lowCeiling(), AN.strip(),
+    AN.silhouette(), AN.silhouetteApproach(), AN.eyes(),
+    AN.float('bench', "Le banc flotte au-dessus du sol"),
+    AN.flip('bench', "Le banc est renversé"),
+    AN.mirror('bench', "Le banc est de l'autre côté du couloir"),
+    AN.hide('bin', "La poubelle a disparu"),
+    AN.hide('phone', "Le téléphone public a disparu"),
+    AN.hide('ext', "L'extincteur a disparu"),
+    AN.block({ id: 'x_bin', k: 'bin', x: 0.3, z: -8, h: 0.95 }, "Une poubelle est posée au milieu du couloir"),
+    AN.wet(),
+    AN.camFollow('cam'),
+    AN.clockSpin(60, "L'horloge tourne à toute vitesse"),
+    AN.wallText(['ILS SONT', 'DERRIÈRE TOI'], -16.5, "« ILS SONT DERRIÈRE TOI » est écrit sur le mur"),
+    AN.alarmFlash(-12),
+    AN.blood(),
+    AN.shift('door2', 2.6, "Une porte a changé de place"),
+    AN.hide('clock', "L'horloge murale a disparu"),
+    AN.fog(), AN.neonsDie(), AN.strobe(), AN.tilt(),
+    AN.wallTint(0xe08a8a, "Les murs prennent une teinte rougeâtre"),
+    AN.sway(['lamp1', 'lamp2'], "Les lampes se balancent dans le vide")
+]);
+
+// ------------------------------ HÔPITAL ------------------------------
+defineAnomalies('hopital', [
+    AN.redNeons(), AN.blackout(), AN.narrow(), AN.lowCeiling("Le plafond s'est partiellement effondré"), AN.tilt(), AN.fog(),
+    AN.strobe(), AN.neonsDie(), AN.silhouette(), AN.silhouetteApproach(), AN.blood(), AN.throb(),
+    AN.wallText(['VOUS N\'ÊTES', 'PAS SORTI'], -16.5, "« VOUS N'ÊTES PAS SORTI » est écrit sur le mur"),
+    AN.hide('ext', "L'extincteur a disparu"),
+    AN.hide('cart', "Le chariot médical a disparu"),
+    AN.hide('chair', "Le fauteuil roulant a disparu"),
+    AN.hide('dbl', "La porte à battants a disparu"),
+    AN.hide('clock', "L'horloge murale a disparu"),
+    AN.flip('chair', "Le fauteuil roulant est renversé"),
+    AN.float('cart', "Le chariot flotte au-dessus du sol"),
+    AN.block({ id: 'x_chair', k: 'wheelchair', x: 0, z: -8, h: 1.0 }, "Un fauteuil roulant est au milieu du couloir"),
+    AN.approach({ id: 'x_chair2', k: 'wheelchair', h: 1.0 }, -22, -4, 0.45, "Un fauteuil roulant avance tout seul"),
+    AN.tint('door3', 0xff3030, "Une porte est rouge sang"),
+    AN.shift('door2', 2.6, "Une porte a changé de place"),
+    { name: "Une porte respire imperceptiblement", fx: P => P.anim.push((t, dt, S) => {
+        const o = S.props.door2; if (!o) return;
+        const k = 1 + Math.sin(t * 2) * 0.05; o.scale.set(1, k, k);
+    }) },
+    AN.camFollow('cam'),
+    AN.clockSpin(-40, "L'horloge tourne à l'envers à toute vitesse"),
+    AN.alarmFlash(-12),
+    AN.hole(-1, "Un trou noir est percé dans le mur"),
+    AN.wet(),
+    AN.wallTint(0x9fc7a0, "Les murs ont une teinte verdâtre malsaine")
+]);
+
+// ------------------------------- HÔTEL -------------------------------
+defineAnomalies('hotel', [
+    AN.redNeons(), AN.blackout(), AN.narrow(), AN.lowCeiling("La hauteur du couloir rétrécit brutalement"), AN.fog(),
+    AN.carpet(),
+    AN.tint('door2', 0xff2a2a, "Une porte est peinte en rouge"),
+    AN.shift('door2', 2.6, "Une porte a changé de place"),
+    AN.block({ id: 'x_sofa', k: 'sofa', x: 0, z: -8, h: 0.8 }, "Un canapé bloque le milieu du couloir"),
+    AN.hide('sofa', "Le canapé a disparu"),
+    AN.mirror('sofa', "Le canapé est de l'autre côté du couloir"),
+    AN.hide('console', "La console a disparu"),
+    AN.blank(['frameA', 'frameB', 'frameC'], "Les personnages des tableaux ont disparu"),
+    AN.flip('frameA', "Un tableau est accroché à l'envers"),
+    AN.hide('frameB', "Un tableau a disparu"),
+    AN.hide('clock', "L'horloge murale a disparu"),
+    AN.clockSpin(60, "L'horloge tourne à toute vitesse"),
+    AN.spin('fan', 9, "Le ventilateur de plafond tourne très vite"),
+    AN.spin('fan', 0, "Le ventilateur de plafond s'est arrêté"),
+    AN.hide('fan', "Le ventilateur de plafond a disparu"),
+    AN.neonsDie(), AN.strobe(), AN.silhouette(), AN.silhouetteApproach(), AN.blood(),
+    AN.wallText(['SORTEZ', 'MAINTENANT'], -22, "« SORTEZ MAINTENANT » est écrit sur le mur"),
+    AN.alarmFlash(0),
+    AN.hide('ext', "L'extincteur a disparu"),
+    AN.wet(),
+    AN.wallTint(0x6e4a3f, "Le papier peint noircit comme s'il moisissait"),
+    AN.throb()
+]);
+
 
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');   // obligatoire pour utiliser des images d'un autre domaine dans WebGL
@@ -89,7 +381,7 @@ window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallback
     const mat = new THREE.MeshStandardMaterial({ color: fallbackColor, roughness: 0.85, metalness: 0.0 });
     if (!THEMES_CONFIG[theme].pbr) return mat;
     const maxAniso = state.anomalyData.renderer ? state.anomalyData.renderer.capabilities.getMaxAnisotropy() : 4;
-    const base = `./textures/${theme}/${surface}_`;
+    const base = `./textures/${THEMES_CONFIG[theme].texDir || theme}/${surface}_`;
     [['map', 'color', true], ['normalMap', 'normal', false], ['roughnessMap', 'rough', false]].forEach(([prop, file, isColor]) => {
         const tex = window.loadPBRTexture(base + file + '.jpg', rx, ry, isColor);
         tex.anisotropy = maxAniso;
@@ -103,24 +395,70 @@ window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallback
     return mat;
 };
 
-// --- Modèles 3D (GLTF) : ./models/<nom>/scene.gltf ---
+// --- Modèles 3D (GLTF) : ./models/<chemin de MODELS> ---
 // Chargé une seule fois, puis cloné à chaque couloir. Si le fichier est absent, le jeu continue sans l'objet.
 const modelCache = {};
-window.loadGLTFModel = function(name, cb) {
-    const m = modelCache[name];
+window.loadGLTFModel = function(key, cb) {
+    const spec = MODELS[key];
+    if (!spec) return;
+    const m = modelCache[key];
     if (m && m.failed) return;
     if (m && m.obj) { cb(m.obj.clone(true)); return; }
     if (m) { m.waiting.push(cb); return; }
-    if (!THREE.GLTFLoader) { modelCache[name] = { failed: true }; return; }
-    const entry = modelCache[name] = { obj: null, failed: false, waiting: [cb] };
-    new THREE.GLTFLoader().load(`./models/${name}/scene.gltf`, gltf => {
+    if (!THREE.GLTFLoader) { modelCache[key] = { failed: true }; return; }
+    const entry = modelCache[key] = { obj: null, failed: false, waiting: [cb] };
+    new THREE.GLTFLoader().load(`./models/${spec.path}`, gltf => {
         gltf.scene.traverse(c => { c.userData.keep = true; });   // ressources partagées : ne pas les détruire au nettoyage
         entry.obj = gltf.scene;
         entry.waiting.forEach(f => f(entry.obj.clone(true)));
         entry.waiting = [];
     }, undefined, err => {
         entry.failed = true; entry.waiting = [];
-        console.warn('Modèle 3D introuvable (ignoré) :', name, err && err.message);
+        console.warn('Modèle 3D introuvable (ignoré) :', spec.path, err && err.message);
+    });
+};
+
+// Précharge les modèles et l'éclairage HDR d'un décor pendant que le joueur lit l'écran
+window.preloadAnomalyTheme = function(theme) {
+    (PROP_LAYOUT[theme] || []).forEach(d => {
+        if (!MODELS[d.k] || (modelCache[d.k] && (modelCache[d.k].obj || modelCache[d.k].failed))) return;
+        if (!modelCache[d.k]) window.loadGLTFModel(d.k, () => {});
+    });
+    ['wet', 'bin', 'sofa', 'wheelchair'].forEach(k => { if (!modelCache[k]) window.loadGLTFModel(k, () => {}); });
+};
+
+// --- Éclairage HDR (./hdr/*.hdr) : reflets et lumière d'ambiance réalistes ---
+const envCache = {};
+let envPmrem = null;
+window.ensureRGBELoader = function(cb) {
+    if (THREE.RGBELoader) { cb(true); return; }
+    if (window._rgbeQueue) { window._rgbeQueue.push(cb); return; }
+    window._rgbeQueue = [cb];
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js';
+    const done = ok => { const q = window._rgbeQueue || []; window._rgbeQueue = null; q.forEach(f => f(ok)); };
+    s.onload = () => done(!!THREE.RGBELoader);
+    s.onerror = () => done(false);
+    document.head.appendChild(s);
+};
+window.loadThemeEnvironment = function(theme, cb) {
+    const file = THEMES_CONFIG[theme] && THEMES_CONFIG[theme].hdr;
+    const renderer = state.anomalyData.renderer;
+    if (!file || !renderer) return;
+    const c = envCache[theme];
+    if (c && c.tex) { cb(c.tex); return; }
+    if (c && c.waiting) { c.waiting.push(cb); return; }
+    const entry = envCache[theme] = { tex: null, waiting: [cb] };
+    window.ensureRGBELoader(ok => {
+        if (!ok) { entry.waiting = []; return; }
+        envPmrem = envPmrem || new THREE.PMREMGenerator(renderer);
+        new THREE.RGBELoader().setDataType(THREE.UnsignedByteType).load(`./hdr/${file}`, hdr => {
+            const rt = envPmrem.fromEquirectangular(hdr);
+            hdr.dispose();
+            entry.tex = rt.texture;
+            entry.waiting.forEach(f => f(entry.tex));
+            entry.waiting = [];
+        }, undefined, err => { entry.waiting = []; console.warn('HDR introuvable (ignoré) :', file, err && err.message); });
     });
 };
 
@@ -425,6 +763,7 @@ window.startAnomalyMode = function(cfg) {
     tick();
     state.anomalyGame.timerInterval = setInterval(tick, 1000);
 
+    window.preloadAnomalyTheme(state.anomalyGame.theme);
     setupAnomalyStage(10);
 }
 
@@ -539,7 +878,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             const container = document.getElementById('anomaly-canvas-container');
             if (!container) return;
 
-            // NETTOYAGE COMPLET POUR ÉVITER LES FUITES DE MÉMOIRE WEBGL
+            // NETTOYAGE COMPLET POUR ÉVITER LES FUITES DE MÉMOIRE WEBGL (les modèles partagés sont conservés)
             if (state.anomalyData.scene) {
                 state.anomalyData.scene.traverse(child => {
                     if (child.userData && child.userData.keep) return;
@@ -564,8 +903,6 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             if (!state.anomalyData.renderer) {
                 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
                 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 renderer.outputEncoding = THREE.sRGBEncoding;
                 renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 renderer.toneMappingExposure = 1.0;
@@ -578,71 +915,66 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
 
             if (state.anomalyData.animId) cancelAnimationFrame(state.anomalyData.animId);
 
-            const scene = new THREE.Scene();
             const currentTheme = state.anomalyGame.theme || 'metro';
-            
-            // Logique de Noir Complet (Blackout)
-            const isBlackout = hasAnomaly && ((currentTheme === 'metro' && anomalyId === 2) || (currentTheme === 'hotel' && anomalyId === 8));
-            const fogColor = isBlackout ? 0x020202 : 0x0f172a;
-            scene.background = new THREE.Color(fogColor);
-            scene.fog = new THREE.Fog(fogColor, 5, isBlackout ? 15 : 25);
+            const themeData = THEMES_CONFIG[currentTheme];
+            const anomalyDef = hasAnomaly ? (ANOMALY_DEFS[currentTheme] || {})[anomalyId] : null;
+
+            // ---- PARAMÈTRES DE CONSTRUCTION (l'anomalie les modifie avant que le couloir soit bâti) ----
+            const P = {
+                wallDist: 3.5, ceilingHeight: 3.2,
+                neonColor: themeData.lightColor, blackout: false,
+                fogColor: themeData.fogColor, fogNear: themeData.fogNear, fogFar: themeData.fogFar,
+                ambient: themeData.ambient, envIntensity: themeData.envIntensity,
+                tilt: 0, floorRot: 0, wallTint: null, satanic: false, eyesPoster: false,
+                camThrob: 0, clockSpeed: 1,
+                hidden: new Set(), mods: {}, extras: [], anim: [], post: [],
+                hide(id) { this.hidden.add(id); },
+                mod(id, o) { this.mods[id] = Object.assign(this.mods[id] || {}, o); },
+                add(d) { this.extras.push(d); }
+            };
+            if (anomalyDef) anomalyDef.fx(P);
+
+            const isBlackout = P.blackout;
+            if (isBlackout) { P.fogColor = 0x020202; P.fogNear = 5; P.fogFar = 15; P.ambient = 0.01; P.envIntensity = 0; }
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(P.fogColor);
+            scene.fog = new THREE.Fog(P.fogColor, P.fogNear, P.fogFar);
             state.anomalyData.scene = scene;
 
             const camera = new THREE.PerspectiveCamera(70, (container.clientWidth || 800) / (container.clientHeight || 500), 0.1, 100);
             camera.rotation.order = 'YXZ';
             state.anomalyData.camera = camera;
 
-            // Modifiez les LUMIÈRES existantes
-            const ambIntensity = isBlackout ? 0.01 : 0.05; // Très faible luminosité de base
-            const ambientLight = new THREE.AmbientLight(0xffffff, ambIntensity);
-            scene.add(ambientLight);
+            // Contexte partagé par les animations et les objets
+            const S = {
+                scene: scene, camera: camera, group: null, props: {}, lamps: [], colliders: [],
+                anim: P.anim, wallDist: P.wallDist, ceilingHeight: P.ceilingHeight,
+                clocks: [], spinners: [], noFlicker: false
+            };
 
-            // NOUVEAU : Lampe torche du joueur
+            scene.add(new THREE.AmbientLight(0xffffff, P.ambient));
+
+            // Lampe torche du joueur
             const flashlight = new THREE.SpotLight(0xfff5e6, 2.5);
-            flashlight.angle = Math.PI / 5.5; // Faisceau resserré
-            flashlight.penumbra = 0.4;        // Bords flous
-            flashlight.distance = 25;
-            flashlight.castShadow = false;   // aucune surface ne reçoit d'ombre : inutile et coûteux
-            scene.add(flashlight);
-            scene.add(flashlight.target);
-            
-            // ... Gardez la logique des néons, mais baissez leur intensité
-            let pointLights = [];
-            let emissiveMats = [];
+            flashlight.angle = Math.PI / 5.5; flashlight.penumbra = 0.4; flashlight.distance = 25;
+            flashlight.castShadow = false;
+            scene.add(flashlight); scene.add(flashlight.target);
 
-            // GÉOMÉTRIE & MATÉRIAUX RÉALISTES
-            const themeData = THEMES_CONFIG[currentTheme];
-            const maxAnisotropy = state.anomalyData.renderer.capabilities.getMaxAnisotropy();
-            
+            // ---- MATÉRIAUX DU COULOIR ----
             const fb = themeData.fallback;
-            const floorRot = (hasAnomaly && currentTheme === 'hotel' && anomalyId === 1) ? Math.PI / 2 : 0;   // Hôtel 1 : moquette pivotée
-            const brickWall = hasAnomaly && currentTheme === 'hotel' && anomalyId === 4;                        // Hôtel 4 : le papier peint pèle
-
-            // Mur ~2 m par motif, sol et plafond carrés (le couloir fait 7 m x 60 m)
-            const wallMat = brickWall
-                ? window.makeSurfaceMaterial(currentTheme, 'wall_alt', 37, 2, 0, 0x7c2d12)
-                : window.makeSurfaceMaterial(currentTheme, 'wall', 37, 2, 0, fb.wall);
-            const floorMat = window.makeSurfaceMaterial(currentTheme, 'floor', 4, 34, floorRot, fb.floor);
-            if (!themeData.pbr && currentTheme === 'hotel') {
-                const carpet = window.getCarpetTexture();
-                carpet.repeat.set(6, 40); carpet.rotation = floorRot;
-                floorMat.map = carpet; floorMat.color.setHex(0xffffff); floorMat.needsUpdate = true;
-            }
+            const wallMat = window.makeSurfaceMaterial(currentTheme, 'wall', 37, 2, 0, fb.wall);
+            if (P.wallTint != null) wallMat.color.setHex(P.wallTint);
+            const floorMat = window.makeSurfaceMaterial(currentTheme, 'floor', 4, 34, P.floorRot, fb.floor);
             const ceilingMat = window.makeSurfaceMaterial(currentTheme, 'ceiling', 3, 26, 0, fb.ceiling);
+            [wallMat, floorMat, ceilingMat].forEach(m => { m.envMapIntensity = P.envIntensity; });
 
-            const doorMat = new THREE.MeshStandardMaterial({ color: 0x3f3f46, metalness: 0.6, roughness: 0.4 });
+            const wallDist = P.wallDist, ceilingHeight = P.ceilingHeight;
 
-            let ceilingHeight = 3.2;
-            if (hasAnomaly && ((currentTheme === 'hopital' && anomalyId === 5) || (currentTheme === 'hotel' && anomalyId === 5))) {
-                ceilingHeight = 2.1; // Plafond s'effondre / rétrécit
-            }
-            
-            const narrow = hasAnomaly && ((currentTheme === 'metro' && anomalyId === 8) || (currentTheme === 'hotel' && anomalyId === 6));
-            const wallDist = narrow ? 2.5 : 3.5;
-
-            // Structure principale (Groupe permettant des rotations globales)
+            // ---- STRUCTURE (groupe permettant les rotations globales) ----
             const corridorGroup = new THREE.Group();
             scene.add(corridorGroup);
+            S.group = corridorGroup;
 
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(wallDist * 2, 60), floorMat);
             floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -10); corridorGroup.add(floor);
@@ -651,303 +983,237 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             ceiling.rotation.x = Math.PI / 2; ceiling.position.set(0, ceilingHeight, -10); corridorGroup.add(ceiling);
 
             const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, ceilingHeight, 60), wallMat);
-            leftWall.position.set(-wallDist - 0.25, ceilingHeight/2, -10); corridorGroup.add(leftWall);
-            
+            leftWall.position.set(-wallDist - 0.25, ceilingHeight / 2, -10); corridorGroup.add(leftWall);
             const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, ceilingHeight, 60), wallMat);
-            rightWall.position.set(wallDist + 0.25, ceilingHeight/2, -10); corridorGroup.add(rightWall);
+            rightWall.position.set(wallDist + 0.25, ceilingHeight / 2, -10); corridorGroup.add(rightWall);
 
-	    // Ajoutez ceci juste après avoir créé leftWall et rightWall
+            // Plinthes collées aux murs
             const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-            
-            const leftBaseboard = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 60), baseboardMat);
-            leftBaseboard.position.set(-wallDist + 0.25, 0.075, -10);
-            corridorGroup.add(leftBaseboard);
-            
-            const rightBaseboard = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 60), baseboardMat);
-            rightBaseboard.position.set(wallDist - 0.25, 0.075, -10);
-            corridorGroup.add(rightBaseboard);
+            [-1, 1].forEach(sd => {
+                const bb = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 60), baseboardMat);
+                bb.position.set(sd * (wallDist - 0.02), 0.075, -10); corridorGroup.add(bb);
+            });
 
-            // Vertige extrême (Hôpital 8)
-            if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 8) {
-                corridorGroup.rotation.z = Math.PI / 12; // Incline le couloir
-            }
+            if (P.tilt) corridorGroup.rotation.z = P.tilt;
 
-            // Néons
-            let neonColor = themeData.lightColor;
-            if (hasAnomaly && currentTheme === 'metro' && anomalyId === 1) neonColor = 0xff0000;
-            
+            // ---- NÉONS ----
+            const flickerBase = 1.2;
             for (let z = 10; z >= -30; z -= 8) {
-                const neonMat = new THREE.MeshStandardMaterial({ emissive: neonColor, emissiveIntensity: isBlackout ? 0 : 1, color: 0xffffff });
-                emissiveMats.push(neonMat);
+                const neonMat = new THREE.MeshStandardMaterial({ emissive: P.neonColor, emissiveIntensity: isBlackout ? 0 : 1, color: 0xffffff });
                 const neonM = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.05, 0.4), neonMat);
                 neonM.position.set(0, ceilingHeight - 0.05, z); corridorGroup.add(neonM);
-                
+                let pl = null;
                 if (!isBlackout) {
-                    const pl = new THREE.PointLight(neonColor, 1.2, 15);
+                    pl = new THREE.PointLight(P.neonColor, flickerBase, 15);
                     pl.position.set(0, ceilingHeight - 0.3, z);
-                    pl.castShadow = false;
-                    pointLights.push(pl);
                     corridorGroup.add(pl);
                 }
+                S.lamps.push({ light: pl, mat: neonMat, z: z });
             }
 
-            // Portes
-            let breathingDoor = null;
-            [-18, -6, 6].forEach((zPos, dIdx) => {
-                const doorGroup = new THREE.Group();
-                const redDoor = hasAnomaly && currentTheme === 'hotel' && anomalyId === 2 && dIdx === 1;
-                const thisDoorMat = redDoor ? new THREE.MeshStandardMaterial({ color: 0xb91c1c, metalness: 0.2, roughness: 0.5 }) : doorMat;
-                const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 1.4), thisDoorMat);
-                if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 3 && dIdx === 1) breathingDoor = doorGroup;
-                doorMesh.position.set(0, 1.2, 0);
-                
-                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 12), new THREE.MeshStandardMaterial({color:0x94a3b8, metalness: 0.8}));
-                handle.rotation.z = Math.PI/2;
-                handle.position.set(0.06, 1.2, 0.5);
-                
-                doorGroup.add(doorMesh); doorGroup.add(handle);
-
-                // Hôpital #6: Porte isolement ouverte
-                if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 6 && dIdx === 1) {
-                    doorGroup.rotation.y = Math.PI / 4; 
-                    const redGlow = new THREE.PointLight(0xff0000, 2, 5);
-                    redGlow.position.set(-1, 1, 0);
-                    doorGroup.add(redGlow);
-                }
-                
-                // Metro #3: Portes ouvertes sur le vide
-                if (hasAnomaly && currentTheme === 'metro' && anomalyId === 3 && dIdx === 1) {
-                    doorGroup.position.set(-wallDist - 0.5, 0, zPos); 
-                    const voidHole = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.5), new THREE.MeshBasicMaterial({color: 0x000000}));
-                    voidHole.position.set(-wallDist + 0.01, 1.2, zPos);
-                    voidHole.rotation.y = Math.PI / 2;
-                    corridorGroup.add(voidHole);
-                } else {
-                    doorGroup.position.set(-wallDist, 0, zPos);
-                    corridorGroup.add(doorGroup);
-                }
-            });
-
-            // Affiches
-            const posterOffsets = [-12, 0];
-            posterOffsets.forEach((zPos, idx) => {
-                let pTex = createPosterTexture('normal');
-                if (hasAnomaly && currentTheme === 'metro' && anomalyId === 7 && idx === 1) pTex = createPosterTexture('eyes'); // L'affiche fixe
-                
-                const posterMat = new THREE.MeshStandardMaterial({ map: pTex, roughness: 0.2 });
-                const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.25), posterMat);
-                poster.rotation.y = -Math.PI / 2;
-                
-                // Hotel #7: Tableaux vides
-                if (hasAnomaly && currentTheme === 'hotel' && anomalyId === 7) {
-                    posterMat.map = null; posterMat.color.setHex(0xffffff);
-                }
-                
-                poster.position.set(wallDist - 0.01, 1.5, zPos);
-                corridorGroup.add(poster);
-            });
-
-            // Anomalies visuelles supplémentaires
-            if (hasAnomaly && currentTheme === 'metro' && anomalyId === 5) {
-                const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 60), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-                strip.rotation.x = -Math.PI / 2; strip.position.set(0, 0.02, -10); corridorGroup.add(strip);
-            }
-            if (hasAnomaly && currentTheme === 'metro' && anomalyId === 6) {
-                const shadow = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.6, 0.3), new THREE.MeshBasicMaterial({ color: 0x000000 }));
-                shadow.position.set(0, 1.3, -20); corridorGroup.add(shadow);
-            }
-            if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 4) {
-                const hole = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ color: 0x050505 }));
-                hole.rotation.y = Math.PI / 2; hole.position.set(-wallDist + 0.02, 1.2, -4); corridorGroup.add(hole);
-            }
-
-            const extGroup = new THREE.Group();
-            const extincteur = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.7, 16), new THREE.MeshStandardMaterial({color:0xdc2626, metalness:0.3}));
-            extGroup.add(extincteur);
-            extGroup.position.set(-wallDist + 0.2, 1.0, -12);
-            if (!(hasAnomaly && currentTheme === 'hopital' && anomalyId === 7)) corridorGroup.add(extGroup);   // Hôpital 7 : extincteur disparu
-
-            // Banc (modèle GLTF) contre le mur de droite, entre les deux affiches (métro uniquement)
-            let benchZone = null;   // { zMin, zMax, xMax } : empêche de traverser le banc
-            if (currentTheme === 'metro') {
-                const BENCH_LENGTH = 1.8;     // mètres le long du mur
-                const BENCH_FLIP = 0;         // mettre Math.PI si le dossier est du mauvais côté
-                window.loadGLTFModel('bench', bench => {
-                    if (state.anomalyData.scene !== scene) return;   // la scène a changé pendant le chargement
-                    const holder = new THREE.Group();
-                    holder.add(bench);
-                    let box = new THREE.Box3().setFromObject(holder);
-                    let size = box.getSize(new THREE.Vector3());
-                    holder.rotation.y = (size.x >= size.z ? -Math.PI / 2 : 0) + BENCH_FLIP;   // grand côté parallèle au mur
-                    holder.updateMatrixWorld(true);
-                    box = new THREE.Box3().setFromObject(holder);
-                    size = box.getSize(new THREE.Vector3());
-                    const k = BENCH_LENGTH / Math.max(size.z, 0.001);
-                    holder.scale.setScalar(k);
-                    holder.updateMatrixWorld(true);
-                    box = new THREE.Box3().setFromObject(holder);
-                    const c = box.getCenter(new THREE.Vector3());
-                    holder.position.set(wallDist - 0.05 - box.max.x + holder.position.x - 0 + 0, -box.min.y + holder.position.y, -6 - c.z + holder.position.z);
-                    holder.updateMatrixWorld(true);
-                    const fin = new THREE.Box3().setFromObject(holder);
-                    benchZone = { zMin: fin.min.z - 0.3, zMax: fin.max.z + 0.3, xMax: fin.min.x - 0.35 };
-                    corridorGroup.add(holder);
+            // ---- AFFICHES (métro) ----
+            if (themeData.posters) {
+                [-12, 0].forEach((zPos, idx) => {
+                    const pTex = (P.eyesPoster && idx === 1) ? createPosterTexture('eyes') : createPosterTexture('normal');
+                    const poster = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.25), new THREE.MeshStandardMaterial({ map: pTex, roughness: 0.2 }));
+                    poster.rotation.y = -Math.PI / 2;
+                    poster.position.set(wallDist - 0.01, 1.5, zPos);
+                    corridorGroup.add(poster);
                 });
             }
 
-            // Objets bloquants (Chaises / Landau)
-            if (hasAnomaly) {
-                if (currentTheme === 'hopital' && anomalyId === 1) {
-                    const box = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshStandardMaterial({color:0x333333}));
-                    box.position.set(0, 0.75, -8); corridorGroup.add(box);
-                } else if (currentTheme === 'hotel' && anomalyId === 3) {
-                    const baby = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshStandardMaterial({color:0x111111}));
-                    baby.position.set(0, 0.6, -8); corridorGroup.add(baby);
-                }
-            }
-
-            // Panneau de Sortie Jaune
-            let isSatanic = (hasAnomaly && currentTheme === 'metro' && anomalyId === 4);
-            const signTex = createStageSignTexture(state.anomalyGame.stage, isSatanic, 12);
-            const signMat = new THREE.MeshBasicMaterial({ map: signTex });
-            const signMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 0.1), signMat);
+            // ---- PANNEAU DE SORTIE ----
+            const signTex = createStageSignTexture(state.anomalyGame.stage, P.satanic, 12);
+            const signMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 0.1), new THREE.MeshBasicMaterial({ map: signTex }));
             signMesh.position.set(0, ceilingHeight - 0.5, -24);
             corridorGroup.add(signMesh);
 
-	    const clock = new THREE.Clock();
-            const flickerLight = pointLights[2] || null;
+            // ---- OBJETS 3D ----
+            const v3 = () => new THREE.Vector3();
+            const placeProp = (d) => {
+                if (P.hidden.has(d.id)) return;
+                const spec = MODELS[d.k]; if (!spec) return;
+                const mo = P.mods[d.id] || {};
+                window.loadGLTFModel(d.k, obj => {
+                    if (state.anomalyData.scene !== scene) return;       // la scène a changé pendant le chargement
+
+                    // matériaux : intensité de l'environnement, teinte, tableaux vides
+                    obj.traverse(m => {
+                        if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+                        if (mo.tint != null || mo.blank) m.material = m.material.clone();
+                        const mat = m.material;
+                        if (mo.tint != null && mat.color) mat.color.setHex(mo.tint);
+                        if (mo.blank && /canvas|artwork/i.test(mat.name || '')) { mat.map = null; if (mat.color) mat.color.setHex(0x060606); mat.needsUpdate = true; }
+                        mat.envMapIntensity = P.envIntensity;
+                    });
+
+                    const side = mo.flipSide ? (d.side === 'L' ? 'R' : 'L') : (d.side || 'C');
+                    const inner = new THREE.Group();
+                    inner.add(obj);
+                    inner.updateMatrixWorld(true);
+                    const s0 = new THREE.Box3().setFromObject(inner).getSize(v3());
+
+                    // échelle
+                    let k = 1;
+                    if (d.h) k = d.h / Math.max(s0.y, 0.0001);
+                    else if (d.len) k = d.len / Math.max(s0.x, s0.z, 0.0001);
+                    k *= (mo.scale || 1);
+
+                    // orientation : la face avant regarde vers le couloir (ou comme demandé)
+                    const face = d.face === 'fwd' ? [0, -1] : d.face === 'back' ? [0, 1] : (side === 'L' ? [1, 0] : side === 'R' ? [-1, 0] : [0, 1]);
+                    const f = spec.depth === 'x' ? [spec.front, 0] : [0, spec.front];
+                    const theta = Math.atan2(face[0], face[1]) - Math.atan2(f[0], f[1]) + (d.yaw || 0) + (mo.yaw || 0);
+                    inner.scale.setScalar(k);
+                    inner.rotation.y = theta;
+                    inner.updateMatrixWorld(true);
+
+                    // pivot au centre de l'objet : les rotations / retournements se font sur place
+                    const box = new THREE.Box3().setFromObject(inner);
+                    const size = box.getSize(v3()), ctr = box.getCenter(v3());
+                    inner.position.set(-ctr.x, -ctr.y, -ctr.z);
+                    const outer = new THREE.Group();
+                    outer.add(inner);
+                    outer.userData.faceAngle = theta;
+                    outer.userData.size = { x: size.x, y: size.y, z: size.z };
+
+                    let x = d.x || 0;
+                    if (side === 'L') x = -wallDist + size.x / 2 + 0.02;
+                    else if (side === 'R') x = wallDist - size.x / 2 - 0.02;
+                    const y = (d.top != null) ? (ceilingHeight - d.top - size.y / 2) : ((d.yb || 0) + size.y / 2);
+                    outer.position.set(x + (mo.dx || 0), y + (mo.dy || 0), (d.z || 0) + (mo.dz || 0));
+                    if (mo.flip) outer.rotation.x = Math.PI;
+                    corridorGroup.add(outer);
+                    S.props[d.id] = outer;
+
+                    if (d.solid && !mo.noSolid) {
+                        S.colliders.push({ minX: outer.position.x - size.x / 2, maxX: outer.position.x + size.x / 2,
+                                           minZ: outer.position.z - size.z / 2, maxZ: outer.position.z + size.z / 2 });
+                    }
+                    const spin = mo.spin != null ? mo.spin : d.spin;
+                    if (spin) S.spinners.push({ obj: outer, speed: spin });
+                    if (d.clock) {
+                        const hand = n => outer.getObjectByName(n);
+                        S.clocks.push({ sec: hand('wall_clock_second_hand'), min: hand('wall_clock_minute_hand'), hour: hand('wall_clock_hours_hand') });
+                    }
+                    if (d.onPlaced) d.onPlaced(outer, S);
+                });
+            };
+            (PROP_LAYOUT[currentTheme] || []).forEach(placeProp);
+            P.extras.forEach(placeProp);
+
+            // ---- ÉLÉMENTS PROPRES À L'ANOMALIE (décalques, silhouettes, lumières...) ----
+            P.post.forEach(fn => fn(S));
+
+            // ---- ÉCLAIRAGE HDR ----
+            if (!isBlackout && themeData.hdr) {
+                window.loadThemeEnvironment(currentTheme, env => {
+                    if (state.anomalyData.scene !== scene) return;
+                    scene.environment = env;
+                });
+            }
+
+            const clock = new THREE.Clock();
+            const flickerLight = S.lamps[2] ? S.lamps[2].light : null;
             let flickerUntil = 0, nextFlicker = Date.now() + 2000;
+            const g = state.anomalyGame;
 
-window.renderLoop = function() {
-                if (document.getElementById('screen-generic-game').classList.contains('hidden') || state.anomalyGame.finished) {
-                    return; 
-                }
-                
-                const delta = clock.getDelta(); // Temps écoulé depuis la dernière frame
+            const hitCollider = (x, z) => S.colliders.some(c => x > c.minX - 0.35 && x < c.maxX + 0.35 && z > c.minZ - 0.35 && z < c.maxZ + 0.35);
 
-                // Animations en direct
-                if (hasAnomaly) {
-                    if (currentTheme === 'hopital' && anomalyId === 3 && breathingDoor) {
-                        const k = Math.sin(Date.now() * 0.002) * 0.06;
-                        breathingDoor.scale.set(1, 1 + k, 1 + k); // La porte respire
-                    }
-                    if (currentTheme === 'hotel' && anomalyId === 8) {
-                        pointLights.forEach((pl) => {
-                            if (camera.position.z < pl.position.z) pl.intensity = 0; 
-                        });
-                    }
-                }
+            const loop = function() {
+                if (document.getElementById('screen-generic-game').classList.contains('hidden') || g.finished) return;
+
+                const delta = Math.min(clock.getDelta(), 0.1);
+                const t = clock.elapsedTime;
+
+                // Animations propres à l'anomalie
+                P.anim.forEach(fn => { try { fn(t, delta, S); } catch (e) { /* une animation ne doit jamais casser le jeu */ } });
+
+                // Objets animés en permanence (ventilateur, aiguilles)
+                S.spinners.forEach(sp => { sp.obj.rotation.y += sp.speed * delta; });
+                S.clocks.forEach(c => {
+                    if (c.sec) c.sec.rotateZ(-delta * (Math.PI * 2 / 60) * P.clockSpeed);
+                    if (c.min) c.min.rotateZ(-delta * (Math.PI * 2 / 3600) * P.clockSpeed);
+                    if (c.hour) c.hour.rotateZ(-delta * (Math.PI * 2 / 43200) * P.clockSpeed);
+                });
 
                 // Néon qui vacille de temps en temps
-                if (flickerLight && !(hasAnomaly && currentTheme === 'hotel' && anomalyId === 8)) {
+                if (flickerLight && !S.noFlicker) {
                     const now = Date.now();
                     if (now > nextFlicker) { flickerUntil = now + 60 + Math.random() * 120; nextFlicker = now + 2500 + Math.random() * 6000; }
-                    flickerLight.intensity = now < flickerUntil ? 0.2 : 1.2;
+                    flickerLight.intensity = now < flickerUntil ? 0.2 : flickerBase;
                 }
 
                 // Déplacements stabilisés par delta time
-                const isSprinting = state.anomalyGame.keys['shift'];
-                let speedMultiplier = 1.0;
-                
-                const baseSpeed = isSprinting ? 4.5 : 2.0; 
-                const speed = baseSpeed * speedMultiplier * delta; 
+                const speed = (g.keys['shift'] ? 4.5 : 2.0) * delta;
+                const forwardX = -Math.sin(g.yaw), forwardZ = -Math.cos(g.yaw);
+                const rightX = Math.cos(g.yaw), rightZ = -Math.sin(g.yaw);
+                let dx = 0, dz = 0;
+                if (g.keys['forward'])  { dx += forwardX * speed; dz += forwardZ * speed; }
+                if (g.keys['backward']) { dx -= forwardX * speed; dz -= forwardZ * speed; }
+                if (g.keys['left'])     { dx -= rightX * speed;   dz -= rightZ * speed; }
+                if (g.keys['right'])    { dx += rightX * speed;   dz += rightZ * speed; }
+                const isMoving = dx !== 0 || dz !== 0;
 
-                const forwardX = -Math.sin(state.anomalyGame.yaw);
-                const forwardZ = -Math.cos(state.anomalyGame.yaw);
-                const rightX = Math.cos(state.anomalyGame.yaw);
-                const rightZ = -Math.sin(state.anomalyGame.yaw);
-
-                let isMoving = false;
-                if (state.anomalyGame.keys['forward']) { state.anomalyGame.playerX += forwardX * speed; state.anomalyGame.playerZ += forwardZ * speed; isMoving = true; }
-                if (state.anomalyGame.keys['backward']) { state.anomalyGame.playerX -= forwardX * speed; state.anomalyGame.playerZ -= forwardZ * speed; isMoving = true; }
-                if (state.anomalyGame.keys['left']) { state.anomalyGame.playerX -= rightX * speed; state.anomalyGame.playerZ -= rightZ * speed; isMoving = true; }
-                if (state.anomalyGame.keys['right']) { state.anomalyGame.playerX += rightX * speed; state.anomalyGame.playerZ += rightZ * speed; isMoving = true; }
-
-                // Collisions basiques
+                // Collisions : murs et objets solides (axe par axe pour glisser le long des obstacles)
                 const limitX = wallDist - 0.4;
-                state.anomalyGame.playerX = Math.max(-limitX, Math.min(limitX, state.anomalyGame.playerX));
-                if (benchZone && state.anomalyGame.playerZ > benchZone.zMin && state.anomalyGame.playerZ < benchZone.zMax) {
-                    state.anomalyGame.playerX = Math.min(state.anomalyGame.playerX, benchZone.xMax);
-                }
-                
-                if (hasAnomaly && ((currentTheme === 'hopital' && anomalyId === 1) || (currentTheme === 'hotel' && anomalyId === 3))) {
-                    if (state.anomalyGame.playerZ < -6.5 && state.anomalyGame.playerZ > -9.5) {
-                        if (state.anomalyGame.keys['forward']) state.anomalyGame.playerZ += 0.2;
-                        if (state.anomalyGame.keys['backward']) state.anomalyGame.playerZ -= 0.2;
-                    }
-                }
+                const stuck = hitCollider(g.playerX, g.playerZ);
+                const nx = Math.max(-limitX, Math.min(limitX, g.playerX + dx));
+                if (stuck || !hitCollider(nx, g.playerZ)) g.playerX = nx;
+                const nz = g.playerZ + dz;
+                if (stuck || !hitCollider(g.playerX, nz)) g.playerZ = nz;
 
-                // Application
-                if (isMoving) state.anomalyGame.walkTime += speed * 2;
-                camera.position.x = state.anomalyGame.playerX;
-                camera.position.z = state.anomalyGame.playerZ;
-                
-                let throb = 0;
-                if (hasAnomaly && currentTheme === 'hopital' && anomalyId === 2) {
-                    throb = Math.sin(Date.now() * 0.005) * 0.1; // Bruit de respiration / palpitant
-                }
-                camera.position.y = (1.6 + throb) + Math.sin(state.anomalyGame.walkTime) * 0.05;
+                if (isMoving) g.walkTime += speed * 2;
+                camera.position.x = g.playerX;
+                camera.position.z = g.playerZ;
+                const throb = P.camThrob ? Math.sin(Date.now() * 0.005) * P.camThrob : 0;
+                camera.position.y = (1.6 + throb) + Math.sin(g.walkTime) * 0.05;
+                camera.rotation.y = g.yaw;
+                camera.rotation.x = g.pitch;
 
-                camera.rotation.y = state.anomalyGame.yaw;
-                camera.rotation.x = state.anomalyGame.pitch;
-
-		// Dans renderLoop(), juste après avoir défini la position et rotation de la caméra :
-                
+                // Lampe torche tenue de la main droite
                 flashlight.position.copy(camera.position);
-                // Décale légèrement la lampe vers la droite du joueur (comme s'il la tenait)
-                flashlight.position.x += Math.cos(state.anomalyGame.yaw) * 0.2; 
+                flashlight.position.x += Math.cos(g.yaw) * 0.2;
                 flashlight.position.y -= 0.1;
-
                 flashlight.target.position.set(
-                    camera.position.x - Math.sin(state.anomalyGame.yaw) * 5,
-                    camera.position.y - Math.sin(state.anomalyGame.pitch) * 5,
-                    camera.position.z - Math.cos(state.anomalyGame.yaw) * 5
+                    camera.position.x - Math.sin(g.yaw) * 5,
+                    camera.position.y - Math.sin(g.pitch) * 5,
+                    camera.position.z - Math.cos(g.yaw) * 5
                 );
 
                 // --- LOGIQUE DE BOUCLE INFINIE ---
-                let wentForward = state.anomalyGame.playerZ < -26;
-                let wentBackward = state.anomalyGame.playerZ > 12;
-
+                const wentForward = g.playerZ < -26;
+                const wentBackward = g.playerZ > 12;
                 if (wentForward || wentBackward) {
-                    if (state.anomalyGame.isTransitioning) return;
-                    state.anomalyGame.isTransitioning = true;
-                    
-                    let success = (wentForward && !hasAnomaly) || (wentBackward && hasAnomaly);
-                    
-                    state.anomalyGame.historyLog.push({
-                        stage: state.anomalyGame.stage,
-                        hasAnomaly: state.anomalyGame.hasAnomaly,
-                        anomalyId: state.anomalyGame.anomalyId,
-                        anomalyName: state.anomalyGame.hasAnomaly ? (THEMES_CONFIG[currentTheme].anomalies[state.anomalyGame.anomalyId] || "Anomalie") : "Normal",
+                    if (g.isTransitioning) return;
+                    g.isTransitioning = true;
+
+                    const success = (wentForward && !hasAnomaly) || (wentBackward && hasAnomaly);
+                    g.historyLog.push({
+                        stage: g.stage,
+                        hasAnomaly: g.hasAnomaly,
+                        anomalyId: g.anomalyId,
+                        anomalyName: g.hasAnomaly ? (THEMES_CONFIG[currentTheme].anomalies[g.anomalyId] || "Anomalie") : "Normal",
                         action: wentForward ? "Avancé" : "Demi-tour",
                         success: success
                     });
 
-                    if (success) state.anomalyGame.stage++; 
-                    else state.anomalyGame.stage = 0;
-
-                    if (state.anomalyGame.stage > state.anomalyGame.maxStageReached) {
-                        state.anomalyGame.maxStageReached = state.anomalyGame.stage;
-                    }
+                    if (success) g.stage++; else g.stage = 0;
+                    if (g.stage > g.maxStageReached) g.maxStageReached = g.stage;
                     window.anomalyPushProgress(false);
 
-                    if (state.anomalyGame.stage >= state.anomalyGame.targetStages) {
-                        finishAnomalyGame();
-                        return;
-                    }
-                    
+                    if (g.stage >= g.targetStages) { finishAnomalyGame(); return; }
+
                     triggerBlinkTransition(() => {
-                        state.anomalyGame.isTransitioning = false;
-                        let spawnZ = wentForward ? 10 : -24;
-                        setupAnomalyStage(spawnZ);
+                        g.isTransitioning = false;
+                        setupAnomalyStage(wentForward ? 10 : -24);
                     });
                     return;
                 }
 
                 state.anomalyData.renderer.render(scene, camera);
-                state.anomalyData.animId = requestAnimationFrame(renderLoop);
-            }
-            renderLoop();
+                state.anomalyData.animId = requestAnimationFrame(loop);
+            };
+            loop();
 }
 
 window.finishAnomalyGame = function() {
