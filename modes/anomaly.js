@@ -264,6 +264,20 @@ const AN = {
     wet: (n) => AN.block({ id: 'x_wet', k: 'wet', x: 0.6, z: -9, h: 0.65 }, n || "Un panneau « sol glissant » est apparu")
 };
 
+// Bruit associé à chaque type d'anomalie (voir SFX dans la partie son)
+const SFX_BY_FACTORY = {
+    redNeons: 'buzz', blackout: 'slam', narrow: 'creak', lowCeiling: 'creak', tilt: 'creak', fog: 'whisper',
+    throb: 'heartbeat', wallTint: 'heartbeat', sign: 'whisper', eyes: 'whisper', carpet: 'creak', strobe: 'buzz',
+    neonsDie: 'buzz', hide: 'creak', flip: 'slam', tint: 'heartbeat', shift: 'slam', mirror: 'creak', blank: 'whisper',
+    float: 'creak', spin: 'whirr', clockSpin: 'tick', sway: 'creak', block: 'slam', approach: 'rattle',
+    silhouette: 'heartbeat', silhouetteApproach: 'heartbeat', blood: 'drip', strip: 'static', wallText: 'whisper',
+    hole: 'whisper', alarmFlash: 'alarm', camFollow: 'static', wet: 'creak'
+};
+Object.keys(SFX_BY_FACTORY).forEach(k => {
+    const f = AN[k];
+    AN[k] = function() { const r = f.apply(null, arguments); r.sfx = SFX_BY_FACTORY[k]; return r; };
+});
+
 const ANOMALY_DEFS = {};
 function defineAnomalies(theme, list) {
     ANOMALY_DEFS[theme] = {};
@@ -311,7 +325,7 @@ defineAnomalies('hopital', [
     AN.approach({ id: 'x_chair2', k: 'wheelchair', h: 1.0 }, -22, -4, 0.45, "Un fauteuil roulant avance tout seul"),
     AN.tint('door3', 0xff3030, "Une porte est rouge sang"),
     AN.shift('door2', 2.6, "Une porte a changé de place"),
-    { name: "Une porte respire imperceptiblement", fx: P => P.anim.push((t, dt, S) => {
+    { name: "Une porte respire imperceptiblement", sfx: 'heartbeat', fx: P => P.anim.push((t, dt, S) => {
         const o = S.props.door2; if (!o) return;
         const k = 1 + Math.sin(t * 2) * 0.05; o.scale.set(1, k, k);
     }) },
@@ -491,7 +505,7 @@ const TEX_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 
 window.preloadAnomalyAssets = function(theme, onProgress, onDone) {
     if (!THEMES_CONFIG[theme]) theme = 'metro';
     let job = preloadJobs[theme];
-    if (!job) { job = preloadJobs[theme] = { done: false, ratio: 0, text: 'Chargement...', progress: [], finish: [] }; runAnomalyPreload(theme, job); }
+    if (!job) { job = preloadJobs[theme] = { done: false, ratio: 0, text: 'Chargement...', progress: [], finish: [], failed: [] }; runAnomalyPreload(theme, job); }
     if (onProgress) { job.progress.push(onProgress); onProgress(job.ratio, job.text); }
     if (onDone) { if (job.done) onDone(); else job.finish.push(onDone); }
     return job;
@@ -540,7 +554,7 @@ function runAnomalyPreload(theme, job) {
                 total++;
                 const tex = window.loadPBRTexture(`./textures/${themeData.texDir || theme}/${surface}_${file}.jpg`, rx, ry, isColor);
                 tex.anisotropy = maxAniso;
-                window.whenTextureReady(tex, ok => { if (ok) uploads.add(tex); step(); });
+                window.whenTextureReady(tex, ok => { if (ok) uploads.add(tex); else job.failed.push(`${surface}_${file}.jpg`); step(); });
             });
         });
     }
@@ -556,10 +570,10 @@ function runAnomalyPreload(theme, job) {
                 TEX_SLOTS.forEach(slot => { if (m.material[slot] && m.material[slot].image) uploads.add(m.material[slot]); });
             });
             step();
-        }, step);
+        }, () => { job.failed.push(k); step(); });
     });
     // éclairage HDR
-    if (themeData.hdr) { total++; window.loadThemeEnvironment(theme, step, step); }
+    if (themeData.hdr) { total++; window.loadThemeEnvironment(theme, step, () => { job.failed.push('HDR ' + themeData.hdr); step(); }); }
 
     report('Chargement du décor...');
     if (!total) { complete(); return; }
@@ -703,6 +717,219 @@ window.createStageSignTexture = function(stage, hasAnomaly, anomalyId) {
             return new THREE.CanvasTexture(canvas);
 }
 
+// =============================================================
+// SON : tout est synthétisé par le navigateur (Web Audio) : aucun fichier n'est nécessaire.
+// Pour utiliser tes propres sons, remplis SOUND_FILES (chemins relatifs, ex. 'sounds/metro/ambiance_loop.mp3').
+// =============================================================
+const SOUND_FILES = {
+    ambience: { metro: null, hopital: null, hotel: null },   // boucle d'ambiance par décor
+    sfx: {}                                                   // ex. { whisper: 'sounds/whisper.mp3', slam: 'sounds/door_slam.mp3' }
+};
+const SFX_POOL = ['creak', 'whisper', 'slam', 'static', 'drip'];   // bruits au hasard quand l'anomalie n'a pas de son attitré
+const AMB_PROFILES = {
+    metro:   { base: 55, air: 420,  airQ: 0.6, airGain: 0.030, buzz: 0.010 },
+    hopital: { base: 50, air: 1800, airQ: 0.8, airGain: 0.018, buzz: 0.016 },
+    hotel:   { base: 62, air: 300,  airQ: 0.5, airGain: 0.035, buzz: 0.004 }
+};
+
+window.anomalyAudio = (function() {
+    let ctx = null, master = null, noise = null, amb = null, ambTheme = null, timers = [];
+    let muted = false;
+    try { muted = localStorage.getItem('anomalyMuted') === '1'; } catch (e) { /* ignoré */ }
+    const bufCache = {};
+
+    function init() {
+        if (ctx) return ctx;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try { ctx = new AC(); } catch (e) { return null; }
+        master = ctx.createGain();
+        master.gain.value = muted ? 0 : 0.9;
+        master.connect(ctx.destination);
+        noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 2), ctx.sampleRate);
+        const d = noise.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        return ctx;
+    }
+    function unlock() { if (init() && ctx.state === 'suspended') { const r = ctx.resume(); if (r && r.catch) r.catch(() => {}); } }
+
+    const now = () => ctx.currentTime;
+    function noiseSrc(loop) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = !!loop; return s; }
+    function outTo(node, p) {
+        if (p && ctx.createStereoPanner) { const pn = ctx.createStereoPanner(); pn.pan.value = p; node.connect(pn); pn.connect(master); }
+        else node.connect(master);
+    }
+    function env(g, t0, attack, peak, dur) {
+        g.gain.cancelScheduledValues(t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(peak, t0 + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + dur);
+    }
+    function tone(type, f0, f1, dur, peak, p, t0) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(f0, t0);
+        if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+        env(g, t0, 0.01, peak, dur);
+        o.connect(g); outTo(g, p);
+        o.start(t0); o.stop(t0 + dur + 0.1);
+    }
+    function burst(type, freq, q, dur, peak, p, t0, attack) {
+        const a = attack || 0.005;
+        const s = noiseSrc(false), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        f.type = type; f.frequency.value = freq; f.Q.value = q;
+        env(g, t0, a, peak, dur);
+        s.connect(f); f.connect(g); outTo(g, p);
+        s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + a + 0.1);
+    }
+
+    const SFX = {
+        step:  (o) => { const t = now(); burst('lowpass', o.hard ? 1500 : 520, 0.7, 0.09, o.loud || 0.17, (Math.random() - 0.5) * 0.3, t); tone('sine', 70, 45, 0.08, 0.10, 0, t); },
+        whoosh:() => burst('bandpass', 600, 0.8, 0.35, 0.12, 0, now(), 0.12),
+        chime: () => { const t = now(); tone('sine', 880, 880, 0.35, 0.07, 0, t); tone('sine', 1320, 1320, 0.3, 0.045, 0, t + 0.09); },
+        fail:  () => { const t = now(); tone('sine', 150, 38, 0.9, 0.35, 0, t); burst('lowpass', 220, 0.5, 0.7, 0.25, 0, t); },
+        slam:  () => { const t = now(); tone('sine', 90, 28, 0.7, 0.5, (Math.random() - 0.5) * 1.4, t); burst('lowpass', 300, 0.5, 0.5, 0.4, 0, t); },
+        creak: () => {
+            const t = now(), p = Math.random() * 1.6 - 0.8;
+            const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+            const l = ctx.createOscillator(), lg = ctx.createGain();
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(60, t + 1.4);
+            f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 8;
+            l.frequency.value = 17; lg.gain.value = 14; l.connect(lg); lg.connect(o.frequency);
+            env(g, t, 0.15, 0.09, 1.3);
+            o.connect(f); f.connect(g); outTo(g, p);
+            o.start(t); l.start(t); o.stop(t + 1.6); l.stop(t + 1.6);
+        },
+        whisper: () => {
+            const t = now(), p = Math.random() * 1.8 - 0.9;
+            for (let i = 0; i < 7; i++) burst('bandpass', 1800 + Math.random() * 2400, 1.4, 0.18 + Math.random() * 0.12, 0.07, p, t + i * (0.16 + Math.random() * 0.12), 0.05);
+        },
+        heartbeat: () => {
+            const t = now();
+            for (let i = 0; i < 5; i++) { tone('sine', 58, 38, 0.16, 0.5, 0, t + i * 0.9); tone('sine', 52, 36, 0.14, 0.32, 0, t + i * 0.9 + 0.27); }
+        },
+        alarm: () => { const t = now(); for (let i = 0; i < 12; i++) tone('square', i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.28, 0.035, 0, t + i * 0.32); },
+        static: () => { const t = now(); for (let i = 0; i < 4; i++) burst('highpass', 3000, 0.7, 0.12, 0.1, (Math.random() - 0.5) * 1.2, t + Math.random() * 1.2); },
+        tick:  () => { const t = now(); for (let i = 0; i < 30; i++) burst('bandpass', 2400, 8, 0.03, 0.09, 0.5, t + i * 0.1); },
+        rattle:() => { const t = now(), p = (Math.random() - 0.5) * 1.2; for (let i = 0; i < 16; i++) burst('lowpass', 220 + Math.random() * 90, 0.8, 0.2, 0.15, p, t + i * 0.22); },
+        drip:  () => { const t = now(), p = (Math.random() - 0.5) * 1.4; tone('sine', 1800, 900, 0.12, 0.08, p, t); tone('sine', 1500, 800, 0.12, 0.05, p, t + 0.65); },
+        whirr: () => burst('bandpass', 900, 1.0, 2.8, 0.07, 0, now(), 0.5),
+        buzz:  () => { const t = now(); tone('sawtooth', 100, 100, 3, 0.035, 0, t); burst('highpass', 4000, 0.7, 3, 0.03, 0, t, 0.3); }
+    };
+
+    function loadBuffer(url, cb) {
+        if (bufCache[url]) { cb(bufCache[url]); return; }
+        fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+            .then(ab => new Promise((ok, ko) => ctx.decodeAudioData(ab, ok, ko)))
+            .then(buf => { bufCache[url] = buf; cb(buf); })
+            .catch(err => console.warn('Son introuvable (ignoré) :', url, err && err.message));
+    }
+    function play(name, opts) {
+        if (muted || !init()) return;
+        const file = SOUND_FILES.sfx[name];
+        if (file) {
+            loadBuffer(file, buf => { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buf; g.gain.value = 0.8; s.connect(g); outTo(g, 0); s.start(); });
+            return;
+        }
+        if (SFX[name]) { try { SFX[name](opts || {}); } catch (e) { /* un son ne doit jamais casser le jeu */ } }
+    }
+
+    function stopAmbience() {
+        if (!amb) return;
+        const old = amb; amb = null; ambTheme = null;
+        old.out.gain.setTargetAtTime(0.0001, now(), 0.3);
+        setTimeout(() => { old.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); }, 1800);
+    }
+    function startAmbience(theme, level) {
+        if (!init()) return;
+        if (amb && ambTheme === theme) { amb.out.gain.setTargetAtTime(level, now(), 0.4); return; }
+        stopAmbience();
+        const c = AMB_PROFILES[theme] || AMB_PROFILES.metro;
+        const out = ctx.createGain();
+        out.gain.value = 0.0001; out.gain.setTargetAtTime(level, now(), 0.8);
+        out.connect(master);
+        const nodes = [];
+        const file = SOUND_FILES.ambience[theme];
+        let buzzGain = ctx.createGain(); buzzGain.gain.value = 0;
+        if (file) {
+            loadBuffer(file, buf => { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buf; s.loop = true; g.gain.value = 0.7; s.connect(g); g.connect(out); s.start(); nodes.push(s); });
+        } else {
+            [c.base, c.base * 1.5 + 0.7].forEach((f, i) => {            // drone grave : deux oscillateurs légèrement désaccordés
+                const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+                o.type = i ? 'sine' : 'sawtooth'; o.frequency.value = f;
+                lp.type = 'lowpass'; lp.frequency.value = 180; g.gain.value = i ? 0.05 : 0.035;
+                o.connect(lp); lp.connect(g); g.connect(out); o.start(); nodes.push(o);
+            });
+            const n = noiseSrc(true), bf = ctx.createBiquadFilter(), ng = ctx.createGain();   // souffle d'air
+            bf.type = 'bandpass'; bf.frequency.value = c.air; bf.Q.value = c.airQ; ng.gain.value = c.airGain;
+            n.connect(bf); bf.connect(ng); ng.connect(out); n.start(); nodes.push(n);
+            const bo = ctx.createOscillator(), bh = ctx.createBiquadFilter();                   // grésillement des néons
+            bo.type = 'square'; bo.frequency.value = 100; bh.type = 'highpass'; bh.frequency.value = 900;
+            bo.connect(bh); bh.connect(buzzGain); buzzGain.connect(out); bo.start(); nodes.push(bo);
+        }
+        amb = { out: out, nodes: nodes, buzzGain: buzzGain, buzzBase: c.buzz };
+        ambTheme = theme;
+    }
+
+    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+    function later(ms, fn) { timers.push(setTimeout(fn, ms)); }
+
+    // Appelé à chaque nouveau couloir : ambiance + bruit lié à l'anomalie (et parfois un faux bruit dans un couloir normal)
+    function onScene(info) {
+        if (!init()) return;
+        clearTimers();
+        startAmbience(info.theme, info.blackout ? 0.25 : 1);
+        if (amb) amb.buzzGain.gain.setTargetAtTime(info.blackout ? 0 : amb.buzzBase, now(), 0.2);
+        if (info.hasAnomaly) {
+            const name = info.sfx || SFX_POOL[Math.floor(Math.random() * SFX_POOL.length)];
+            later(1500 + Math.random() * 5500, () => play(name));
+        } else if (info.stage > 0 && Math.random() < 0.2) {
+            later(2500 + Math.random() * 7000, () => play(Math.random() < 0.5 ? 'creak' : 'drip'));
+        }
+    }
+    function stopAll() { clearTimers(); stopAmbience(); }
+    function setMuted(m) {
+        muted = !!m;
+        try { localStorage.setItem('anomalyMuted', muted ? '1' : '0'); } catch (e) { /* ignoré */ }
+        if (master) master.gain.setTargetAtTime(muted ? 0 : 0.9, now(), 0.05);
+    }
+
+    return {
+        unlock: unlock, play: play, onScene: onScene, stopAll: stopAll,
+        step: (theme, sprint) => play('step', { hard: theme !== 'hotel', loud: sprint ? 0.26 : 0.17 }),
+        isMuted: () => muted,
+        toggleMute: () => { setMuted(!muted); if (!muted) unlock(); return muted; }
+    };
+})();
+
+window.anomalyUpdateMuteBtn = function() {
+    const b = document.getElementById('anomaly-mute-btn');
+    if (b) b.innerHTML = window.anomalyAudio.isMuted() ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+};
+window.anomalyToggleMute = function() { window.anomalyAudio.toggleMute(); window.anomalyUpdateMuteBtn(); };
+
+window.anomalyToggleFullscreen = function() {
+    const c = document.getElementById('anomaly-canvas-container');
+    if (!c) return;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+        const req = c.requestFullscreen || c.webkitRequestFullscreen;
+        if (req) { const r = req.call(c); if (r && r.catch) r.catch(() => {}); }
+    }
+};
+window.anomalyOnFullscreenChange = function() {
+    const b = document.getElementById('anomaly-fs-btn');
+    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (b) b.innerHTML = on ? '<i class="fa-solid fa-compress"></i>' : '<i class="fa-solid fa-expand"></i>';
+    setTimeout(() => { if (window.anomalyResize) window.anomalyResize(); }, 100);
+};
+if (!document.getElementById('anomaly-fs-style')) {     // en plein écran, le conteneur prend tout l'écran
+    const st = document.createElement('style');
+    st.id = 'anomaly-fs-style';
+    st.textContent = '#anomaly-canvas-container:fullscreen{width:100vw!important;height:100vh!important;border-radius:0!important;border:0!important}#anomaly-canvas-container:-webkit-full-screen{width:100vw!important;height:100vh!important;border-radius:0!important;border:0!important}';
+    document.head.appendChild(st);
+}
+
 // Lancement (hôte) : lit les paramètres du salon
 window.startAnomalyGame = function() {
     if (!window.isHost) return;
@@ -738,6 +965,8 @@ window.renderAnomalyScreen = function(data) {
             window.anomalyShownResults = sess;
             if (state.anomalyGame) { state.anomalyGame.finished = true; clearInterval(state.anomalyGame.timerInterval); }
             if (document.pointerLockElement) document.exitPointerLock();
+            window.anomalyAudio.stopAll();
+            if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
             const ranking = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot)
                 .sort((x, y) => (y.score || 0) - (x.score || 0));
             const progress = g.progress || {};
@@ -840,7 +1069,7 @@ window.startAnomalyMode = function(cfg) {
         <div class="space-y-3 w-full relative">
             <div class="flex justify-between items-center px-2 flex-wrap gap-2">
                 <span class="text-xs font-bold text-indigo-400">Sortie actuelle : <span id="anomaly-stage-display" class="text-amber-400 text-sm font-black">Sortie 0</span> / ${state.anomalyGame.targetStages}</span>
-                <span class="text-[11px] text-slate-400 font-medium">Contrôles : ZQSD ou Flèches | Souris pour regarder | <b class="text-indigo-300">Shift</b> pour courir</span>
+                <span class="text-[11px] text-slate-400 font-medium">Contrôles : ZQSD ou Flèches | Souris pour regarder | <b class="text-indigo-300">Shift</b> courir | <b class="text-indigo-300">F</b> plein écran | <b class="text-indigo-300">M</b> son</span>
             </div>
             <div id="anomaly-progress" class="flex flex-wrap gap-2 px-2 text-[11px] font-mono"></div>
 
@@ -850,6 +1079,13 @@ window.startAnomalyMode = function(cfg) {
                     <div class="w-64 max-w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div id="anomaly-loading-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width:0%"></div></div>
                     <div id="anomaly-loading-text" class="text-[11px] text-slate-400 font-mono">Chargement du décor...</div>
                     <div id="anomaly-loading-tip" class="text-xs text-slate-300 max-w-sm leading-relaxed"></div>
+                </div>
+                <div class="absolute top-2 right-2 z-20 flex gap-2">
+                    <button id="anomaly-mute-btn" type="button" title="Son (M)" class="w-8 h-8 rounded-lg bg-slate-950/80 border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs"><i class="fa-solid fa-volume-high"></i></button>
+                    <button id="anomaly-fs-btn" type="button" title="Plein écran (F)" class="w-8 h-8 rounded-lg bg-slate-950/80 border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs"><i class="fa-solid fa-expand"></i></button>
+                </div>
+                <div class="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-slate-950/70 px-3 py-1 rounded-lg border border-slate-800 text-[11px] text-slate-200 font-mono pointer-events-none">
+                    Sortie <b id="anomaly-hud-stage" class="text-amber-400">0</b> / ${state.anomalyGame.targetStages} · <span id="anomaly-hud-time">--:--</span>
                 </div>
                 <div class="absolute top-2 left-2 z-10 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] text-slate-300 pointer-events-none">
                     <i class="fa-solid fa-mouse mr-1 text-indigo-400"></i> Cliquez pour capturer la souris
@@ -866,6 +1102,10 @@ window.startAnomalyMode = function(cfg) {
     `;
     // Le conteneur est recréé à chaque partie : on (re)branche le clic ici
     document.getElementById('anomaly-canvas-container').addEventListener('click', anomalyRequestLock);
+    const fsBtn = document.getElementById('anomaly-fs-btn'), muteBtn = document.getElementById('anomaly-mute-btn');
+    if (fsBtn) fsBtn.addEventListener('click', e => { e.stopPropagation(); window.anomalyToggleFullscreen(); });
+    if (muteBtn) muteBtn.addEventListener('click', e => { e.stopPropagation(); window.anomalyToggleMute(); });
+    window.anomalyUpdateMuteBtn();
 
     const tick = () => {
         const g = state.anomalyGame;
@@ -876,11 +1116,15 @@ window.startAnomalyMode = function(cfg) {
             const mins = Math.floor(Math.max(0, g.timeLeft) / 60), secs = Math.max(0, g.timeLeft) % 60;
             timerEl.innerText = `Temps : ${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
+        const hudT = document.getElementById('anomaly-hud-time');
+        if (hudT) { const mm = Math.floor(Math.max(0, g.timeLeft) / 60), ss = Math.max(0, g.timeLeft) % 60; hudT.innerText = `${mm}:${ss < 10 ? '0' : ''}${ss}`; }
         if (g.timeLeft <= 0) finishAnomalyGame();
     };
     // Le chrono et la partie ne démarrent qu'une fois tout chargé (le temps de chargement n'est pas décompté)
     const gameObj = state.anomalyGame;
     const timerEl0 = document.getElementById('generic-game-timer');
+    const hud0 = document.getElementById('anomaly-hud-time');
+    if (hud0) hud0.innerText = `${Math.floor(gameObj.timeLeft / 60)}:${(gameObj.timeLeft % 60) < 10 ? '0' : ''}${gameObj.timeLeft % 60}`;
     if (timerEl0) {
         const m0 = Math.floor(gameObj.timeLeft / 60), s0 = gameObj.timeLeft % 60;
         timerEl0.innerText = `Temps : ${m0}:${s0 < 10 ? '0' : ''}${s0}`;
@@ -898,6 +1142,16 @@ window.startAnomalyMode = function(cfg) {
     const go = () => {
         if (started) return; started = true;
         if (state.anomalyGame !== gameObj || gameObj.finished) return;
+        window.anomalyAudio.unlock();
+        const failed = window.preloadAnomalyAssets(gameObj.theme).failed || [];
+        const cont = document.getElementById('anomaly-canvas-container');
+        if (failed.length && cont) {
+            console.warn('Fichiers introuvables :', failed);
+            const bn = document.createElement('div');
+            bn.className = 'absolute bottom-2 left-2 z-20 bg-red-950/90 border border-red-500/50 text-red-200 text-[10px] px-2 py-1 rounded-lg max-w-[92%] pointer-events-none';
+            bn.textContent = '⚠ Fichiers introuvables (vérifie qu\'ils sont sur GitHub) : ' + failed.join(', ');
+            cont.appendChild(bn);
+        }
         tick();
         gameObj.timerInterval = setInterval(tick, 1000);
         setupAnomalyStage(10);
@@ -948,6 +1202,8 @@ window.setupAnomalyStage = function(spawnZ) {
 
             const stageDisplay = document.getElementById('anomaly-stage-display');
             if (stageDisplay) stageDisplay.innerText = `Sortie ${state.anomalyGame.stage}`;
+            const hudStage = document.getElementById('anomaly-hud-stage');
+            if (hudStage) hudStage.innerText = state.anomalyGame.stage;
 
             const hintBanner = document.getElementById('anomaly-hint-banner');
             if (hintBanner) {
@@ -993,6 +1249,7 @@ window.anomalyResize = function() {
 }
 
 window.anomalyRequestLock = function() {
+            if (window.anomalyAudio) window.anomalyAudio.unlock();
             const container = document.getElementById('anomaly-canvas-container');
             if (container) {
                 try { container.requestPointerLock(); } catch(e) {}
@@ -1005,6 +1262,9 @@ window.handleKeyDown = function(e) {
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;
             if (e.key.startsWith('Arrow')) e.preventDefault();
             const key = e.key.toLowerCase();
+            if (window.anomalyAudio) window.anomalyAudio.unlock();
+            if (key === 'f' && !e.repeat) { window.anomalyToggleFullscreen(); return; }
+            if (key === 'm' && !e.repeat) { window.anomalyToggleMute(); return; }
             if (key === 'w' || key === 'z' || key === 'arrowup') state.anomalyGame.keys['forward'] = true;
             if (key === 's' || key === 'arrowdown') state.anomalyGame.keys['backward'] = true;
             if (key === 'a' || key === 'q' || key === 'arrowleft') state.anomalyGame.keys['left'] = true;
@@ -1044,6 +1304,8 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 window.addEventListener('keyup', handleKeyUp);
                 document.addEventListener('mousemove', anomalyMouseMove);
                 window.addEventListener('resize', window.anomalyResize);
+                document.addEventListener('fullscreenchange', window.anomalyOnFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', window.anomalyOnFullscreenChange);
                 window.anomalyEventsBound = true;
             }
 
@@ -1256,6 +1518,9 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 });
             }
 
+            window.anomalyAudio.onScene({ theme: currentTheme, hasAnomaly: !!anomalyDef, sfx: anomalyDef && anomalyDef.sfx, blackout: isBlackout, stage: state.anomalyGame.stage });
+            let lastStep = 0;
+
             const clock = new THREE.Clock();
             const flickerLight = S.lamps[2] ? S.lamps[2].light : null;
             let flickerUntil = 0, nextFlicker = Date.now() + 2000;
@@ -1264,7 +1529,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             const hitCollider = (x, z) => S.colliders.some(c => x > c.minX - 0.35 && x < c.maxX + 0.35 && z > c.minZ - 0.35 && z < c.maxZ + 0.35);
 
             const loop = function() {
-                if (document.getElementById('screen-generic-game').classList.contains('hidden') || g.finished) return;
+                if (document.getElementById('screen-generic-game').classList.contains('hidden') || g.finished) { window.anomalyAudio.stopAll(); return; }
 
                 const delta = Math.min(clock.getDelta(), 0.1);
                 const t = clock.elapsedTime;
@@ -1306,7 +1571,11 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
                 const nz = g.playerZ + dz;
                 if (stuck || !hitCollider(g.playerX, nz)) g.playerZ = nz;
 
-                if (isMoving) g.walkTime += speed * 2;
+                if (isMoving) {
+                    g.walkTime += speed * 2;
+                    const stepIdx = Math.floor(g.walkTime / Math.PI);
+                    if (stepIdx !== lastStep) { lastStep = stepIdx; window.anomalyAudio.step(currentTheme, !!g.keys['shift']); }
+                }
                 camera.position.x = g.playerX;
                 camera.position.z = g.playerZ;
                 const throb = P.camThrob ? Math.sin(Date.now() * 0.005) * P.camThrob : 0;
@@ -1347,9 +1616,10 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
 
                     if (g.stage >= g.targetStages) { finishAnomalyGame(); return; }
 
+                    window.anomalyAudio.play(success ? 'chime' : 'fail');
                     triggerBlinkTransition(() => {
                         g.isTransitioning = false;
-                        setupAnomalyStage(wentForward ? 10 : -19);
+                        setupAnomalyStage(wentForward ? 10 : -12);
                     });
                     return;
                 }
@@ -1367,6 +1637,7 @@ window.finishAnomalyGame = function() {
     clearInterval(g.timerInterval);
     if (document.pointerLockElement) document.exitPointerLock();
     if (state.anomalyData.animId) cancelAnimationFrame(state.anomalyData.animId);
+    window.anomalyAudio.stopAll();
 
     // Score calculé par l'hôte quand tout le monde a fini : ici on envoie seulement notre progression
     window.anomalyPushProgress(true);
