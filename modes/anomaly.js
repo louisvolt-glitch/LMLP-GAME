@@ -38,21 +38,21 @@ const MODELS = {
 const THEMES_CONFIG = {
     metro: {
         pbr: true, texDir: 'metro',
-        hdr: 'metro_vijzelgracht_2k.hdr', envIntensity: 0.55,
+        hdr: 'metro.hdr', envIntensity: 0.55,
         fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
         lightColor: 0xfffbeb, fogColor: 0x0c1118, fogNear: 5, fogFar: 26, ambient: 0.05,
         posters: true, anomalies: {}
     },
     hopital: {
         pbr: true, texDir: 'hospital',
-        hdr: 'hospital_room_2_2k.hdr', envIntensity: 0.5,
+        hdr: 'hopital.hdr', envIntensity: 0.5,
         fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
         lightColor: 0xe0f2fe, fogColor: 0x0b1411, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
     },
     hotel: {
         pbr: true, texDir: 'hotel',
-        hdr: 'entrance_hall_2k.hdr', envIntensity: 0.45,
+        hdr: 'hotel.hdr', envIntensity: 0.45,
         fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
         lightColor: 0xffedd5, fogColor: 0x140c08, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
