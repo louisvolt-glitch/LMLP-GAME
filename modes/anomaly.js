@@ -38,21 +38,21 @@ const MODELS = {
 const THEMES_CONFIG = {
     metro: {
         pbr: true, texDir: 'metro',
-        hdr: 'metro.hdr', envIntensity: 0.55,
+        hdr: 'metro_vijzelgracht_2k.hdr', envIntensity: 0.55,
         fallback: { wall: 0xd8dde3, floor: 0x7c828a, ceiling: 0x2b3340 },
         lightColor: 0xfffbeb, fogColor: 0x0c1118, fogNear: 5, fogFar: 26, ambient: 0.05,
         posters: true, anomalies: {}
     },
     hopital: {
         pbr: true, texDir: 'hospital',
-        hdr: 'hopital.hdr', envIntensity: 0.5,
+        hdr: 'hospital_room_2_2k.hdr', envIntensity: 0.5,
         fallback: { wall: 0xcfd8dc, floor: 0x9aa7ad, ceiling: 0xd1d5db },
         lightColor: 0xe0f2fe, fogColor: 0x0b1411, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
     },
     hotel: {
         pbr: true, texDir: 'hotel',
-        hdr: 'hotel.hdr', envIntensity: 0.45,
+        hdr: 'entrance_hall_2k.hdr', envIntensity: 0.45,
         fallback: { wall: 0x8d6e63, floor: 0x5b2c2c, ceiling: 0x78716c },
         lightColor: 0xffedd5, fogColor: 0x140c08, fogNear: 4, fogFar: 24, ambient: 0.05,
         posters: false, anomalies: {}
@@ -361,20 +361,30 @@ const pbrCache = {};
 window.loadPBRTexture = function(url, rx, ry, isColor) {
     const key = url + '|' + rx + '|' + ry;
     if (pbrCache[key]) return pbrCache[key];
-    const tex = textureLoader.load(url, undefined, undefined, () => {
+    const tex = textureLoader.load(url, () => {
+        tex._pbr.loaded = true;
+        tex._pbr.waiters.splice(0).forEach(f => f(true));
+    }, undefined, () => {
         tex._pbr.failed = true;
         (tex._pbr.users || []).forEach(u => {          // retire la texture manquante des matériaux déjà créés
             u.mat[u.prop] = null;
             if (u.prop === 'map') u.mat.color.setHex(u.fallback);
             u.mat.needsUpdate = true;
         });
+        tex._pbr.waiters.splice(0).forEach(f => f(false));
     });
-    tex._pbr = { failed: false, users: [] };   // THREE r128 : pas de champ userData sur les textures
+    tex._pbr = { failed: false, loaded: false, users: [], waiters: [] };   // THREE r128 : pas de champ userData sur les textures
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(rx, ry);
     if (isColor) tex.encoding = THREE.sRGBEncoding;
     pbrCache[key] = tex;
     return tex;
+};
+
+window.whenTextureReady = function(tex, cb) {
+    if (tex._pbr.loaded) cb(true);
+    else if (tex._pbr.failed) cb(false);
+    else tex._pbr.waiters.push(cb);
 };
 
 window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallbackColor) {
@@ -398,33 +408,26 @@ window.makeSurfaceMaterial = function(theme, surface, rx, ry, rotation, fallback
 // --- Modèles 3D (GLTF) : ./models/<chemin de MODELS> ---
 // Chargé une seule fois, puis cloné à chaque couloir. Si le fichier est absent, le jeu continue sans l'objet.
 const modelCache = {};
-window.loadGLTFModel = function(key, cb) {
+window.loadGLTFModel = function(key, cb, onFail) {
     const spec = MODELS[key];
-    if (!spec) return;
+    if (!spec) { if (onFail) onFail(); return; }
     const m = modelCache[key];
-    if (m && m.failed) return;
+    if (m && m.failed) { if (onFail) onFail(); return; }
     if (m && m.obj) { cb(m.obj.clone(true)); return; }
-    if (m) { m.waiting.push(cb); return; }
-    if (!THREE.GLTFLoader) { modelCache[key] = { failed: true }; return; }
-    const entry = modelCache[key] = { obj: null, failed: false, waiting: [cb] };
+    if (m) { m.waiting.push(cb); if (onFail) m.failWaiting.push(onFail); return; }
+    if (!THREE.GLTFLoader) { modelCache[key] = { failed: true }; if (onFail) onFail(); return; }
+    const entry = modelCache[key] = { obj: null, failed: false, waiting: [cb], failWaiting: onFail ? [onFail] : [] };
     new THREE.GLTFLoader().load(`./models/${spec.path}`, gltf => {
         gltf.scene.traverse(c => { c.userData.keep = true; });   // ressources partagées : ne pas les détruire au nettoyage
         entry.obj = gltf.scene;
-        entry.waiting.forEach(f => f(entry.obj.clone(true)));
-        entry.waiting = [];
+        const w = entry.waiting; entry.waiting = []; entry.failWaiting = [];
+        w.forEach(f => f(entry.obj.clone(true)));
     }, undefined, err => {
-        entry.failed = true; entry.waiting = [];
+        entry.failed = true;
+        const fw = entry.failWaiting; entry.waiting = []; entry.failWaiting = [];
         console.warn('Modèle 3D introuvable (ignoré) :', spec.path, err && err.message);
+        fw.forEach(f => f());
     });
-};
-
-// Précharge les modèles et l'éclairage HDR d'un décor pendant que le joueur lit l'écran
-window.preloadAnomalyTheme = function(theme) {
-    (PROP_LAYOUT[theme] || []).forEach(d => {
-        if (!MODELS[d.k] || (modelCache[d.k] && (modelCache[d.k].obj || modelCache[d.k].failed))) return;
-        if (!modelCache[d.k]) window.loadGLTFModel(d.k, () => {});
-    });
-    ['wet', 'bin', 'sofa', 'wheelchair'].forEach(k => { if (!modelCache[k]) window.loadGLTFModel(k, () => {}); });
 };
 
 // --- Éclairage HDR (./hdr/*.hdr) : reflets et lumière d'ambiance réalistes ---
@@ -441,25 +444,134 @@ window.ensureRGBELoader = function(cb) {
     s.onerror = () => done(false);
     document.head.appendChild(s);
 };
-window.loadThemeEnvironment = function(theme, cb) {
+window.loadThemeEnvironment = function(theme, cb, onFail) {
     const file = THEMES_CONFIG[theme] && THEMES_CONFIG[theme].hdr;
-    const renderer = state.anomalyData.renderer;
-    if (!file || !renderer) return;
+    const renderer = window.ensureAnomalyRenderer();
+    if (!file || !renderer) { if (onFail) onFail(); return; }
     const c = envCache[theme];
     if (c && c.tex) { cb(c.tex); return; }
-    if (c && c.waiting) { c.waiting.push(cb); return; }
-    const entry = envCache[theme] = { tex: null, waiting: [cb] };
+    if (c && c.failed) { if (onFail) onFail(); return; }
+    if (c) { c.waiting.push(cb); if (onFail) c.failWaiting.push(onFail); return; }
+    const entry = envCache[theme] = { tex: null, failed: false, waiting: [cb], failWaiting: onFail ? [onFail] : [] };
+    const fail = () => { entry.failed = true; const fw = entry.failWaiting; entry.waiting = []; entry.failWaiting = []; fw.forEach(f => f()); };
     window.ensureRGBELoader(ok => {
-        if (!ok) { entry.waiting = []; return; }
+        if (!ok) { fail(); return; }
         envPmrem = envPmrem || new THREE.PMREMGenerator(renderer);
         new THREE.RGBELoader().setDataType(THREE.UnsignedByteType).load(`./hdr/${file}`, hdr => {
             const rt = envPmrem.fromEquirectangular(hdr);
             hdr.dispose();
             entry.tex = rt.texture;
-            entry.waiting.forEach(f => f(entry.tex));
-            entry.waiting = [];
-        }, undefined, err => { entry.waiting = []; console.warn('HDR introuvable (ignoré) :', file, err && err.message); });
+            const w = entry.waiting; entry.waiting = []; entry.failWaiting = [];
+            w.forEach(f => f(entry.tex));
+        }, undefined, err => { console.warn('HDR introuvable (ignoré) :', file, err && err.message); fail(); });
     });
+};
+
+// --- Renderer WebGL unique (créé tôt pour pouvoir envoyer les textures au GPU pendant le chargement) ---
+window.ensureAnomalyRenderer = function() {
+    state.anomalyData = state.anomalyData || {};
+    if (!state.anomalyData.renderer) {
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.domElement.style.display = 'block';
+        state.anomalyData.renderer = renderer;
+    }
+    return state.anomalyData.renderer;
+};
+
+// --- PRÉCHARGEMENT : télécharge et envoie au GPU textures, modèles et HDR d'un décor ---
+const EXTRA_MODELS = { metro: ['bin', 'wet'], hopital: ['wheelchair', 'wet'], hotel: ['sofa', 'wet'] };
+const SURFACE_REPEATS = { wall: [37, 2], floor: [4, 34], ceiling: [3, 26] };
+const preloadJobs = {};
+const TEX_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'bumpMap', 'alphaMap'];
+
+window.preloadAnomalyAssets = function(theme, onProgress, onDone) {
+    if (!THEMES_CONFIG[theme]) theme = 'metro';
+    let job = preloadJobs[theme];
+    if (!job) { job = preloadJobs[theme] = { done: false, ratio: 0, text: 'Chargement...', progress: [], finish: [] }; runAnomalyPreload(theme, job); }
+    if (onProgress) { job.progress.push(onProgress); onProgress(job.ratio, job.text); }
+    if (onDone) { if (job.done) onDone(); else job.finish.push(onDone); }
+    return job;
+};
+
+function runAnomalyPreload(theme, job) {
+    const renderer = window.ensureAnomalyRenderer();
+    const themeData = THEMES_CONFIG[theme];
+    const uploads = new Set();
+    let total = 0, done = 0, finished = false;
+
+    const report = (text) => {
+        if (text) job.text = text;
+        job.ratio = total ? Math.min(0.8, 0.8 * done / total) : 0;
+        job.progress.forEach(f => f(job.ratio, job.text));
+    };
+    const complete = () => {
+        if (job.done) return;
+        job.done = true; job.ratio = 1; job.text = 'Prêt !';
+        job.progress.forEach(f => f(1, job.text));
+        const fin = job.finish; job.finish = []; fin.forEach(f => f());
+    };
+    const warmUp = () => {
+        if (finished) return; finished = true;
+        const list = Array.from(uploads);
+        let i = 0;
+        const next = () => {
+            if (i >= list.length) { complete(); return; }
+            try { if (renderer.initTexture) renderer.initTexture(list[i]); } catch (e) { /* ignoré */ }
+            i++;
+            job.ratio = 0.8 + 0.2 * i / list.length;
+            job.text = 'Préparation de la carte graphique...';
+            job.progress.forEach(f => f(job.ratio, job.text));
+            setTimeout(next, 0);
+        };
+        next();
+    };
+    const step = () => { done++; report(); if (done >= total) warmUp(); };
+
+    // textures du couloir
+    if (themeData.pbr) {
+        const maxAniso = renderer.capabilities.getMaxAnisotropy();
+        Object.keys(SURFACE_REPEATS).forEach(surface => {
+            const [rx, ry] = SURFACE_REPEATS[surface];
+            [['color', true], ['normal', false], ['rough', false]].forEach(([file, isColor]) => {
+                total++;
+                const tex = window.loadPBRTexture(`./textures/${themeData.texDir || theme}/${surface}_${file}.jpg`, rx, ry, isColor);
+                tex.anisotropy = maxAniso;
+                window.whenTextureReady(tex, ok => { if (ok) uploads.add(tex); step(); });
+            });
+        });
+    }
+    // modèles 3D
+    const keys = new Set((PROP_LAYOUT[theme] || []).map(d => d.k));
+    (EXTRA_MODELS[theme] || []).forEach(k => keys.add(k));
+    keys.forEach(k => {
+        if (!MODELS[k]) return;
+        total++;
+        window.loadGLTFModel(k, obj => {
+            obj.traverse(m => {
+                if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+                TEX_SLOTS.forEach(slot => { if (m.material[slot] && m.material[slot].image) uploads.add(m.material[slot]); });
+            });
+            step();
+        }, step);
+    });
+    // éclairage HDR
+    if (themeData.hdr) { total++; window.loadThemeEnvironment(theme, step, step); }
+
+    report('Chargement du décor...');
+    if (!total) { complete(); return; }
+    setTimeout(() => { if (!finished) { console.warn('Préchargement trop long : on lance la partie quand même.'); warmUp(); } }, 45000);
+}
+
+// Appelé dès que l'hôte choisit le mode Anomalies : commence à télécharger pendant l'attente au salon
+let warmTimer = null, warmTheme = null;
+window.warmupAnomaly = function(theme) {
+    if (!theme || !THEMES_CONFIG[theme] || preloadJobs[theme]) return;
+    warmTheme = theme; clearTimeout(warmTimer);
+    warmTimer = setTimeout(() => { if (warmTheme === theme) window.preloadAnomalyAssets(theme); }, 2000);
 };
 
 // Moquette rayée générée par le code (décor sans textures) : tourne de 90° pour l'anomalie « Hôtel 1 »
@@ -732,7 +844,13 @@ window.startAnomalyMode = function(cfg) {
             </div>
             <div id="anomaly-progress" class="flex flex-wrap gap-2 px-2 text-[11px] font-mono"></div>
 
-            <div id="anomaly-canvas-container" class="relative cursor-pointer rounded-xl overflow-hidden shadow-2xl border border-slate-700">
+            <div id="anomaly-canvas-container" class="relative cursor-pointer rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-black" style="width:100%;height:clamp(380px,70vh,720px)">
+                <div id="anomaly-loading" class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-950 px-6 text-center transition-opacity duration-500">
+                    <div class="text-lg font-black text-indigo-300 tracking-wide"><i class="fa-solid fa-door-open mr-2"></i>Chargement du couloir...</div>
+                    <div class="w-64 max-w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div id="anomaly-loading-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width:0%"></div></div>
+                    <div id="anomaly-loading-text" class="text-[11px] text-slate-400 font-mono">Chargement du décor...</div>
+                    <div id="anomaly-loading-tip" class="text-xs text-slate-300 max-w-sm leading-relaxed"></div>
+                </div>
                 <div class="absolute top-2 left-2 z-10 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 text-[10px] text-slate-300 pointer-events-none">
                     <i class="fa-solid fa-mouse mr-1 text-indigo-400"></i> Cliquez pour capturer la souris
                 </div>
@@ -760,11 +878,41 @@ window.startAnomalyMode = function(cfg) {
         }
         if (g.timeLeft <= 0) finishAnomalyGame();
     };
-    tick();
-    state.anomalyGame.timerInterval = setInterval(tick, 1000);
+    // Le chrono et la partie ne démarrent qu'une fois tout chargé (le temps de chargement n'est pas décompté)
+    const gameObj = state.anomalyGame;
+    const timerEl0 = document.getElementById('generic-game-timer');
+    if (timerEl0) {
+        const m0 = Math.floor(gameObj.timeLeft / 60), s0 = gameObj.timeLeft % 60;
+        timerEl0.innerText = `Temps : ${m0}:${s0 < 10 ? '0' : ''}${s0}`;
+    }
+    const tips = [
+        "Observez bien la sortie 0 : c'est la référence, elle ne contient aucune anomalie.",
+        "Une anomalie ? Faites demi-tour. Tout est normal ? Avancez.",
+        "Les détails comptent : objets, lumières, textures, taille du couloir.",
+        "Une erreur et vous retournez à la sortie 0."
+    ];
+    const tipEl = document.getElementById('anomaly-loading-tip');
+    if (tipEl) tipEl.innerText = tips[Math.floor(Math.random() * tips.length)];
 
-    window.preloadAnomalyTheme(state.anomalyGame.theme);
-    setupAnomalyStage(10);
+    let started = false;
+    const go = () => {
+        if (started) return; started = true;
+        if (state.anomalyGame !== gameObj || gameObj.finished) return;
+        tick();
+        gameObj.timerInterval = setInterval(tick, 1000);
+        setupAnomalyStage(10);
+        setTimeout(() => {                       // laisse la première image se dessiner avant de retirer l'écran de chargement
+            const o = document.getElementById('anomaly-loading');
+            if (!o) return;
+            o.style.opacity = '0';
+            setTimeout(() => { if (o.parentNode) o.parentNode.removeChild(o); }, 600);
+        }, 900);
+    };
+    window.preloadAnomalyAssets(gameObj.theme, (ratio, text) => {
+        const bar = document.getElementById('anomaly-loading-bar'), txt = document.getElementById('anomaly-loading-text');
+        if (bar) bar.style.width = Math.round(ratio * 100) + '%';
+        if (txt) txt.innerText = `${text} ${Math.round(ratio * 100)} %`;
+    }, go);
 }
 
 window.triggerBlinkTransition = function(callback) {
@@ -900,14 +1048,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
             }
 
             // GESTION DU MOTEUR : un seul renderer réutilisé, replacé dans le nouveau conteneur à chaque partie
-            if (!state.anomalyData.renderer) {
-                const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                renderer.outputEncoding = THREE.sRGBEncoding;
-                renderer.toneMapping = THREE.ACESFilmicToneMapping;
-                renderer.toneMappingExposure = 1.0;
-                state.anomalyData.renderer = renderer;
-            }
+            window.ensureAnomalyRenderer();
             if (state.anomalyData.renderer.domElement.parentNode !== container) {
                 container.insertBefore(state.anomalyData.renderer.domElement, container.firstChild);
             }
@@ -1024,9 +1165,12 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
 
             // ---- PANNEAU DE SORTIE ----
             const signTex = createStageSignTexture(state.anomalyGame.stage, P.satanic, 12);
-            const signMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 0.1), new THREE.MeshBasicMaterial({ map: signTex }));
-            signMesh.position.set(0, ceilingHeight - 0.5, -24);
-            corridorGroup.add(signMesh);
+            const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+            [0, Math.PI].forEach(ry => {            // une face de chaque côté (visible dans les deux sens)
+                const sg = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), signMat);
+                sg.rotation.y = ry; sg.position.set(0, ceilingHeight - 0.5, ry ? -25.02 : -25);
+                corridorGroup.add(sg);
+            });
 
             // ---- OBJETS 3D ----
             const v3 = () => new THREE.Vector3();
@@ -1205,7 +1349,7 @@ window.initThreeAnomalyScene = function(hasAnomaly, anomalyId) {
 
                     triggerBlinkTransition(() => {
                         g.isTransitioning = false;
-                        setupAnomalyStage(wentForward ? 10 : -24);
+                        setupAnomalyStage(wentForward ? 10 : -19);
                     });
                     return;
                 }
