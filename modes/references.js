@@ -181,6 +181,7 @@ window.renderReferencesScreen = function(data) {
         window.startReferencesMode(g);
     }
     referencesUpdateHud(data);
+    if (window.referencesState && window.referencesState.finished) referencesUpdateSpectator(data);
     if (window.isHost) referencesHostAdvance(data);
 };
 
@@ -196,6 +197,45 @@ function referencesUpdateHud(data) {
         const hearts = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, REFERENCES_LIVES - lives));
         return `<span class="px-2 py-1 rounded-lg border ${pr.done ? 'border-emerald-500/50 text-emerald-300' : 'border-slate-700 text-slate-300'} bg-slate-900/70">
             ${refEsc(p.name)} : ${pr.found || 0}/${set.refs.length} ${hearts} ${pr.done ? '✓' : ''}</span>`;
+    }).join('');
+}
+
+// Joueur éliminé / ayant fini : regarde la partie des autres en direct
+function referencesUpdateSpectator(data) {
+    const rs = window.referencesState;
+    const tabs = document.getElementById('ref-spec-tabs');
+    const info = document.getElementById('ref-spec-info');
+    const marks = document.getElementById('ref-spec-marks');
+    const g = data && data.referencesGame;
+    if (!rs || !tabs || !info || !marks || !g) return;
+    const me = window.myPlayerKey || state.username;
+    const progress = g.progress || {};
+    const others = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot && p.name !== me).map(p => p.name);
+
+    if (!others.length) { tabs.innerHTML = ''; info.textContent = "Vous êtes le seul joueur de cette partie."; marks.innerHTML = ''; return; }
+    if (!rs.watch || others.indexOf(rs.watch) < 0) {
+        rs.watch = others.find(n => !(progress[n] && progress[n].done)) || others[0];
+    }
+    tabs.innerHTML = others.map(n => {
+        const pr = progress[n] || {};
+        const on = n === rs.watch;
+        return `<button data-watch="${refEsc(n)}" class="px-3 py-1.5 rounded-lg border ${on ? 'bg-indigo-600 border-indigo-300 text-white' : 'bg-slate-900 border-slate-600 text-slate-300 hover:bg-slate-800'}">
+            ${refEsc(n)} · ${pr.found || 0}/${rs.set.refs.length} ${pr.done ? '✓' : '●'}</button>`;
+    }).join('');
+
+    const pr = progress[rs.watch] || {};
+    const lives = pr.lives == null ? REFERENCES_LIVES : pr.lives;
+    const hearts = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, REFERENCES_LIVES - lives));
+    info.innerHTML = `<b class="text-slate-100">${refEsc(rs.watch)}</b> ${hearts} · Trouvées : <b class="text-emerald-400">${pr.found || 0}</b> · Score : <b class="text-amber-400">${pr.score || 0}</b> · ${pr.done ? '<span class="text-emerald-300">a terminé</span>' : '<span class="text-amber-300">en cours…</span>'}`;
+
+    const ids = pr.ids ? (Array.isArray(pr.ids) ? pr.ids : Object.values(pr.ids)) : [];
+    const W = rs.set.w, H = rs.set.h;
+    marks.innerHTML = ids.map(id => {
+        const r = rs.set.refs.find(x => x.id === Number(id));
+        if (!r) return '';
+        const [x0, y0, x1, y1] = r.rect;
+        return `<div style="position:absolute;left:${x0 / W * 100}%;top:${y0 / H * 100}%;width:${(x1 - x0) / W * 100}%;height:${(y1 - y0) / H * 100}%;border:2px solid #34d399;border-radius:10px;background:rgba(52,211,153,.18);box-shadow:0 0 10px #34d399">
+            <span style="position:absolute;left:50%;top:100%;transform:translate(-50%,2px);white-space:nowrap;font:bold 11px sans-serif;color:#052e16;background:#6ee7b7;padding:1px 6px;border-radius:6px">${refEsc(r.name)}</span></div>`;
     }).join('');
 }
 
@@ -483,22 +523,34 @@ function referencesFinish(reason) {
     if (reason === 'all') rs.score += Math.max(0, rs.timeLeft) * REFERENCES_FINISH_BONUS;
     referencesPushProgress(true);
 
-    const missed = rs.set.refs.filter(r => !rs.found[r.id]);
     const why = reason === 'all' ? '🎉 Toutes les références trouvées !' : reason === 'lives' ? '💀 Plus de vies' : "⏰ Temps écoulé";
+    rs.watch = null;
     const content = document.getElementById('generic-game-content');
     if (content) {
         content.innerHTML = `
-            <div class="max-w-2xl mx-auto p-6 bg-slate-900 border border-slate-700 rounded-2xl text-center space-y-3">
-                <div class="text-2xl font-black text-emerald-400">${why}</div>
-                <div class="text-sm text-slate-300">Références trouvées : <b class="text-amber-400">${rs.order.length} / ${rs.set.refs.length}</b> · Score : <b class="text-amber-400">${rs.score}</b></div>
-                ${missed.length ? `<div class="text-[11px] text-slate-400 text-left border-t border-slate-700 pt-3">
-                    <div class="font-bold text-slate-300 mb-1">Références manquées :</div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">${missed.map(r => `<div>#${r.id} <b class="text-slate-200">${refEsc(r.name)}</b> — ${refEsc(r.item)}</div>`).join('')}</div>
-                </div>` : ''}
-                <div class="text-amber-400 animate-pulse text-sm"><i class="fa-solid fa-hourglass-half"></i> En attente des autres joueurs...</div>
-                <div id="ref-players" class="flex flex-wrap gap-2 justify-center text-[11px] font-mono"></div>
+            <div id="ref-spec" class="w-full max-w-6xl mx-auto space-y-2">
+                <div class="p-3 bg-slate-900 border border-slate-700 rounded-2xl text-center space-y-1">
+                    <div class="text-xl font-black text-emerald-400">${why}</div>
+                    <div class="text-sm text-slate-300">Vos références : <b class="text-amber-400">${rs.order.length} / ${rs.set.refs.length}</b> · Score : <b class="text-amber-400">${rs.score}</b></div>
+                    <div class="text-amber-400 animate-pulse text-xs"><i class="fa-solid fa-hourglass-half"></i> En attente des autres joueurs : regardez leur partie en direct</div>
+                </div>
+                <div id="ref-spec-tabs" class="flex flex-wrap gap-2 justify-center text-xs font-mono"></div>
+                <div id="ref-spec-info" class="text-center text-xs text-slate-300"></div>
+                <div class="relative w-full overflow-auto rounded-2xl border border-slate-700 bg-black" style="max-height:68vh">
+                    <div class="relative" style="width:100%">
+                        <img src="${refEsc(rs.set.src)}" alt="Partie en direct" draggable="false" class="block w-full h-auto" style="user-select:none">
+                        <div id="ref-spec-marks" class="absolute inset-0" style="pointer-events:none"></div>
+                    </div>
+                </div>
             </div>`;
-        if (window.latestReferencesData) referencesUpdateHud(window.latestReferencesData);
+        const tabs = document.getElementById('ref-spec-tabs');
+        if (tabs) tabs.addEventListener('click', e => {
+            const b = e.target.closest ? e.target.closest('[data-watch]') : null;
+            if (!b) return;
+            rs.watch = b.getAttribute('data-watch');
+            if (window.latestReferencesData) referencesUpdateSpectator(window.latestReferencesData);
+        });
+        if (window.latestReferencesData) referencesUpdateSpectator(window.latestReferencesData);
     }
     const t = document.getElementById('generic-game-timer'); if (t) t.innerText = 'Terminé';
 }
@@ -509,7 +561,7 @@ function referencesPushProgress(done) {
     const rs = window.referencesState;
     if (!code || !me || !rs || !window.update) return;
     window.update(window.ref(window.db, `salons/${code}`), {
-        [`referencesGame/progress/${me}`]: { found: rs.order.length, lives: Math.max(0, rs.lives), score: rs.score, done: !!done }
+        [`referencesGame/progress/${me}`]: { found: rs.order.length, lives: Math.max(0, rs.lives), score: rs.score, done: !!done, ids: rs.order.slice() }
     }).catch(err => console.error('Progression Références non envoyée :', err));
 }
 window.referencesPushProgress = referencesPushProgress;
