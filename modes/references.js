@@ -1,5 +1,5 @@
 // =====================================================================
-//  MODE « RÉFÉRENCES » : une image, 35 références de jeux vidéo.
+//  MODE « RÉFÉRENCES » : une image, des références de jeux vidéo.
 //  Cliquez sur une référence, nommez le jeu. 3 vies, une erreur = une vie perdue.
 //  Chaque joueur joue en parallèle sur la même image ; l'hôte calcule le classement.
 // =====================================================================
@@ -24,11 +24,11 @@ const REFERENCES_SETS = [
             { id: 8,  name: 'God of War',           item: 'Poster',          rect: [545, 0, 648, 300],    aliases: ['god of war', 'god of war ragnarok', 'god of war 2018', 'gow', 'kratos'] },
             { id: 9,  name: 'Super Mario Bros.',    item: 'Champignon',      rect: [632, 322, 708, 408],  aliases: ['mario bros', 'super mario bros', 'super mario', 'mario', 'super mario bros 3', 'super mario world', 'super mario 64', 'super mario odyssey', 'new super mario bros', 'mario kart'] },
             { id: 10, name: 'Fallout',              item: 'Figurine',        rect: [825, 528, 873, 650],  aliases: ['fallout', 'fallout 3', 'fallout 4', 'fallout new vegas', 'fallout 76', 'fallout shelter', 'vault boy'] },
-            { id: 11, name: 'Final Fantasy VII',    item: 'Épée',            rect: [515, 675, 586, 895],  aliases: ['final fantasy', 'final fantasy 7', 'final fantasy vii', 'ff7', 'ffvii', 'ff 7', 'ff', 'final fantasy 7 remake', 'final fantasy vii remake', 'final fantasy vii rebirth', 'final fantasy 7 rebirth', 'final fantasy vii crisis core', 'crisis core'] },
+            { id: 11, name: 'Final Fantasy VII',    item: 'Épée',            rect: [515, 675, 578, 895],  aliases: ['final fantasy', 'final fantasy 7', 'final fantasy vii', 'ff7', 'ffvii', 'ff 7', 'ff', 'final fantasy 7 remake', 'final fantasy vii remake', 'final fantasy vii rebirth', 'final fantasy 7 rebirth', 'final fantasy vii crisis core', 'crisis core'] },
             { id: 12, name: 'Elden Ring',           item: 'Poster',          rect: [680, 778, 820, 990],  aliases: ['elden ring', 'eldenring', 'elden ring shadow of the erdtree', 'elden ring nightreign'] },
             { id: 13, name: 'Persona 5',            item: 'Masque de Joker', rect: [758, 745, 882, 832],  aliases: ['persona', 'persona 5', 'persona 5 royal', 'persona 5 strikers', 'persona 5 tactica', 'persona5', 'p5', 'p5r', 'persona 4', 'persona 3'] },
             { id: 14, name: 'The Last of Us',       item: 'Poster',          rect: [905, 805, 1068, 1056],aliases: ['the last of us', 'last of us', 'tlou', 'the last of us 2', 'the last of us part ii', 'the last of us part 2', 'last of us 2', 'tlou2', 'tlou 2', 'the last of us part i', 'the last of us part 1'] },
-            { id: 15, name: 'Sonic',                item: 'Anneau doré',     rect: [1046, 984, 1104, 1034], aliases: ['sonic', 'sonic the hedgehog', 'sonic mania', 'sonic frontiers', 'sonic adventure', 'sonic generations', 'sonic 2', 'sonic the hedgehog 2', 'sonic superstars'] },
+            { id: 15, name: 'Sonic',                item: 'Anneau doré',     rect: [722, 1028, 772, 1078], aliases: ['sonic', 'sonic the hedgehog', 'sonic mania', 'sonic frontiers', 'sonic adventure', 'sonic generations', 'sonic 2', 'sonic the hedgehog 2', 'sonic superstars'] },
             { id: 16, name: 'Among Us',             item: 'Porte-clés',      rect: [1160, 826, 1216, 906],aliases: ['among us', 'amongus', 'among'] },
             { id: 17, name: 'Red Dead Redemption',  item: 'Poster',          rect: [1130, 905, 1252, 1076],aliases: ['red dead redemption', 'red dead redemption 2', 'red dead redemption ii', 'rdr', 'rdr2', 'rdr 2', 'red dead', 'red dead 2', 'red dead online', 'arthur morgan'] },
             { id: 18, name: 'Animal Crossing',      item: 'Feuille',         rect: [1245, 920, 1492, 1062],aliases: ['animal crossing', 'animal crossing new horizons', 'acnh', 'animal crossing new leaf', 'animal crossing pocket camp', 'animalcrossing'] },
@@ -48,6 +48,8 @@ const REFERENCES_SETS = [
             { id: 32, name: 'BioShock',             item: 'Casquette « Would you kindly »', rect: [1392, 588, 1536, 692], aliases: ['bioshock', 'bio shock', 'bioshock infinite', 'bioshock 2', 'bioshock remastered'] },
             { id: 33, name: 'Doom',                 item: 'Téléviseur',      rect: [562, 418, 812, 668],  aliases: ['doom', 'doom eternal', 'doom 2016', 'doom 2', 'doom 64', 'doom the dark ages', 'the dark ages', 'doom guy'] },
             { id: 34, name: 'Amnesia',              item: 'Lanterne',        rect: [1220, 755, 1300, 925],aliases: ['amnesia', 'amnesia the dark descent', 'amnesia: the dark descent', 'amnesia the bunker', 'amnesia rebirth', 'amnesia a machine for pigs', 'amnesia dark descent', 'the dark descent'] },
+            { id: 36, name: 'The Witcher',         item: 'Épée',            rect: [1228, 248, 1340, 648], aliases: ['the witcher', 'witcher', 'the witcher 3', 'witcher 3', 'the witcher 3 wild hunt', 'witcher 3 wild hunt', 'the witcher 2', 'witcher 2', 'the witcher 1', 'wild hunt', 'geralt', 'gwent'] },
+            { id: 37, name: 'The Legend of Zelda',  item: 'Poster',          rect: [580, 748, 682, 905],   aliases: ['zelda', 'the legend of zelda', 'legend of zelda', 'breath of the wild', 'zelda breath of the wild', 'botw', 'tears of the kingdom', 'zelda tears of the kingdom', 'totk', 'ocarina of time', 'zelda ocarina of time', 'link', 'twilight princess', 'wind waker', 'links awakening', 'majoras mask', 'echoes of wisdom'] },
             { id: 35, name: 'Diablo',               item: "Pierre d'âme",    rect: [200, 655, 300, 806],  aliases: ['diablo', 'diablo 2', 'diablo 3', 'diablo 4', 'diablo iv', 'diablo ii', 'diablo iii', 'diablo immortal', 'diablo ii resurrected', 'diablo 2 resurrected'] }
         ]
     }
@@ -152,6 +154,7 @@ window.renderReferencesScreen = function(data) {
             window.referencesShownResults = sess;
             const rs = window.referencesState;
             if (rs) { rs.finished = true; clearInterval(rs.timerInterval); }
+            if (referencesFsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
             const set = refGetSet(g.setId);
             const progress = g.progress || {};
             const ranking = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot)
@@ -242,12 +245,14 @@ window.startReferencesMode = function(cfg) {
     const content = document.getElementById('generic-game-content');
     if (!content) return;
     content.innerHTML = `
-        <div class="w-full max-w-6xl mx-auto space-y-2">
-            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-2xl px-3 py-2 text-xs sm:text-sm">
+        <div id="ref-fs" class="w-full max-w-6xl mx-auto space-y-2">
+            <div id="ref-hud" class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-2xl px-3 py-2 text-xs sm:text-sm">
                 <div id="ref-lives" class="text-lg tracking-widest"></div>
                 <div class="text-slate-300">Trouvées : <b id="ref-found" class="text-emerald-400">0</b> / ${set.refs.length}</div>
                 <div class="text-slate-300">Score : <b id="ref-score" class="text-amber-400">0</b></div>
+                <div class="text-amber-400 font-mono font-bold" id="ref-timer"></div>
                 <div class="flex gap-1">
+                    <button id="ref-fullscreen" class="px-2 py-1 rounded-lg bg-indigo-700 hover:bg-indigo-600 text-white border border-indigo-400" title="Plein écran">⛶ Plein écran</button>
                     <button id="ref-zoom-out" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600" title="Dézoomer">🔍−</button>
                     <button id="ref-zoom-in" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600" title="Zoomer">🔍+</button>
                 </div>
@@ -262,7 +267,6 @@ window.startReferencesMode = function(cfg) {
             <div id="ref-error" class="hidden p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-200 text-xs text-center"></div>
             <div id="ref-players" class="flex flex-wrap gap-2 justify-center text-[11px] font-mono"></div>
             <div id="ref-list" class="flex flex-wrap gap-1.5 justify-center text-[11px]"></div>
-        </div>
         <div id="ref-prompt" class="hidden fixed left-1/2 bottom-4 z-50 w-[92vw] max-w-md -translate-x-1/2 p-3 rounded-2xl bg-slate-900 border border-indigo-400/60 shadow-2xl space-y-2">
             <div class="text-xs text-indigo-200 font-bold">De quel jeu vidéo s'agit-il ?</div>
             <div class="flex gap-2">
@@ -270,7 +274,9 @@ window.startReferencesMode = function(cfg) {
                 <button id="ref-submit" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">Valider</button>
                 <button id="ref-cancel" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm">✕</button>
             </div>
-        </div>`;
+        </div>
+        </div>
+`;
 
     const stage = document.getElementById('ref-stage');
     const img = document.getElementById('ref-img');
@@ -279,6 +285,13 @@ window.startReferencesMode = function(cfg) {
         if (er) { er.classList.remove('hidden'); er.innerHTML = `⚠️ Image introuvable : <b>${refEsc(set.src)}</b>. Vérifiez qu'elle est bien dans votre dépôt GitHub.`; }
     };
     stage.addEventListener('click', e => referencesOnClick(e));
+    document.getElementById('ref-fullscreen').onclick = () => referencesToggleFullscreen();
+    if (!window.referencesFsBound) {
+        window.referencesFsBound = true;
+        document.addEventListener('fullscreenchange', () => referencesLayout());
+        document.addEventListener('webkitfullscreenchange', () => referencesLayout());
+        window.addEventListener('resize', () => referencesLayout());
+    }
     document.getElementById('ref-zoom-in').onclick = () => referencesSetZoom(rs.zoom + 0.5);
     document.getElementById('ref-zoom-out').onclick = () => referencesSetZoom(rs.zoom - 0.5);
     document.getElementById('ref-submit').onclick = () => referencesSubmit();
@@ -293,6 +306,7 @@ window.startReferencesMode = function(cfg) {
 
     referencesRefresh();
     referencesRenderMarks();
+    referencesLayout();
 
     rs.timerInterval = setInterval(() => {
         if (rs.finished) { clearInterval(rs.timerInterval); return; }
@@ -305,11 +319,48 @@ window.startReferencesMode = function(cfg) {
     referencesPushProgress(false);
 };
 
+function referencesFsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+
+function referencesToggleFullscreen() {
+    const box = document.getElementById('ref-fs'); if (!box) return;
+    if (referencesFsElement()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+        const req = box.requestFullscreen || box.webkitRequestFullscreen;
+        if (req) req.call(box);
+        else referencesToast("Plein écran non disponible sur cet appareil", '#b45309');
+    }
+}
+
+// Adapte la taille de l'image (page normale ou plein écran) ; le zoom multiplie cette taille
+function referencesLayout() {
+    const rs = window.referencesState; if (!rs) return;
+    const box = document.getElementById('ref-fs'), stage = document.getElementById('ref-stage'),
+          sc = document.getElementById('ref-scroll'), hud = document.getElementById('ref-hud'),
+          btn = document.getElementById('ref-fullscreen');
+    if (!box || !stage || !sc) return;
+    const full = referencesFsElement() === box;
+    if (btn) btn.textContent = full ? '✕ Quitter' : '⛶ Plein écran';
+    if (full) {
+        box.style.cssText = 'background:#020617;width:100vw;height:100vh;max-width:none;padding:8px;display:flex;flex-direction:column;gap:6px;overflow:hidden';
+        const used = (hud ? hud.offsetHeight : 50) + 40;
+        sc.style.cssText = 'flex:1;min-height:0;max-height:none;overflow:auto;display:block';
+        const availH = Math.max(200, window.innerHeight - used - 16), availW = window.innerWidth - 16;
+        const fit = Math.min(availW, availH * rs.set.w / rs.set.h);
+        stage.style.width = Math.round(fit * rs.zoom) + 'px';
+        stage.style.margin = '0 auto';
+    } else {
+        box.style.cssText = '';
+        sc.style.cssText = 'max-height:72vh';
+        stage.style.width = (rs.zoom * 100) + '%';
+        stage.style.margin = '';
+    }
+}
+
 function referencesSetZoom(z) {
     const rs = window.referencesState; if (!rs) return;
     rs.zoom = Math.max(1, Math.min(4, z));
-    const stage = document.getElementById('ref-stage');
-    if (stage) stage.style.width = (rs.zoom * 100) + '%';
+    referencesLayout();
 }
 
 function referencesRefresh() {
@@ -318,8 +369,9 @@ function referencesRefresh() {
     if (lives) lives.innerHTML = '❤️'.repeat(Math.max(0, rs.lives)) + '🖤'.repeat(Math.max(0, REFERENCES_LIVES - rs.lives));
     const f = document.getElementById('ref-found'); if (f) f.innerText = rs.order.length;
     const sc = document.getElementById('ref-score'); if (sc) sc.innerText = rs.score;
-    const t = document.getElementById('generic-game-timer');
-    if (t) t.innerText = rs.finished ? 'Terminé' : refFmtTime(rs.timeLeft);
+    const txt = rs.finished ? 'Terminé' : refFmtTime(rs.timeLeft);
+    const t = document.getElementById('generic-game-timer'); if (t) t.innerText = txt;
+    const t2 = document.getElementById('ref-timer'); if (t2) t2.innerText = '⏱ ' + txt;
 }
 
 function referencesRenderMarks() {
@@ -385,7 +437,7 @@ function referencesToast(text, color) {
     d.id = 'ref-toast';
     d.textContent = text;
     d.style.cssText = `position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:60;padding:8px 16px;border-radius:12px;font:bold 14px sans-serif;color:#fff;background:${color};box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:none`;
-    document.body.appendChild(d);
+    (referencesFsElement() || document.body).appendChild(d);
     setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 1600);
 }
 
@@ -427,6 +479,7 @@ function referencesFinish(reason) {
     rs.finished = true;
     clearInterval(rs.timerInterval);
     referencesClosePrompt();
+    if (referencesFsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
     if (reason === 'all') rs.score += Math.max(0, rs.timeLeft) * REFERENCES_FINISH_BONUS;
     referencesPushProgress(true);
 
