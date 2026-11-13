@@ -375,6 +375,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		const justStarted = prevStatus !== data.status;
 		window._lastRoomStatus = data.status;
 
+		if (data.selectedMode === 'anomaly' && data.settings && data.settings.anomalyTheme && typeof warmupAnomaly === 'function') warmupAnomaly(data.settings.anomalyTheme);
+
                 if (data.status === 'IN_GAME') {
                     // On ne vérifie pas si le lobby est affiché, si le statut est IN_GAME on force l'affichage du jeu pour tout le monde
                     const selectedMode = data.selectedMode || 'quiz';
