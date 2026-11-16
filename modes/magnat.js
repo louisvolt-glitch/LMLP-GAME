@@ -954,7 +954,8 @@ function magActionHtml(s, me) {
         const d = s.debts[0];
         if (d.who === me) {
             body = `<div class="text-sm font-black text-red-300">Dette à régler : ${d.amt} cr ${d.to ? 'à ' + magEsc(d.to) : 'à la banque'}</div>
-                <div class="text-[11px] text-slate-200">Il vous manque <b class="text-amber-300">${Math.max(0, d.amt - p.cash)} cr</b>. Vendez des constructions ou hypothéquez des propriétés (liste « Mes propriétés ») : le paiement se fait automatiquement dès que vous avez assez de crédits.</div>
+                <div class="text-[11px] text-slate-200">Il vous manque <b class="text-amber-300">${Math.max(0, d.amt - p.cash)} cr</b>. Vendez des constructions ou hypothéquez des propriétés : le paiement se fait automatiquement dès que vous avez assez de crédits.</div>
+                <div class="flex gap-2 flex-wrap">${magBtn('🏠 Gérer mes propriétés', `data-act="props" data-n="${magEsc(me)}"`, 'bg-amber-500 hover:bg-amber-400 text-black')}</div>
                 <div class="flex gap-2 flex-wrap">${magUI.bk
                     ? magBtn('Confirmer la faillite', 'data-act="bankrupt"', RED) + magBtn('Annuler', 'data-act="bkno"')
                     : magBtn('Déclarer faillite', 'data-act="bkask"', RED)}</div>`;
@@ -996,8 +997,8 @@ function magActionHtml(s, me) {
                 ${magHint("<b>Acheter</b> : la propriété est à vous et vous rapportera un loyer.<br><b>Mettre aux enchères</b> : tous les joueurs, vous compris, peuvent miser ; elle part au plus offrant, parfois sous son prix.")}`;
         } else {
             body = `<div class="text-sm font-black text-emerald-300">${s.again ? 'Double ! Vous rejouez.' : 'Gérez vos biens, puis terminez votre tour.'}</div>
-                <div class="flex gap-2 flex-wrap">${s.again ? magBtn('🎲 Relancer les dés', 'data-act="roll"', GREEN) : magBtn('Terminer mon tour', 'data-act="end"', GREEN)}${trade}</div>
-                ${magHint("Dans « Mes propriétés » : <b>＋</b> construire, <b>－</b> vendre une construction, <b>Hyp.</b> hypothéquer (vous touchez la moitié du prix, plus de loyer), <b>Lever</b> racheter l'hypothèque.<br>" + (s.again ? "Vous avez fait un double : relancez les dés." : "<b>Terminer mon tour</b> passe la main au joueur suivant."))}`;
+                <div class="flex gap-2 flex-wrap">${s.again ? magBtn('🎲 Relancer les dés', 'data-act="roll"', GREEN) : magBtn('Terminer mon tour', 'data-act="end"', GREEN)}${magBtn('🏠 Gérer mes propriétés', `data-act="props" data-n="${magEsc(me)}"`)}${trade}</div>
+                ${magHint("<b>Gérer mes propriétés</b> : construire, vendre une construction, hypothéquer (vous touchez la moitié du prix, plus de loyer) ou lever une hypothèque.<br>" + (s.again ? "Vous avez fait un double : relancez les dés." : "<b>Terminer mon tour</b> passe la main au joueur suivant."))}`;
         }
     } else body = `<div class="text-sm text-slate-200">${magEsc(magPhaseText(s))}...</div>`;
 
@@ -1029,15 +1030,39 @@ function magTradeFormHtml(s, me) {
         <div class="text-[10px] text-slate-500">Les colonies d'une famille portant des constructions ne peuvent pas être échangées.</div>
         ${magBtn('Envoyer la proposition', 'data-act="trsend"', 'bg-emerald-600 hover:bg-emerald-500 text-white')}</div>`;
 }
+function magAvatar(name) {
+    const room = (window.magData && window.magData.players) || {};
+    const av = room[name] && room[name].avatar;
+    return av && av.src ? String(av.src) : '';
+}
+function magAvatarHtml(s, name, size) {
+    const src = magAvatar(name), col = magColor(s, name);
+    const box = `width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};flex-shrink:0;box-shadow:0 0 10px ${col}66`;
+    return src
+        ? `<img src="${magEsc(src)}" alt="" style="${box};object-fit:cover;background:#020617">`
+        : `<span style="${box};display:flex;align-items:center;justify-content:center;background:#0f172a;color:${col};font-weight:900;font-size:${Math.round(size * 0.45)}px">${magEsc(String(name).charAt(0).toUpperCase())}</span>`;
+}
 function magPlayersHtml(s, me) {
     const cur = s.order[s.turn];
-    return `<div class="space-y-1">
-        ${s.order.map(n => { const p = s.players[n];
-            return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg text-xs ${n === cur && !p.out ? 'bg-cyan-950/60 border border-cyan-500/50' : 'border border-transparent'} ${p.out ? 'opacity-40' : ''}">
-                <span class="flex items-center gap-1.5 min-w-0"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${magColor(s, n)};border:2px solid #020617;flex-shrink:0"></span>
-                <span class="truncate ${n === me ? 'font-black text-white' : 'text-slate-200'}">${magEsc(n)}</span>${p.jail > 0 ? ' 🧪' : ''}${p.skip > 0 ? ' ⏭️' : ''}${p.cards > 0 ? ' 🎫' : ''}${p.out ? ' 💀' : ''}</span>
-                <span class="shrink-0 font-mono"><b class="text-emerald-300">${p.out ? 'faillite' : p.cash + ' cr'}</b>${p.out ? '' : ` <span class="text-slate-500">· ${magOwned(s, n).length} biens · fortune ${magWorth(s, n)}</span>`}</span></div>`; }).join('')}
-        <div class="text-[10px] text-slate-500 pt-1">Banque : ${magSupply(s).houses} avant-postes · ${magSupply(s).hotels} métropoles</div></div>`;
+    return s.order.map(n => {
+        const p = s.players[n], col = magColor(s, n), turn = n === cur && !p.out, count = magOwned(s, n).length;
+        const tags = (p.jail > 0 ? '<span title="En Quarantaine">🧪</span>' : '') + (p.skip > 0 ? '<span title="Passe son prochain tour">⏭️</span>' : '') + (p.cards > 0 ? `<span title="Sauf-conduit">🎫${p.cards > 1 ? '×' + p.cards : ''}</span>` : '');
+        return `<div class="mag-player ${turn ? 'mag-player-on' : ''}" style="--mag-pc:${col};${p.out ? 'opacity:.4' : ''}">
+            ${magAvatarHtml(s, n, 54)}
+            <div style="min-width:0;flex:1">
+                <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                    <span style="width:11px;height:11px;border-radius:50%;background:${col};flex-shrink:0"></span>
+                    <span style="font-weight:800;font-size:14px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${magEsc(n)}</span>
+                    ${n === me ? '<span style="font-size:9px;letter-spacing:.08em;color:#94a3b8;flex-shrink:0">VOUS</span>' : ''}
+                    <span style="margin-left:auto;flex-shrink:0;font-size:12px">${tags}</span>
+                </div>
+                <div style="font-family:monospace;font-weight:800;font-size:19px;line-height:1.2;color:${p.out ? '#f87171' : '#6ee7b7'}">${p.out ? 'Faillite' : p.cash + ' cr'}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:3px">
+                    <span style="font-size:10px;color:#64748b">${p.out ? '' : (turn ? '<span style="color:' + col + ';font-weight:800">▶ JOUE</span> · ' : '') + 'fortune ' + magWorth(s, n)}</span>
+                    ${p.out ? '' : `<button data-act="props" data-n="${magEsc(n)}" class="mag-mini">🏠 Propriétés (${count})</button>`}
+                </div>
+            </div></div>`; }).join('') +
+        `<div style="font-size:10px;color:#64748b;text-align:center">Banque : ${magSupply(s).houses} avant-postes · ${magSupply(s).hotels} métropoles</div>`;
 }
 function magStateLabel(s, sp) {
     const o = magOwn(s, sp);
@@ -1047,25 +1072,55 @@ function magStateLabel(s, sp) {
     if (o.h > 0) return `<span class="text-slate-100">${o.h} avant-poste${o.h > 1 ? 's' : ''}</span>`;
     return '';
 }
-function magMineHtml(s, me) {
-    const p = s.players[me];
-    if (!p || p.out) return '<div class="text-[11px] text-slate-500 italic">Aucune propriété.</div>';
-    const owned = magOwned(s, me);
-    const can = magCanManage(s, me);
-    const rows = owned.map(sp => {
+// Boutons de gestion d'une propriété (uniquement pour son propriétaire)
+function magManageBtns(s, me, sp) {
+    const c = MAG_SPACES[sp], o = magOwn(s, sp), can = magCanManage(s, me);
+    const b = (label, act, err, title) => `<button data-act="${act}" data-sp="${sp}" ${!can || err ? 'disabled' : ''} title="${magEsc(!can ? 'Possible pendant votre tour' : (err || title))}" class="mag-mini">${label}</button>`;
+    const build = c.t === 'prop' ? b('＋ Construire', 'build', magCheckBuild(s, me, sp), `Construire (${magHouseCost(sp)} cr)`) + b('－ Vendre', 'sell', magCheckSell(s, me, sp), `Vendre une construction (+${Math.floor(magHouseCost(sp) / 2)} cr)`) : '';
+    const mort = o.m ? b(`Lever (−${magUnmortgageCost(sp)})`, 'unmortgage', magCheckUnmortgage(s, me, sp), `Lever l'hypothèque (${magUnmortgageCost(sp)} cr)`) : b(`Hypothéquer (+${magMortgageValue(sp)})`, 'mortgage', magCheckMortgage(s, me, sp), `Hypothéquer (+${magMortgageValue(sp)} cr)`);
+    return build + mort;
+}
+function magPropsHtml(s, name, me) {
+    const owned = magOwned(s, name), mine = name === me;
+    if (!owned.length) return `<div style="font-size:13px;color:#64748b;font-style:italic;padding:14px 0;text-align:center">${mine ? 'Vous ne possédez encore rien.' : 'Aucune propriété pour le moment.'}</div>`;
+    return owned.map(sp => {
         const c = MAG_SPACES[sp], o = magOwn(s, sp);
-        const small = 'px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-100 disabled:opacity-30 disabled:cursor-not-allowed';
-        const b = (label, act, err, title) => `<button data-act="${act}" data-sp="${sp}" ${!can || err ? 'disabled' : ''} title="${magEsc(err || title)}" class="${small}">${label}</button>`;
-        const build = c.t === 'prop' ? b('＋', 'build', magCheckBuild(s, me, sp), `Construire (${magHouseCost(sp)} cr)`) + b('－', 'sell', magCheckSell(s, me, sp), `Vendre une construction (+${Math.floor(magHouseCost(sp) / 2)} cr)`) : '';
-        const mort = o.m ? b('Lever', 'unmortgage', magCheckUnmortgage(s, me, sp), `Lever l'hypothèque (${magUnmortgageCost(sp)} cr)`) : b('Hyp.', 'mortgage', magCheckMortgage(s, me, sp), `Hypothéquer (+${magMortgageValue(sp)} cr)`);
-        return `<div class="flex items-center justify-between gap-2 py-1 border-b border-slate-800 last:border-0">
-            <button data-act="sel" data-sp="${sp}" class="flex items-center gap-1.5 min-w-0 text-left cursor-pointer"><span style="display:inline-block;width:6px;height:22px;border-radius:3px;background:${c.f ? MAG_FAMILIES[c.f].color : '#cbd5e1'};flex-shrink:0"></span>
-            <span class="min-w-0"><span class="block truncate text-xs text-slate-100">${magEsc(c.n)}</span><span class="block text-[10px]">${magStateLabel(s, sp) || '<span class="text-slate-500">loyer ' + magRent(s, sp, 7) + ' cr</span>'}</span></span></button>
-            <span class="flex gap-1 shrink-0">${build}${mort}</span></div>`;
+        const full = c.t === 'prop' && magOwnsFamily(s, name, c.f);
+        const houses = o.h === 5 ? '<span style="color:#fbbf24">★ métropole</span>' : (o.h > 0 ? '<span style="color:#f8fafc">' + '●'.repeat(o.h) + ' ' + o.h + ' avant-poste' + (o.h > 1 ? 's' : '') + '</span>' : '');
+        const state = o.m ? '<span style="color:#f87171">hypothéquée — aucun loyer</span>' : `loyer ${magRent(s, sp, 7)} cr${c.t === 'net' ? ' (pour un 7)' : ''}${houses ? ' · ' + houses : ''}${full && !o.h ? ' · <span style="color:#6ee7b7">famille complète</span>' : ''}`;
+        return `<div class="mag-prop">
+            <span style="width:8px;align-self:stretch;border-radius:4px;background:${c.f ? MAG_FAMILIES[c.f].color : '#cbd5e1'};flex-shrink:0"></span>
+            <div style="min-width:0;flex:1">
+                <div style="font-weight:800;font-size:14px;color:#f8fafc">${magEsc(c.n)} <span style="font-weight:400;font-size:11px;color:#64748b">${c.f ? MAG_FAMILIES[c.f].name : (c.t === 'portal' ? 'Portail' : 'Réseau')} · ${c.p} cr</span></div>
+                <div style="font-size:11px;color:#94a3b8">${state}</div>
+            </div>
+            ${mine ? `<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0">${magManageBtns(s, me, sp)}</div>` : ''}
+        </div>`;
     }).join('');
-    return `<div>
-        ${owned.length && !can ? '<div class="text-[11px] text-slate-500 mb-1">Modifiables pendant votre tour.</div>' : ''}
-        ${rows || '<div class="text-[11px] text-slate-500 italic">Vous ne possédez encore rien.</div>'}</div>`;
+}
+function magRenderProps(s) {
+    const modal = document.getElementById('mag-modal');
+    if (!modal) return;
+    const name = magUI.props, p = name ? s.players[name] : null, me = magMe();
+    if (!p) { magUI.props = ''; modal.style.display = 'none'; modal.innerHTML = ''; return; }
+    const old = document.getElementById('mag-props-list');
+    const scroll = old ? old.scrollTop : 0;
+    modal.style.display = 'flex';
+    const z = magUI.pz || 1;
+    modal.innerHTML = `<div class="mag-window mag-zoom" style="zoom:${z};width:${Math.round(Math.min(560, window.innerWidth * 0.92 / z))}px;max-height:${Math.round(window.innerHeight * 0.84 / z)}px">
+        <div class="mag-window-h" style="border-color:${magColor(s, name)}">
+            ${magAvatarHtml(s, name, 46)}
+            <div style="min-width:0;flex:1">
+                <div style="font-weight:900;font-size:16px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Propriétés de ${magEsc(name)}</div>
+                <div style="font-size:12px;color:#94a3b8;font-family:monospace"><b style="color:#6ee7b7">${p.cash} cr</b> · ${magOwned(s, name).length} biens · fortune ${magWorth(s, name)}</div>
+            </div>
+            <button data-act="propsclose" class="mag-mini" style="font-size:15px;padding:6px 12px">✕</button>
+        </div>
+        ${name === me ? `<div style="font-size:11px;color:#94a3b8;padding:8px 16px 0">${magCanManage(s, me) ? 'Vous pouvez construire, vendre et hypothéquer maintenant.' : 'Vous pourrez modifier vos propriétés pendant votre tour.'}</div>` : ''}
+        <div id="mag-props-list" class="mag-window-b">${magPropsHtml(s, name, me)}</div>
+    </div>`;
+    const list = document.getElementById('mag-props-list');
+    if (list) list.scrollTop = scroll;
 }
 function magDetailHtml(s) {
     const sp = magUI.sel, c = MAG_SPACES[sp];
@@ -1084,7 +1139,8 @@ function magDetailHtml(s) {
         <div class="flex items-center justify-between gap-2"><span class="text-sm font-black text-white"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.f ? MAG_FAMILIES[c.f].color : '#64748b'}"></span> ${magEsc(c.n)}</span>
         ${c.p ? `<span class="text-xs font-mono text-amber-300">${c.p} cr</span>` : ''}</div>
         ${magOwnable(sp) ? `<div class="text-[11px] text-slate-300">Propriétaire : ${o ? `<b style="color:${magColor(s, o.o)}">${magEsc(o.o)}</b> ${magStateLabel(s, sp)}` : '<span class="text-slate-500">à vendre</span>'}</div>` : ''}
-        ${info}</div>`;
+        ${info}
+        ${o && o.o === magMe() ? `<div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:4px">${magManageBtns(s, magMe(), sp)}</div>` : ''}</div>`;
 }
 function magLogHtml(s) {
     return `<div class="space-y-1 text-[11px] text-slate-300">${s.log.slice().reverse().map((l, i) => `<div class="${i === 0 ? 'text-white font-bold' : ''}">• ${magEsc(l)}</div>`).join('')}</div>`;
@@ -1096,9 +1152,10 @@ function magRenderSide(s) {
     put('mag-actions', magActionHtml(s, me));
     put('mag-players', magPlayersHtml(s, me));
     put('mag-detail', magDetailHtml(s));
-    put('mag-mine', magMineHtml(s, me));
+    const dbox = document.getElementById('mag-detail-sec');
+    if (dbox) dbox.style.display = MAG_SPACES[magUI.sel] ? '' : 'none';
+    magRenderProps(s);
     put('mag-log', magLogHtml(s));
-    put('mag-mine-count', s.players[me] && !s.players[me].out ? String(magOwned(s, me).length) : '0');
 }
 // Adapte la taille des panneaux et du centre du plateau à la taille de la fenêtre
 function magFit() {
@@ -1106,6 +1163,7 @@ function magFit() {
     if (!root || !board) return;
     const scale = Math.max(1, Math.min(1.9, window.innerWidth / 1500, window.innerHeight / 800));
     root.style.setProperty('--mag-side', Math.round(350 * scale) + 'px');
+    magUI.pz = scale;
     root.querySelectorAll('.mag-zoom').forEach(el => { el.style.zoom = scale; });
     magUI.cz = Math.max(0.6, board.clientWidth / 640);
     root.querySelectorAll('.mag-cz').forEach(el => { el.style.zoom = magUI.cz; });
@@ -1117,7 +1175,7 @@ function magRender(s, force) {
     if (s.order[s.turn] !== magMe()) magUI.trOpen = false;
     if (!s.auction) magUI.bid = '';
     const tr = magUI.tr || {};
-    const sig = JSON.stringify([s.seq, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
+    const sig = JSON.stringify([s.seq, magUI.props, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
     if (!force && sig === magUI.sig) return;
     magUI.sig = sig;
     magRenderDyn(s);
@@ -1141,6 +1199,8 @@ function magOnAct(d) {
     if (act === 'bid') { magSend({ t: 'bid', amt: Number(d.amt) }); return; }
     if (act === 'bidinput') { const el = document.getElementById('mag-bid'); const v = Math.floor(Number(el && el.value) || 0); if (v > 0) { magUI.bid = ''; magSend({ t: 'bid', amt: v }); } return; }
     if (act === 'sel') magUI.sel = magUI.sel === sp ? -1 : sp;
+    else if (act === 'props') magUI.props = magUI.props === d.n ? '' : String(d.n || '');
+    else if (act === 'propsclose') magUI.props = '';
     else if (act === 'bkask') magUI.bk = true;
     else if (act === 'bkno') magUI.bk = false;
     else if (act === 'tropen') { magUI.trOpen = true; magUI.tr = null; }
@@ -1176,6 +1236,17 @@ const MAG_CSS = `
 .mag-sec-b>*+*{margin-top:8px}
 .mag-hint{font-size:11px;line-height:1.45;color:#94a3b8;border-top:1px dashed rgba(148,163,184,.3);padding-top:6px}
 .mag-hint b{color:#e2e8f0}
+.mag-player{display:flex;align-items:center;gap:11px;padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.6)}
+.mag-player-on{border-color:var(--mag-pc);background:rgba(8,47,73,.55);box-shadow:0 0 14px -4px var(--mag-pc)}
+.mag-mini{padding:5px 9px;border-radius:8px;border:1px solid rgba(148,163,184,.45);background:#1e293b;color:#f1f5f9;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit}
+.mag-mini:hover:not(:disabled){background:#334155}
+.mag-mini:disabled{opacity:.3;cursor:not-allowed}
+#mag-modal{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.72);backdrop-filter:blur(2px)}
+.mag-window{width:min(560px,92vw);max-height:84vh;display:flex;flex-direction:column;border:1px solid rgba(0,210,255,.5);border-radius:16px;background:#091424;box-shadow:0 20px 60px rgba(0,0,0,.8);overflow:hidden}
+.mag-window-h{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:3px solid;background:rgba(15,23,42,.9)}
+.mag-window-b{padding:8px 16px 14px;overflow-y:auto;min-height:0}
+.mag-prop{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(148,163,184,.15)}
+.mag-prop:last-child{border-bottom:0}
 .mag-pile{position:absolute;bottom:.6%;width:10%;display:flex;flex-direction:column;align-items:center;gap:3%;pointer-events:none;z-index:2}
 .mag-pile-cards{position:relative;width:100%;aspect-ratio:1536/2752;container-type:size}
 .mag-pile-cards>div{position:absolute;inset:0;border-radius:7%;overflow:hidden;border:1px solid rgba(255,255,255,.35);box-shadow:0 2px 6px rgba(0,0,0,.6);background:#0c1a3a}
@@ -1198,6 +1269,7 @@ const MAG_CSS = `
  #mag-boardwrap{container-type:normal;order:1}
  #mag-board{width:100%;height:auto;aspect-ratio:1/1;max-width:720px}
  #mag-col-right{order:2} #mag-col-left{order:3}
+ #mag-modal{position:fixed}
  .mag-sec.mag-grow{flex:none;max-height:340px}
 }`;
 function magBuildLayout() {
@@ -1206,7 +1278,7 @@ function magBuildLayout() {
     let st = document.getElementById('mag-style');
     if (!st) { st = document.createElement('style'); st.id = 'mag-style'; document.head.appendChild(st); }
     st.textContent = MAG_CSS;
-    const sec = (title, id, acc, grow, extra) => `<div class="mag-sec ${grow ? 'mag-grow' : ''}" style="--mag-acc:${acc}"><div class="mag-sec-h"><span>${title}</span>${extra || ''}</div><div id="${id}" class="mag-sec-b"></div></div>`;
+    const sec = (title, id, acc, grow, extra) => `<div id="${id}-sec" class="mag-sec ${grow ? 'mag-grow' : ''}" style="--mag-acc:${acc}"><div class="mag-sec-h"><span>${title}</span>${extra || ''}</div><div id="${id}" class="mag-sec-b"></div></div>`;
     content.innerHTML = `
         <div id="mag-root">
             <div id="mag-top">
@@ -1215,8 +1287,7 @@ function magBuildLayout() {
             </div>
             <div id="mag-main">
                 <div id="mag-col-left" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
-                    ${sec('🏠 Mes propriétés', 'mag-mine', '#fbbf24', true, '<span id="mag-mine-count"></span>')}
-                    ${sec('🔎 Case sélectionnée', 'mag-detail', '#a78bfa', false)}
+                    ${sec('👥 Joueurs', 'mag-players', '#22d3ee', true)}
                 </div></div>
                 <div id="mag-boardwrap"><div id="mag-board">
                     ${magBoardSvg()}
@@ -1227,10 +1298,11 @@ function magBuildLayout() {
                 </div></div>
                 <div id="mag-col-right" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
                     ${sec('🎮 Actions possibles', 'mag-actions', '#34d399', false)}
-                    ${sec('👥 Joueurs', 'mag-players', '#22d3ee', false)}
-                    ${sec('📜 Journal des actions', 'mag-log', '#94a3b8', true)}
+                    ${sec('🔎 Case sélectionnée', 'mag-detail', '#a78bfa', false, '<button data-act="sel" data-sp="-1" class="mag-mini" style="padding:1px 8px">✕</button>')}
+                    ${sec('📜 Journal', 'mag-log', '#94a3b8', true)}
                 </div></div>
             </div>
+            <div id="mag-modal" data-act="propsclose"></div>
         </div>`;
     const root = document.getElementById('mag-root');
     document.getElementById('mag-svg').onclick = e => {
@@ -1241,6 +1313,7 @@ function magBuildLayout() {
         const s = magCurrent(); if (s) magRender(s);
     };
     root.onclick = e => {
+        if (e.target.closest && e.target.closest('.mag-window') && !e.target.closest('.mag-window [data-act]')) return;   // clic dans la fenêtre : ne la ferme pas
         const b = e.target.closest ? e.target.closest('[data-act]') : null;
         if (b && !b.disabled) magOnAct(b.dataset);
     };
@@ -1318,7 +1391,7 @@ if (typeof window !== 'undefined') {
         }
 
         if (magUI.sess !== sess || !document.getElementById('mag-root')) {
-            magUI.sess = sess; magUI.sel = -1; magUI.sig = ''; magUI.trOpen = false; magUI.tr = null; magUI.bid = ''; magUI.bk = false; magUI.lastRoll = s.rollSeq;
+            magUI.sess = sess; magUI.sel = -1; magUI.props = ''; magUI.sig = ''; magUI.trOpen = false; magUI.tr = null; magUI.bid = ''; magUI.bk = false; magUI.lastRoll = s.rollSeq;
             showScreen('screen-generic-game');
             const gt = document.getElementById('generic-game-title'); if (gt) gt.innerText = 'Magnat Galactique';
             magBuildLayout();
