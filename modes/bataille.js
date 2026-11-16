@@ -235,7 +235,7 @@ function bsHostTick() {
     const present = Object.values(room.players || {}).filter(p => p && p.name && !p.isBot).map(p => p.name);
     const waiting = s.phase === 'PLACE' ? s.duel.filter(n => !s.ready[n]) : [s.duel[s.turn]];
     const absent = waiting.length > 0 && waiting.every(n => present.indexOf(n) < 0);
-    if (now > s.dl || (absent && now > s.dlAt + 3000)) {
+    if (now > s.dl || (absent && now > s.dlAt + 20000)) {
         let next = null;
         try { next = bsAuto(s, now); } catch (e) { console.error('Tour automatique impossible :', e); }
         if (next) bsHostWrite(next, [], room.players);
@@ -267,6 +267,8 @@ const BS_CSS = `
 .bs-panel{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.8em;justify-content:center;padding:0 1em}
 .bs-cell{cursor:default}.bs-fire .bs-cell{cursor:crosshair}.bs-fire .bs-cell:hover{fill:rgba(248,113,113,.35)}
 .bs-place .bs-cell{cursor:pointer}
+@keyframes bsTurn{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}50%{box-shadow:0 0 30px 4px rgba(52,211,153,.85)}}
+.bs-myturn{animation:bsTurn .9s ease-in-out 2}
 @keyframes bsPing{0%{r:18;opacity:1}100%{r:62;opacity:0}}
 .bs-ping{animation:bsPing 1.1s ease-out infinite}
 @media (max-width:900px){#bs-root{overflow-y:auto}#bs-main{display:flex;flex-direction:column;flex:none}.bs-wrap{container-type:normal;flex:none}.bs-wrap svg{width:100%;height:auto;max-width:560px}.bs-panel{flex:none;padding:1em}}`;
@@ -374,6 +376,7 @@ function bsRender(s, force) {
     if (!force && sig === bsUI.sig) return;
     bsUI.sig = sig;
     const over = s.status === 'FINISHED';
+    bsSounds(s, me);
     // Qui est affiché à gauche / à droite : le joueur voit SA flotte à gauche ; un spectateur voit les deux duellistes
     const left = duelist ? me : s.duel[0], right = duelist ? bsOther(s, me) : s.duel[1];
     const li = s.duel.indexOf(left), ri = s.duel.indexOf(right);
@@ -450,6 +453,19 @@ function bsRender(s, force) {
     end.style.display = over ? '' : 'none';
     bsTick();
 }
+// Sons : résultat du tir, début de mon tour, fin du combat (rien au premier affichage)
+function bsSounds(s, me) {
+    const prev = bsUI.snd;
+    const now = { sess: s.startedAt, n: s.n, mine: s.status === 'PLAYING' && bsActor(s) === me, over: s.status === 'FINISHED' };
+    bsUI.snd = now;
+    if (!prev || prev.sess !== now.sess || typeof window.sfx !== 'function') return;
+    if (now.n !== prev.n && s.last) window.sfx(s.last.r === 'm' ? 'rate' : (s.last.r === 's' ? 'coule' : 'touche'));
+    if (now.over && !prev.over) setTimeout(() => window.sfx('victoire'), 700);
+    else if (now.mine && !prev.mine) {
+        setTimeout(() => window.sfx('tour'), 450);
+        const b = document.getElementById('bs-banner'); if (b) { b.classList.remove('bs-myturn'); void b.offsetWidth; b.classList.add('bs-myturn'); }
+    }
+}
 function bsCurrent() { const d = window.bsData; return d && d.bsGame && d.bsGame.s ? bsNorm(d.bsGame.s) : null; }
 function bsTick() {
     const s = bsCurrent(), el = document.getElementById('bs-timer');
@@ -516,6 +532,8 @@ function bsBuildLayout() {
             </div>
             <div id="bs-end" style="display:none;flex-shrink:0;text-align:center">
                 <button onclick="backToLobby()" class="bs-btn bs-btn-go" style="font-size:1.05em;padding:.8em 2em">Retour au salon</button>
+                <button onclick="demanderRevanche()" class="btn-revanche bs-btn" style="font-size:1.05em;padding:.8em 2em;display:none">🔁 Revanche (hôte)</button>
+                <button onclick="ouvrirSoiree()" class="bs-btn" style="font-size:1.05em;padding:.8em 2em">🏆 Classement de la soirée</button>
             </div>
         </div>`;
     const root = document.getElementById('bs-root');
