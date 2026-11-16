@@ -21,7 +21,7 @@ body.mob #screen-lobby > header > div:first-child { display: none; }
 body.mob #screen-lobby > header > div:last-child { gap: .4rem; flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; }
 body.mob #screen-lobby > header > div:last-child > * { flex-shrink: 0; padding: .35rem .6rem; border-radius: 999px; font-size: .72rem; }
 body.mob #screen-lobby > header > div:last-child > div:last-child { display: none; }
-body.mob #sys-son { top: .45rem !important; right: .45rem !important; left: auto !important; bottom: auto !important; width: 2.1rem !important; height: 2.1rem !important; z-index: 35 !important; }
+body.mob.mob-lobby #sys-son { top: .45rem !important; right: .45rem !important; left: auto !important; bottom: auto !important; width: 2.1rem !important; height: 2.1rem !important; z-index: 35 !important; }
 body.mob #toast { top: 3.4rem; right: .6rem; left: .6rem; max-width: none; }
 body.mob #toast.translate-x-full { visibility: hidden; }
 /* ----- un seul bloc visible à la fois ----- */
