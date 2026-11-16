@@ -153,7 +153,9 @@ window.renderReferencesScreen = function(data) {
         if (window.referencesShownResults !== sess) {
             window.referencesShownResults = sess;
             const rs = window.referencesState;
-            if (rs) { rs.finished = true; clearInterval(rs.timerInterval); }
+            if (rs) { rs.finished = true; clearInterval(rs.timerInterval); rs.pseudoFs = false; }
+            document.documentElement.style.overflow = '';
+            document.querySelectorAll('body > #ref-prompt').forEach(el => el.remove());
             if (referencesFsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
             const set = refGetSet(g.setId);
             const progress = g.progress || {};
@@ -266,6 +268,8 @@ window.startReferencesMode = function(cfg) {
     document.getElementById('generic-game-title').innerText = 'Références Gaming';
 
     if (window.referencesState) clearInterval(window.referencesState.timerInterval);
+    document.querySelectorAll('body > #ref-prompt').forEach(el => el.remove());      // fenêtre de saisie d'une partie précédente
+    document.documentElement.style.overflow = '';
     const set = refGetSet(cfg.setId);
     const rs = window.referencesState = {
         set: set,
@@ -328,7 +332,7 @@ window.startReferencesMode = function(cfg) {
     document.getElementById('ref-fullscreen').onclick = () => referencesToggleFullscreen();
     if (!window.referencesFsBound) {
         window.referencesFsBound = true;
-        document.addEventListener('fullscreenchange', () => referencesLayout());
+        document.addEventListener('fullscreenchange', () => { if (!referencesFsElement() && window.screen && screen.orientation && screen.orientation.unlock) { try { screen.orientation.unlock(); } catch (e) {} } referencesLayout(); });
         document.addEventListener('webkitfullscreenchange', () => referencesLayout());
         window.addEventListener('resize', () => referencesLayout());
     }
@@ -363,13 +367,50 @@ function referencesFsElement() { return document.fullscreenElement || document.w
 
 function referencesToggleFullscreen() {
     const box = document.getElementById('ref-fs'); if (!box) return;
+    const rs = window.referencesState;
+    if (rs && rs.pseudoFs) { referencesPseudoFs(false); return; }
     if (referencesFsElement()) {
         (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    } else {
-        const req = box.requestFullscreen || box.webkitRequestFullscreen;
+        return;
+    }
+    const req = box.requestFullscreen || box.webkitRequestFullscreen;
+    const phone = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    if (!phone) {
         if (req) req.call(box);
         else referencesToast("Plein écran non disponible sur cet appareil", '#b45309');
+        return;
     }
+    // Téléphone : plein écran du navigateur + écran verrouillé à l'horizontale quand c'est permis (Android).
+    // Sinon (iPhone, verrouillage refusé) : plein écran « maison », l'image étant tournée si le téléphone reste vertical.
+    if (!req) { referencesPseudoFs(true); return; }
+    let p;
+    try { p = req.call(box); } catch (e) { referencesPseudoFs(true); return; }
+    Promise.resolve(p).then(() => {
+        const o = window.screen && screen.orientation;
+        if (!o || !o.lock) throw new Error('verrouillage indisponible');
+        return o.lock('landscape');
+    }).catch(() => {
+        const portrait = window.innerHeight > window.innerWidth;
+        if (referencesFsElement() && !portrait) return;       // déjà à l'horizontale en vrai plein écran : rien à faire
+        if (referencesFsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+        setTimeout(() => referencesPseudoFs(true), 200);
+    });
+}
+
+// Plein écran « maison » : la zone de jeu recouvre toute la page (pour les téléphones sans vrai plein écran)
+function referencesPseudoFs(on) {
+    const rs = window.referencesState, box = document.getElementById('ref-fs');
+    const prompt = document.getElementById('ref-prompt');
+    if (rs) rs.pseudoFs = !!on && !!box;
+    document.documentElement.style.overflow = on && box ? 'hidden' : '';
+    // la fenêtre de saisie sort de la zone tournée : elle reste dans le sens du clavier du téléphone
+    if (prompt) {
+        if (on && box) { document.body.appendChild(prompt); prompt.style.zIndex = '10000'; }
+        else if (box) { box.appendChild(prompt); prompt.style.zIndex = ''; }
+        else prompt.remove();
+    }
+    if (on && box && window.innerHeight > window.innerWidth) referencesToast("Tournez votre téléphone à l'horizontale", '#4338ca');
+    referencesLayout();
 }
 
 // Adapte la taille de l'image (page normale ou plein écran) ; le zoom multiplie cette taille
@@ -379,13 +420,22 @@ function referencesLayout() {
           sc = document.getElementById('ref-scroll'), hud = document.getElementById('ref-hud'),
           btn = document.getElementById('ref-fullscreen');
     if (!box || !stage || !sc) return;
-    const full = referencesFsElement() === box;
+    const pseudo = !!rs.pseudoFs;
+    const full = pseudo || referencesFsElement() === box;
+    // plein écran « maison » sur un téléphone tenu verticalement : toute la zone est tournée d'un quart de tour
+    const rot = pseudo && window.innerHeight > window.innerWidth;
+    rs.rotated = rot;
+    const VW = rot ? window.innerHeight : window.innerWidth, VH = rot ? window.innerWidth : window.innerHeight;
     if (btn) btn.textContent = full ? '✕ Quitter' : '⛶ Plein écran';
+    // en plein écran « maison », on masque la consigne et les listes pour laisser toute la place à l'image
+    [box.children[1], document.getElementById('ref-players'), document.getElementById('ref-list')].forEach(el => { if (el) el.style.display = pseudo ? 'none' : ''; });
     if (full) {
-        box.style.cssText = 'background:#020617;width:100vw;height:100vh;max-width:none;padding:8px;display:flex;flex-direction:column;gap:6px;overflow:hidden';
-        const used = (hud ? hud.offsetHeight : 50) + 40;
+        box.style.cssText = 'background:#020617;max-width:none;padding:8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;box-sizing:border-box;'
+            + (pseudo ? `position:fixed;top:0;left:0;z-index:9999;margin:0;width:${VW}px;height:${VH}px;` + (rot ? 'transform-origin:top left;transform:rotate(90deg) translateY(-100%);' : '')
+                      : 'width:100vw;height:100vh;');
+        const used = (hud ? hud.offsetHeight : 50) + (pseudo ? 0 : 40);
         sc.style.cssText = 'flex:1;min-height:0;max-height:none;overflow:auto;display:block';
-        const availH = Math.max(200, window.innerHeight - used - 16), availW = window.innerWidth - 16;
+        const availH = Math.max(pseudo ? 120 : 200, VH - used - (pseudo ? 28 : 16)), availW = VW - 16;
         const fit = Math.min(availW, availH * rs.set.w / rs.set.h);
         stage.style.width = Math.round(fit * rs.zoom) + 'px';
         stage.style.margin = '0 auto';
@@ -445,8 +495,9 @@ function referencesOnClick(e) {
     const img = document.getElementById('ref-img');
     if (!img) return;
     const rect = img.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * rs.set.w;
-    const y = (e.clientY - rect.top) / rect.height * rs.set.h;
+    // zone tournée d'un quart de tour : l'axe horizontal de l'image suit la hauteur de l'écran
+    const x = (rs.rotated ? (e.clientY - rect.top) / rect.height : (e.clientX - rect.left) / rect.width) * rs.set.w;
+    const y = (rs.rotated ? (rect.right - e.clientX) / rect.width : (e.clientY - rect.top) / rect.height) * rs.set.h;
     const hit = window.referencesHitTest(rs.set, x, y);
     if (!hit) { referencesClosePrompt(); return; }
     if (rs.found[hit.id]) { referencesToast(`✓ Déjà trouvé : ${hit.name}`, '#34d399'); return; }
@@ -477,7 +528,7 @@ function referencesToast(text, color) {
     d.id = 'ref-toast';
     d.textContent = text;
     d.style.cssText = `position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:60;padding:8px 16px;border-radius:12px;font:bold 14px sans-serif;color:#fff;background:${color};box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:none`;
-    (referencesFsElement() || document.body).appendChild(d);
+    ((window.referencesState && window.referencesState.pseudoFs && document.getElementById('ref-fs')) || referencesFsElement() || document.body).appendChild(d);
     setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 1600);
 }
 
@@ -519,6 +570,7 @@ function referencesFinish(reason) {
     rs.finished = true;
     clearInterval(rs.timerInterval);
     referencesClosePrompt();
+    if (rs.pseudoFs) referencesPseudoFs(false);
     if (referencesFsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
     if (reason === 'all') rs.score += Math.max(0, rs.timeLeft) * REFERENCES_FINISH_BONUS;
     referencesPushProgress(true);
