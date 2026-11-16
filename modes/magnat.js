@@ -807,13 +807,13 @@ function magRenderCenter(s) {
     const rolled = s.rollSeq !== magUI.lastRoll;
     magUI.lastRoll = s.rollSeq;
     const card = s.card ? MAG_CARDS[s.card.d] && MAG_CARDS[s.card.d][s.card.i] : null;
-    el.innerHTML = `
+    el.innerHTML = `<div id="mag-center-in" style="width:250px;display:flex;flex-direction:column;align-items:center;zoom:${magUI.cz || 1}">
         <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8">Tour ${s.turnCount}</div>
         <div style="font-size:17px;font-weight:900;color:${magColor(s, cur)};max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${magEsc(cur)}</div>
         <div style="display:flex;gap:8px;margin:6px 0" class="${rolled && s.rollSeq > 0 ? 'mag-shake' : ''}">${magDie(s.dice[0])}${magDie(s.dice[1])}</div>
         <div style="font-size:11px;color:#e2e8f0;max-width:86%;line-height:1.25">${magEsc(magPhaseText(s))}</div>
         <div id="mag-timer" style="font-family:monospace;font-size:15px;font-weight:bold;color:#fbbf24;margin-top:3px"></div>
-        ${card ? `<div style="margin-top:5px;max-width:84%;font-size:10px;line-height:1.25;color:#0f172a;background:${s.card.d === 'a' ? '#a5f3fc' : '#fde68a'};border-radius:8px;padding:5px 7px"><b>${s.card.d === 'a' ? '📡' : '📦'} ${MAG_DECK_NAMES[s.card.d]}</b> — ${magEsc(card.txt)}</div>` : ''}`;
+        ${card ? `<div style="margin-top:5px;max-width:84%;font-size:10px;line-height:1.25;color:#0f172a;background:${s.card.d === 'a' ? '#a5f3fc' : '#fde68a'};border-radius:8px;padding:5px 7px"><b>${s.card.d === 'a' ? '📡' : '📦'} ${MAG_DECK_NAMES[s.card.d]}</b> — ${magEsc(card.txt)}</div>` : ''}</div>`;
 }
 function magTickTimer() {
     const data = window.magData, g = data && data.magnatGame;
@@ -821,11 +821,9 @@ function magTickTimer() {
     const now = Date.now();
     const el = document.getElementById('mag-timer');
     if (el) el.textContent = '⏱ ' + Math.max(0, Math.ceil(((g.s.dl || 0) - now) / 1000)) + ' s';
-    const top = document.getElementById('generic-game-timer');
-    if (top) {
-        if (g.s.endAt) { const left = Math.max(0, Math.ceil((g.s.endAt - now) / 1000)); top.innerText = left > 0 ? `Fin dans ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : 'Dernier tour'; }
-        else top.innerText = 'Sans limite de temps';
-    }
+    let txt = 'Sans limite de temps';
+    if (g.s.endAt) { const left = Math.max(0, Math.ceil((g.s.endAt - now) / 1000)); txt = left > 0 ? `Fin de partie dans ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : 'Dernier tour'; }
+    ['generic-game-timer', 'mag-top-timer'].forEach(id => { const top = document.getElementById(id); if (top) top.innerText = txt; });
 }
 
 // ----- Panneau latéral -----
@@ -840,6 +838,7 @@ function magSideDesc(side) {
     if (side.cards) parts.push(side.cards + ' sauf-conduit' + (side.cards > 1 ? 's' : ''));
     return parts.length ? parts.map(magEsc).join(', ') : 'rien';
 }
+function magHint(html) { return `<div class="mag-hint">${html}</div>`; }
 function magActionHtml(s, me) {
     const cur = s.order[s.turn], p = s.players[me];
     const GREEN = 'bg-emerald-600 hover:bg-emerald-500 text-white', BLUE = 'bg-indigo-600 hover:bg-indigo-500 text-white', RED = 'bg-red-700 hover:bg-red-600 text-white';
@@ -882,7 +881,8 @@ function magActionHtml(s, me) {
             ${mine ? `<div class="flex gap-1.5 flex-wrap items-center">${quick}</div>
                 <div class="flex gap-1.5 items-center">
                     <input id="mag-bid" type="number" min="${a.bid + 1}" max="${p.cash}" value="${magEsc(magUI.bid)}" placeholder="Montant" class="w-24 bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-white text-xs font-mono">
-                    ${magBtn('Enchérir', 'data-act="bidinput"', GREEN)}${magBtn('Me retirer', 'data-act="pass"', RED)}</div>`
+                    ${magBtn('Enchérir', 'data-act="bidinput"', GREEN)}${magBtn('Me retirer', 'data-act="pass"', RED)}</div>
+                ${magHint("<b>+1 / +10 / +50 / +100</b> : surenchérir d'autant. <b>Enchérir</b> : proposer le montant saisi. <b>Me retirer</b> : abandonner cette enchère. Le dernier joueur en lice paie son offre et obtient la propriété.")}`
                 : `<div class="text-xs text-slate-300">${a.act.indexOf(me) >= 0 ? `En attente de l'offre de <b>${magEsc(a.act[a.i])}</b>...` : 'Vous vous êtes retiré de cette enchère.'}</div>`}`;
     } else if (cur === me) {
         const canTrade = (s.phase === 'ROLL' || s.phase === 'END') && !s.trade;
@@ -891,17 +891,21 @@ function magActionHtml(s, me) {
             body = `<div class="text-sm font-black text-amber-300">🧪 Vous êtes en Quarantaine (tentative ${p.jail} / 3)</div>
                 <div class="flex gap-2 flex-wrap">${magBtn('🎲 Tenter un double', 'data-act="roll"', GREEN)}
                 ${magBtn(`Payer ${MAG.BAIL} cr`, 'data-act="bail"', BLUE, p.cash < MAG.BAIL)}
-                ${p.cards > 0 ? magBtn('Utiliser un sauf-conduit', 'data-act="usecard"', BLUE) : ''}${trade}</div>`;
+                ${p.cards > 0 ? magBtn('Utiliser un sauf-conduit', 'data-act="usecard"', BLUE) : ''}${trade}</div>
+                ${magHint(`Un double vous libère et vous avancez. Sinon vous restez sur place ; au 3e échec la caution de ${MAG.BAIL} cr est obligatoire. Payer ou utiliser un sauf-conduit vous libère tout de suite, puis vous lancez les dés.`)}`;
         } else if (s.phase === 'ROLL') {
             body = `<div class="text-sm font-black text-emerald-300">C'est votre tour !</div>
-                <div class="flex gap-2 flex-wrap">${magBtn('🎲 Lancer les dés', 'data-act="roll"', GREEN)}${trade}</div>`;
+                <div class="flex gap-2 flex-wrap">${magBtn('🎲 Lancer les dés', 'data-act="roll"', GREEN)}${trade}</div>
+                ${magHint("<b>Lancer les dés</b> : vous avancez du total. Un double vous fait rejouer ; trois doubles de suite mènent en Quarantaine.<br><b>Proposer un échange</b> : offrez des crédits ou des propriétés à un autre joueur, qui accepte ou refuse.")}`;
         } else if (s.phase === 'BUY') {
             const c = MAG_SPACES[s.buy];
             body = `<div class="text-sm font-black text-white">${magEsc(c.n)} est libre</div>
-                <div class="flex gap-2 flex-wrap">${magBtn(`Acheter pour ${c.p} cr`, 'data-act="buy"', GREEN, p.cash < c.p)}${magBtn('Mettre aux enchères', 'data-act="auction"', BLUE)}</div>`;
+                <div class="flex gap-2 flex-wrap">${magBtn(`Acheter pour ${c.p} cr`, 'data-act="buy"', GREEN, p.cash < c.p)}${magBtn('Mettre aux enchères', 'data-act="auction"', BLUE)}</div>
+                ${magHint("<b>Acheter</b> : la propriété est à vous et vous rapportera un loyer.<br><b>Mettre aux enchères</b> : tous les joueurs, vous compris, peuvent miser ; elle part au plus offrant, parfois sous son prix.")}`;
         } else {
             body = `<div class="text-sm font-black text-emerald-300">${s.again ? 'Double ! Vous rejouez.' : 'Gérez vos biens, puis terminez votre tour.'}</div>
-                <div class="flex gap-2 flex-wrap">${s.again ? magBtn('🎲 Relancer les dés', 'data-act="roll"', GREEN) : magBtn('Terminer mon tour', 'data-act="end"', GREEN)}${trade}</div>`;
+                <div class="flex gap-2 flex-wrap">${s.again ? magBtn('🎲 Relancer les dés', 'data-act="roll"', GREEN) : magBtn('Terminer mon tour', 'data-act="end"', GREEN)}${trade}</div>
+                ${magHint("Dans « Mes propriétés » : <b>＋</b> construire, <b>－</b> vendre une construction, <b>Hyp.</b> hypothéquer (vous touchez la moitié du prix, plus de loyer), <b>Lever</b> racheter l'hypothèque.<br>" + (s.again ? "Vous avez fait un double : relancez les dés." : "<b>Terminer mon tour</b> passe la main au joueur suivant."))}`;
         }
     } else body = `<div class="text-sm text-slate-200">${magEsc(magPhaseText(s))}...</div>`;
 
@@ -935,8 +939,7 @@ function magTradeFormHtml(s, me) {
 }
 function magPlayersHtml(s, me) {
     const cur = s.order[s.turn];
-    return `<div class="p-2 rounded-xl border border-slate-700 bg-slate-900/70 space-y-1">
-        <div class="text-[10px] uppercase tracking-wider text-slate-400">Joueurs</div>
+    return `<div class="space-y-1">
         ${s.order.map(n => { const p = s.players[n];
             return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg text-xs ${n === cur && !p.out ? 'bg-cyan-950/60 border border-cyan-500/50' : 'border border-transparent'} ${p.out ? 'opacity-40' : ''}">
                 <span class="flex items-center gap-1.5 min-w-0"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${magColor(s, n)};border:2px solid #020617;flex-shrink:0"></span>
@@ -954,7 +957,7 @@ function magStateLabel(s, sp) {
 }
 function magMineHtml(s, me) {
     const p = s.players[me];
-    if (!p || p.out) return '';
+    if (!p || p.out) return '<div class="text-[11px] text-slate-500 italic">Aucune propriété.</div>';
     const owned = magOwned(s, me);
     const can = magCanManage(s, me);
     const rows = owned.map(sp => {
@@ -968,13 +971,13 @@ function magMineHtml(s, me) {
             <span class="min-w-0"><span class="block truncate text-xs text-slate-100">${magEsc(c.n)}</span><span class="block text-[10px]">${magStateLabel(s, sp) || '<span class="text-slate-500">loyer ' + magRent(s, sp, 7) + ' cr</span>'}</span></span></button>
             <span class="flex gap-1 shrink-0">${build}${mort}</span></div>`;
     }).join('');
-    return `<div class="p-2 rounded-xl border border-slate-700 bg-slate-900/70">
-        <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Mes propriétés (${owned.length}) ${can ? '' : '<span class="normal-case text-slate-500">— modifiables pendant votre tour</span>'}</div>
+    return `<div>
+        ${owned.length && !can ? '<div class="text-[11px] text-slate-500 mb-1">Modifiables pendant votre tour.</div>' : ''}
         ${rows || '<div class="text-[11px] text-slate-500 italic">Vous ne possédez encore rien.</div>'}</div>`;
 }
 function magDetailHtml(s) {
     const sp = magUI.sel, c = MAG_SPACES[sp];
-    if (!c) return `<div class="p-2 rounded-xl border border-slate-800 bg-slate-900/50 text-[11px] text-slate-500">Touchez une case du plateau pour voir ses détails.</div>`;
+    if (!c) return `<div class="text-[11px] text-slate-500">Touchez une case du plateau pour voir son prix, ses loyers et son propriétaire.</div>`;
     const o = magOwn(s, sp);
     let info;
     if (c.t === 'prop') {
@@ -985,22 +988,36 @@ function magDetailHtml(s) {
     } else if (c.t === 'portal') info = `<div class="text-[11px] text-slate-300">Loyer selon le nombre de Portails possédés : 25 / 50 / 100 / 200 cr. Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
     else if (c.t === 'net') info = `<div class="text-[11px] text-slate-300">Loyer : 4 × le total des dés (10 × si le propriétaire possède les deux Réseaux). Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
     else info = `<div class="text-[11px] text-slate-300">${{ start: `Chaque passage rapporte ${MAG.SALARY} cr.`, tax: `Payez ${c.a} cr à la banque.`, card: `Tirez une carte ${c.n}.`, jail: 'Simple visite... sauf si la Patrouille vous y envoie.', free: 'Zone de repos : rien ne se passe.', gojail: 'Vous êtes envoyé directement en Quarantaine.' }[c.t] || ''}</div>`;
-    return `<div class="p-2 rounded-xl border border-slate-700 bg-slate-900/70 space-y-1">
+    return `<div class="space-y-1">
         <div class="flex items-center justify-between gap-2"><span class="text-sm font-black text-white"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.f ? MAG_FAMILIES[c.f].color : '#64748b'}"></span> ${magEsc(c.n)}</span>
         ${c.p ? `<span class="text-xs font-mono text-amber-300">${c.p} cr</span>` : ''}</div>
         ${magOwnable(sp) ? `<div class="text-[11px] text-slate-300">Propriétaire : ${o ? `<b style="color:${magColor(s, o.o)}">${magEsc(o.o)}</b> ${magStateLabel(s, sp)}` : '<span class="text-slate-500">à vendre</span>'}</div>` : ''}
         ${info}</div>`;
 }
 function magLogHtml(s) {
-    return `<div class="p-2 rounded-xl border border-slate-800 bg-black/40">
-        <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Journal</div>
-        <div class="space-y-0.5 text-[11px] text-slate-300" style="max-height:150px;overflow-y:auto">${s.log.slice(-12).reverse().map((l, i) => `<div class="${i === 0 ? 'text-white' : ''}">• ${magEsc(l)}</div>`).join('')}</div></div>`;
+    return `<div class="space-y-1 text-[11px] text-slate-300">${s.log.slice().reverse().map((l, i) => `<div class="${i === 0 ? 'text-white font-bold' : ''}">• ${magEsc(l)}</div>`).join('')}</div>`;
 }
 function magRenderSide(s) {
-    const side = document.getElementById('mag-side');
-    if (!side) return;
+    if (!document.getElementById('mag-root')) return;
     const me = magMe();
-    side.innerHTML = magActionHtml(s, me) + magPlayersHtml(s, me) + magDetailHtml(s) + magMineHtml(s, me) + magLogHtml(s);
+    const put = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    put('mag-actions', magActionHtml(s, me));
+    put('mag-players', magPlayersHtml(s, me));
+    put('mag-detail', magDetailHtml(s));
+    put('mag-mine', magMineHtml(s, me));
+    put('mag-log', magLogHtml(s));
+    put('mag-mine-count', s.players[me] && !s.players[me].out ? String(magOwned(s, me).length) : '0');
+}
+// Adapte la taille des panneaux et du centre du plateau à la taille de la fenêtre
+function magFit() {
+    const root = document.getElementById('mag-root'), board = document.getElementById('mag-board');
+    if (!root || !board) return;
+    const scale = Math.max(1, Math.min(1.9, window.innerWidth / 1500, window.innerHeight / 800));
+    root.style.setProperty('--mag-side', Math.round(350 * scale) + 'px');
+    root.querySelectorAll('.mag-zoom').forEach(el => { el.style.zoom = scale; });
+    magUI.cz = Math.max(0.6, board.clientWidth / 640);
+    const inner = document.getElementById('mag-center-in');
+    if (inner) inner.style.zoom = magUI.cz;
 }
 function magRender(s, force) {
     if (!s.debts.length || s.debts[0].who !== magMe()) magUI.bk = false;
@@ -1015,6 +1032,7 @@ function magRender(s, force) {
     magRenderCenter(s);
     magRenderSide(s);
     magTickTimer();
+    magFit();
 }
 function magCurrent() { const d = window.magData; return d && d.magnatGame && d.magnatGame.s ? magNorm(d.magnatGame.s) : null; }
 
@@ -1048,50 +1066,86 @@ function magOnAct(d) {
     }
     magRender(s);
 }
+const MAG_CSS = `
+@keyframes magShake{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-18deg) scale(1.15)}50%{transform:rotate(14deg) scale(1.1)}75%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
+.mag-shake{animation:magShake .55s ease}
+#mag-root{--mag-side:350px;position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box;background:radial-gradient(circle at 50% 40%,#0b1a30 0%,#040913 70%)}
+#mag-top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;border:1px solid rgba(0,210,255,.35);border-radius:12px;background:rgba(9,20,36,.92);flex-shrink:0}
+#mag-main{flex:1;min-height:0;display:grid;grid-template-columns:var(--mag-side) minmax(0,1fr) var(--mag-side);gap:12px}
+.mag-col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+#mag-boardwrap{container-type:size;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}
+#mag-board{position:relative;width:min(100cqw,100cqh);height:min(100cqw,100cqh)}
+.mag-sec{display:flex;flex-direction:column;min-height:0;border:1px solid var(--mag-acc,rgba(0,210,255,.4));border-radius:12px;background:rgba(9,20,36,.94);overflow:hidden;flex-shrink:0}
+.mag-sec.mag-grow{flex:1 1 0;flex-shrink:1}
+.mag-sec-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#04101f;background:var(--mag-acc,#22d3ee);flex-shrink:0}
+.mag-sec-b{padding:10px 12px;overflow-y:auto;min-height:0}
+.mag-sec-b>*+*{margin-top:8px}
+.mag-hint{font-size:11px;line-height:1.45;color:#94a3b8;border-top:1px dashed rgba(148,163,184,.3);padding-top:6px}
+.mag-hint b{color:#e2e8f0}
+@media (max-width:1100px){
+ #mag-root{overflow-y:auto}
+ #mag-main{display:flex;flex-direction:column;flex:none}
+ #mag-boardwrap{container-type:normal;order:1}
+ #mag-board{width:100%;height:auto;aspect-ratio:1/1;max-width:720px}
+ #mag-col-right{order:2} #mag-col-left{order:3}
+ .mag-sec.mag-grow{flex:none;max-height:340px}
+}`;
 function magBuildLayout() {
     const content = document.getElementById('generic-game-content');
     if (!content) return;
-    if (!document.getElementById('mag-style')) {
-        const st = document.createElement('style');
-        st.id = 'mag-style';
-        st.textContent = '@keyframes magShake{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-18deg) scale(1.15)}50%{transform:rotate(14deg) scale(1.1)}75%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}.mag-shake{animation:magShake .55s ease}';
-        document.head.appendChild(st);
-    }
+    let st = document.getElementById('mag-style');
+    if (!st) { st = document.createElement('style'); st.id = 'mag-style'; document.head.appendChild(st); }
+    st.textContent = MAG_CSS;
+    const sec = (title, id, acc, grow, extra) => `<div class="mag-sec ${grow ? 'mag-grow' : ''}" style="--mag-acc:${acc}"><div class="mag-sec-h"><span>${title}</span>${extra || ''}</div><div id="${id}" class="mag-sec-b"></div></div>`;
     content.innerHTML = `
-        <div id="mag-root" class="w-full grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
-            <div class="lg:col-span-3">
-                <div style="position:relative;width:100%;max-width:720px;margin:0 auto;aspect-ratio:1/1">
-                    ${magBoardSvg()}
-                    <div id="mag-center" style="position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none"></div>
-                </div>
+        <div id="mag-root">
+            <div id="mag-top">
+                <span class="sci-font" style="font-weight:800;letter-spacing:.2em;color:#a5b4fc;font-size:15px">🪐 MAGNAT GALACTIQUE</span>
+                <span id="mag-top-timer" style="font-family:monospace;font-weight:bold;color:#fbbf24;font-size:15px"></span>
             </div>
-            <div id="mag-side" class="lg:col-span-2 space-y-2"></div>
+            <div id="mag-main">
+                <div id="mag-col-left" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
+                    ${sec('🏠 Mes propriétés', 'mag-mine', '#fbbf24', true, '<span id="mag-mine-count"></span>')}
+                    ${sec('🔎 Case sélectionnée', 'mag-detail', '#a78bfa', false)}
+                </div></div>
+                <div id="mag-boardwrap"><div id="mag-board">
+                    ${magBoardSvg()}
+                    <div id="mag-center" style="position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;pointer-events:none"></div>
+                </div></div>
+                <div id="mag-col-right" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
+                    ${sec('🎮 Actions possibles', 'mag-actions', '#34d399', false)}
+                    ${sec('👥 Joueurs', 'mag-players', '#22d3ee', false)}
+                    ${sec('📜 Journal des actions', 'mag-log', '#94a3b8', true)}
+                </div></div>
+            </div>
         </div>`;
-    const svg = document.getElementById('mag-svg');
-    svg.onclick = e => {
+    const root = document.getElementById('mag-root');
+    document.getElementById('mag-svg').onclick = e => {
         const t = e.target.closest ? e.target.closest('[data-sp]') : null;
         if (!t) return;
         const sp = Number(t.getAttribute('data-sp'));
         magUI.sel = magUI.sel === sp ? -1 : sp;
         const s = magCurrent(); if (s) magRender(s);
     };
-    const side = document.getElementById('mag-side');
-    side.onclick = e => {
+    root.onclick = e => {
         const b = e.target.closest ? e.target.closest('[data-act]') : null;
         if (b && !b.disabled) magOnAct(b.dataset);
     };
-    side.oninput = e => {
+    root.oninput = e => {
         const t = e.target;
         if (t.id === 'mag-bid') magUI.bid = t.value;
         else if (t.id === 'mag-tr-gc' && magUI.tr) magUI.tr.gc = t.value;
         else if (t.id === 'mag-tr-rc' && magUI.tr) magUI.tr.rc = t.value;
     };
-    side.onchange = e => {
+    root.onchange = e => {
         if (e.target.id === 'mag-tr-to' && magUI.tr) {
             magUI.tr.to = e.target.value; magUI.tr.get = {}; magUI.tr.rk = false; magUI.tr.rc = '';
             const s = magCurrent(); if (s) magRender(s);
         }
     };
+    if (!window.magResizeBound) { window.magResizeBound = true; window.addEventListener('resize', magFit); }
+    magFit();
+    setTimeout(magFit, 60);
 }
 
 if (typeof window !== 'undefined') {
