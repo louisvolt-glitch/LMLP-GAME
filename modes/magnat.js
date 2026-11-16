@@ -19,6 +19,7 @@ const MAG = {
     HOUSES: 32,            // avant-postes disponibles à la banque
     HOTELS: 12,            // métropoles disponibles à la banque
     AUCTION_SECONDS: 20,   // temps pour enchérir
+    CARD_SECONDS: 15,      // une carte tirée reste affichée, puis son effet s'applique tout seul
     JAIL: 9,               // case Quarantaine
     LOG: 25
 };
@@ -76,7 +77,7 @@ const MAG_SPACES = [
 ];
 const MAG_N = MAG_SPACES.length;
 
-// Cartes. x : gain | pay | start | goto | back | portal | jail | free | repairs | each | payeach
+// Cartes. x : gain | pay | start | goto | back | portal | jail | free | repairs | each | payeach | payper | skip
 const MAG_CARDS = {
     a: [
         { x: 'start', txt: "Signal de détresse capté : rejoignez la Station Mère et touchez votre solde." },
@@ -94,21 +95,38 @@ const MAG_CARDS = {
         { x: 'goto', sp: 35, txt: "Cap sur Citadelle Nova." },
         { x: 'gain', v: 100, txt: "Subvention d'exploration : recevez 100 crédits." }
     ],
+    // Les 30 cartes Cargaison : le texte reprend celui de l'image magnat-visuel/cartes/cargaison-XX.jpg (XX = img)
     b: [
-        { x: 'gain', v: 200, txt: "Cargaison de minerai rare vendue : recevez 200 crédits." },
-        { x: 'gain', v: 75, txt: "Erreur du comptoir en votre faveur : recevez 75 crédits." },
-        { x: 'pay', v: 100, txt: "Réparation de la coque : payez 100 crédits." },
-        { x: 'pay', v: 50, txt: "Visite médicale obligatoire : payez 50 crédits." },
-        { x: 'each', v: 20, txt: "C'est votre anniversaire galactique : chaque joueur vous offre 20 crédits." },
-        { x: 'free', txt: "Sauf-conduit diplomatique : conservez cette carte pour sortir de Quarantaine." },
-        { x: 'jail', txt: "Contrebande découverte dans vos soutes : direction la Quarantaine." },
-        { x: 'start', txt: "Rappel de la flotte : retournez à la Station Mère et touchez votre solde." },
-        { x: 'gain', v: 60, txt: "Remboursement d'assurance : recevez 60 crédits." },
-        { x: 'repairs', h: 40, H: 115, txt: "Entretien des installations : payez 40 crédits par avant-poste et 115 par métropole." },
-        { x: 'gain', v: 20, txt: "Vous gagnez le concours d'holo-photo : recevez 20 crédits." },
-        { x: 'pay', v: 60, txt: "Taxe sur le carburant : payez 60 crédits." },
-        { x: 'gain', v: 120, txt: "Héritage d'un lointain cousin : recevez 120 crédits." },
-        { x: 'gain', v: 45, txt: "Vente de pièces détachées : recevez 45 crédits." }
+        { x: 'gain', v: 200, img: 1, txt: "Cargaison de minerai rare vendue : recevez 200 crédits." },
+        { x: 'gain', v: 75, img: 2, txt: "Erreur du comptoir en votre faveur : recevez 75 crédits." },
+        { x: 'pay', v: 100, img: 3, txt: "Réparation de la coque : payez 100 crédits." },
+        { x: 'pay', v: 50, img: 4, txt: "Visite médicale obligatoire : payez 50 crédits." },
+        { x: 'each', v: 20, img: 5, txt: "C'est votre anniversaire galactique : chaque joueur vous offre 20 crédits." },
+        { x: 'free', img: 6, txt: "Sauf-conduit diplomatique : conservez cette carte pour sortir de Quarantaine." },
+        { x: 'jail', img: 7, txt: "Contrebande découverte dans vos soutes : direction la Quarantaine." },
+        { x: 'start', img: 8, txt: "Rappel de la flotte : retournez à la Station Mère et touchez votre solde." },
+        { x: 'gain', v: 60, img: 9, txt: "Remboursement d'assurance : recevez 60 crédits." },
+        { x: 'repairs', h: 40, H: 115, img: 10, txt: "Entretien des installations : payez 40 crédits par avant-poste et 115 par métropole." },
+        { x: 'gain', v: 20, img: 11, txt: "Vous gagnez le concours d'holo-photo intergalactique : recevez 20 crédits." },
+        { x: 'pay', v: 60, img: 12, txt: "Hausse des cours de l'antimatière : payez 60 crédits de taxe sur le carburant." },
+        { x: 'gain', v: 120, img: 13, txt: "Héritage d'un lointain cousin de la Bordure Extérieure : recevez 120 crédits." },
+        { x: 'gain', v: 45, img: 14, txt: "Vente de pièces détachées sur le marché noir : recevez 45 crédits." },
+        { x: 'gain', v: 150, img: 15, txt: "Mission de convoyage risquée menée à bien : touchez une prime de 150 crédits." },
+        { x: 'pay', v: 35, img: 16, txt: "Panne de propulseur ionique : immobilisé pour réparation, payez 35 crédits." },
+        { x: 'gain', v: 100, img: 17, txt: "Excellents bilans trimestriels de la guilde commerciale : recevez 100 crédits." },
+        { x: 'pay', v: 25, img: 18, txt: "Vaisseau mal garé sur les voies d'approche du Portail : payez 25 crédits d'amende." },
+        { x: 'gain', v: 175, img: 19, txt: "Vos sondes découvrent un astéroïde de platine : recevez 175 crédits." },
+        { x: 'pay', v: 80, img: 20, txt: "Cyber-attaque sur vos comptes de navigation : payez 80 crédits de sécurisation." },
+        { x: 'pay', v: 50, img: 21, txt: "Mécénat scientifique : versez 50 crédits pour soutenir la recherche des cadets." },
+        { x: 'gain', v: 110, img: 22, txt: "Votre écurie gagne la course de podracers : recevez 110 crédits de gains." },
+        { x: 'pay', v: 30, img: 23, txt: "Redevance logistique exceptionnelle : payez 30 crédits à la banque." },
+        { x: 'gain', v: 90, img: 24, txt: "Vous avez secouru une capsule en dérive : touchez une prime de 90 crédits." },
+        { x: 'pay', v: 65, img: 25, txt: "Contrôle approfondi de la cargaison par les douanes : payez 65 crédits de taxes." },
+        { x: 'gain', v: 130, img: 26, txt: "Un de vos brevets de bouclier est validé : recevez 130 crédits de royalties." },
+        { x: 'payper', v: 15, img: 27, txt: "Krach temporaire sur les métaux lourds : payez 15 crédits par joueur pour renflouer le marché." },
+        { x: 'gain', v: 85, img: 28, txt: "Aide gouvernementale pour vos dômes : recevez 85 crédits de subvention." },
+        { x: 'skip', img: 29, txt: "Ordinateur de bord déréglé : perdez un tour à recalibrer le système de saut." },
+        { x: 'gain', v: 150, img: 30, txt: "Élu meilleur négociant du secteur : recevez 150 crédits de la banque." }
     ]
 };
 const MAG_DECK_NAMES = { a: 'Transmission', b: 'Cargaison' };
@@ -265,7 +283,7 @@ function magNorm(raw) {
     const arr = v => (Array.isArray(v) ? v.filter(x => x !== null && x !== undefined) : Object.values(v || {}));
     s.order = arr(s.order);
     s.players = s.players || {};
-    Object.keys(s.players).forEach(n => { const p = s.players[n]; p.cash = p.cash || 0; p.pos = p.pos || 0; p.jail = p.jail || 0; p.cards = p.cards || 0; p.out = !!p.out; p.c = p.c || 0; });
+    Object.keys(s.players).forEach(n => { const p = s.players[n]; p.cash = p.cash || 0; p.pos = p.pos || 0; p.jail = p.jail || 0; p.cards = p.cards || 0; p.out = !!p.out; p.c = p.c || 0; p.skip = p.skip || 0; });
     s.own = (s.own && !Array.isArray(s.own)) ? s.own : {};
     s.dice = arr(s.dice); if (s.dice.length < 2) s.dice = [1, 1];
     s.debts = arr(s.debts);
@@ -276,6 +294,7 @@ function magNorm(raw) {
     else s.auction = null;
     if (s.trade) { s.trade.give = magCleanSide(s.trade.give); s.trade.get = magCleanSide(s.trade.get); } else s.trade = null;
     s.card = s.card || null;
+    if (s.card) s.card.p = !!s.card.p;
     s.rank = arr(s.rank);
     ['turn', 'rollSeq', 'dbl', 'dl', 'dlAt', 'endAt', 'outCount', 'seq', 'turnCount'].forEach(k => { s[k] = s[k] || 0; });
     if (typeof s.buy !== 'number') s.buy = -1;
@@ -319,32 +338,36 @@ function magJail(s, name) {
     s.again = false; s.dbl = 0; s.phase = 'END';
     magLog(s, `${name} est placé en Quarantaine.`);
 }
-function magDraw(s, name, deck, depth) {
+// Tirage : la carte est d'abord MONTRÉE à tout le monde (étape CARD) ; son effet s'applique ensuite (action « card »)
+function magDrawCard(s, name, deck) {
     if (s.di[deck] >= s.deck[deck].length) s.di[deck] = 0;
     const idx = s.deck[deck][s.di[deck]++];
-    const card = MAG_CARDS[deck][idx];
+    s.card = { d: deck, i: idx, by: name, k: s.seq, p: true };
+    s.phase = 'CARD';
+    magLog(s, `${name} tire une carte ${MAG_DECK_NAMES[deck]} : ${MAG_CARDS[deck][idx].txt}`);
+}
+function magCardEffect(s, name, card) {
     const p = s.players[name];
-    s.card = { d: deck, i: idx, by: name, k: s.seq };
-    magLog(s, `${name} tire une carte ${MAG_DECK_NAMES[deck]} : ${card.txt}`);
-    if (card.x === 'gain') p.cash += card.v;
+    if (card.x === 'gain') { p.cash += card.v; magLog(s, `${name} reçoit ${card.v} cr.`); }
     else if (card.x === 'pay') magCharge(s, name, card.v, '', 'carte');
-    else if (card.x === 'start') { p.pos = 0; p.cash += MAG.SALARY; }
+    else if (card.x === 'payper') magCharge(s, name, card.v * magAlive(s).length, '', `carte : ${card.v} cr × ${magAlive(s).length} joueurs`);
+    else if (card.x === 'skip') { p.skip = (p.skip || 0) + 1; magLog(s, `${name} passera son prochain tour.`); }
+    else if (card.x === 'start') { p.pos = 0; p.cash += MAG.SALARY; magLog(s, `${name} rejoint la Station Mère : +${MAG.SALARY} cr.`); }
     else if (card.x === 'jail') magJail(s, name);
-    else if (card.x === 'free') p.cards = (p.cards || 0) + 1;
+    else if (card.x === 'free') { p.cards = (p.cards || 0) + 1; magLog(s, `${name} conserve un sauf-conduit.`); }
     else if (card.x === 'each') magAlive(s).forEach(q => { if (q !== name) magCharge(s, q, card.v, name, 'carte'); });
     else if (card.x === 'payeach') magAlive(s).forEach(q => { if (q !== name) magCharge(s, name, card.v, q, 'carte'); });
     else if (card.x === 'repairs') {
         let total = 0;
         magOwned(s, name).forEach(sp => { const h = magHouses(s, sp); total += h === 5 ? card.H : h * card.h; });
         if (total > 0) magCharge(s, name, total, '', 'entretien'); else magLog(s, `${name} n'a aucune construction : rien à payer.`);
-    } else if (depth < 3) {
-        if (card.x === 'goto') magMoveToDepth(s, name, card.sp, true, depth + 1);
-        else if (card.x === 'back') magMoveToDepth(s, name, (p.pos - card.v + MAG_N) % MAG_N, false, depth + 1);
-        else if (card.x === 'portal') {
-            let t = p.pos;
-            do { t = (t + 1) % MAG_N; } while (MAG_SPACES[t].t !== 'portal');
-            magMoveToDepth(s, name, t, true, depth + 1);
-        }
+    }
+    else if (card.x === 'goto') magMoveToDepth(s, name, card.sp, true, 0);
+    else if (card.x === 'back') magMoveToDepth(s, name, (p.pos - card.v + MAG_N) % MAG_N, false, 0);
+    else if (card.x === 'portal') {
+        let t = p.pos;
+        do { t = (t + 1) % MAG_N; } while (MAG_SPACES[t].t !== 'portal');
+        magMoveToDepth(s, name, t, true, 0);
     }
 }
 function magMoveToDepth(s, name, target, salary, depth) {
@@ -364,7 +387,7 @@ function magLand(s, name, depth) {
         else if (magOwn(s, sp).m) magLog(s, `${name} arrive sur ${c.n} (hypothéquée) : pas de loyer.`);
         else magCharge(s, name, magRent(s, sp, s.dice[0] + s.dice[1]), owner, 'loyer ' + c.n);
     } else if (c.t === 'tax') magCharge(s, name, c.a, '', c.n);
-    else if (c.t === 'card') magDraw(s, name, c.d, depth || 0);
+    else if (c.t === 'card') magDrawCard(s, name, c.d);
     else if (c.t === 'gojail') magJail(s, name);
     else magLog(s, `${name} arrive sur ${c.n}.`);
 }
@@ -380,7 +403,13 @@ function magFinish(s) {
 function magNextTurn(s, now) {
     s.trade = null; s.dbl = 0; s.again = false; s.buy = -1;
     if (magAlive(s).length <= 1 || (s.endAt && now >= s.endAt)) { magFinish(s); return; }
-    do { s.turn = (s.turn + 1) % s.order.length; } while (s.players[s.order[s.turn]].out);
+    for (let k = 0; k < s.order.length * 4; k++) {
+        s.turn = (s.turn + 1) % s.order.length;
+        const q = s.players[s.order[s.turn]];
+        if (q.out) continue;
+        if (q.skip > 0) { q.skip--; magLog(s, `${s.order[s.turn]} passe son tour (carte Cargaison).`); continue; }
+        break;
+    }
     s.phase = 'ROLL'; s.turnCount++;
 }
 function magCloseAuction(s) {
@@ -432,7 +461,7 @@ function magDeadline(s, now) {
         a ? a.i + '/' + a.bid + '/' + a.act.length : ''].join(':');
     if (key !== s.dlKey) {
         s.dlKey = key; s.dlAt = now;
-        s.dl = now + (a ? MAG.AUCTION_SECONDS : s.timer) * 1000;
+        s.dl = now + (a ? MAG.AUCTION_SECONDS : (s.phase === 'CARD' && !s.debts.length ? MAG.CARD_SECONDS : s.timer)) * 1000;
     }
 }
 
@@ -468,6 +497,14 @@ function magApply(s0, a, now, rnd) {
             if (s.dbl >= 3) { magLog(s, `${by} lance ${d1} + ${d2} : troisième double de suite !`); magJail(s, by); }
             else { go(); if (dbl && me.jail === 0 && !me.out) s.again = true; }
         }
+        break;
+    }
+    case 'card': {
+        if (!myTurn || s.phase !== 'CARD' || !s.card || !s.card.p) return null;
+        const card = MAG_CARDS[s.card.d] && MAG_CARDS[s.card.d][s.card.i];
+        s.card.p = false; s.phase = 'END';
+        if (card) magCardEffect(s, by, card);
+        if (me.jail > 0 || me.out) s.again = false;
         break;
     }
     case 'bail': {
@@ -540,13 +577,13 @@ function magApply(s0, a, now, rnd) {
     case 'mortgage': {
         if (!magCanManage(s, by) || magCheckMortgage(s, by, sp)) return null;
         magOwn(s, sp).m = true; me.cash += magMortgageValue(sp);
-        magLog(s, `${by} hypothèque ${MAG_SPACES[sp].n} (+${magMortgageValue(sp)} cr).`);
+        magLog(s, `${by} hypothèque ${MAG_SPACES[sp].n} (+${magMortgageValue(sp)} cr, la moitié de son prix).`);
         break;
     }
     case 'unmortgage': {
         if (!magCanManage(s, by) || magCheckUnmortgage(s, by, sp)) return null;
         magOwn(s, sp).m = false; me.cash -= magUnmortgageCost(sp);
-        magLog(s, `${by} lève l'hypothèque de ${MAG_SPACES[sp].n} (−${magUnmortgageCost(sp)} cr).`);
+        magLog(s, `${by} lève l'hypothèque de ${MAG_SPACES[sp].n} (−${magUnmortgageCost(sp)} cr : ${magMortgageValue(sp)} remboursés + ${magUnmortgageCost(sp) - magMortgageValue(sp)} d'intérêts).`);
         break;
     }
     case 'propose': {
@@ -617,6 +654,7 @@ function magAuto(s, now, rnd) {
         return st === s ? null : st;
     }
     if (s.auction) return magApply(s, { by: who, t: 'pass' }, now, rnd);
+    if (s.phase === 'CARD') return magApply(s, { by: who, t: 'card' }, now, rnd);
     if (s.phase === 'BUY') return magApply(s, { by: who, t: 'auction' }, now, rnd);
     if (s.phase === 'ROLL' || (s.phase === 'END' && s.again)) return magApply(s, { by: who, t: 'roll' }, now, rnd);
     if (s.phase === 'END') return magApply(s, { by: who, t: 'end' }, now, rnd);
@@ -797,6 +835,7 @@ function magPhaseText(s) {
     if (s.debts.length) return `${s.debts[0].who} doit régler une dette`;
     if (s.auction) return `Enchères : au tour de ${s.auction.act[s.auction.i]}`;
     if (s.phase === 'ROLL') return s.players[cur].jail > 0 ? `${cur} est en Quarantaine` : `${cur} doit lancer les dés`;
+    if (s.phase === 'CARD') return `${cur} a tiré une carte ${s.card ? MAG_DECK_NAMES[s.card.d] : ''}`;
     if (s.phase === 'BUY') return `${cur} : acheter ou mettre aux enchères ?`;
     return s.again ? `${cur} rejoue (double)` : `${cur} gère ses biens`;
 }
@@ -815,12 +854,61 @@ function magRenderCenter(s) {
         <div id="mag-timer" style="font-family:monospace;font-size:15px;font-weight:bold;color:#fbbf24;margin-top:3px"></div>
         ${card ? `<div style="margin-top:5px;max-width:84%;font-size:10px;line-height:1.25;color:#0f172a;background:${s.card.d === 'a' ? '#a5f3fc' : '#fde68a'};border-radius:8px;padding:5px 7px"><b>${s.card.d === 'a' ? '📡' : '📦'} ${MAG_DECK_NAMES[s.card.d]}</b> — ${magEsc(card.txt)}</div>` : ''}</div>`;
 }
+// ----- Cartes : piles (dos commun) et carte tirée montrée à tous -----
+const MAG_CARD_DIR = './magnat-visuel/cartes/';
+function magCardImg(deck, idx) {
+    const c = MAG_CARDS[deck] && MAG_CARDS[deck][idx];
+    return c && c.img ? MAG_CARD_DIR + 'cargaison-' + String(c.img).padStart(2, '0') + '.jpg' : '';
+}
+function magCardBackHtml(deck) {
+    // Cargaison : image du dos fournie ; Transmission : dos dessiné (pas d'image pour ce paquet)
+    const drawn = `<div class="mag-face-text" style="background:linear-gradient(160deg,#083344,#0c1a3a 60%,#1e1b4b)"><div style="font-size:26cqw">📡</div><div style="font-size:9.5cqw;font-weight:900;letter-spacing:.08em;color:#a5f3fc">TRANSMISSION</div></div>`;
+    if (deck !== 'b') return drawn;
+    return `<img src="${MAG_CARD_DIR}dos-cargaison.jpg" alt="" draggable="false" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="mag-face-text" style="display:none;background:linear-gradient(160deg,#3b2a06,#0c1a3a 60%,#1e1b4b)"><div style="font-size:26cqw">📦</div><div style="font-size:10cqw;font-weight:900;letter-spacing:.08em;color:#fde68a">CARGAISON</div></div>`;
+}
+function magCardFrontHtml(deck, idx) {
+    const c = (MAG_CARDS[deck] && MAG_CARDS[deck][idx]) || { txt: '' };
+    const text = `<div class="mag-face-text" style="${magCardImg(deck, idx) ? 'display:none;' : ''}background:${deck === 'a' ? 'linear-gradient(160deg,#0e7490,#0c1a3a 55%,#1e1b4b)' : 'linear-gradient(160deg,#92400e,#0c1a3a 55%,#1e1b4b)'}">
+        <div style="font-size:10cqw;font-weight:900;letter-spacing:.08em;color:${deck === 'a' ? '#a5f3fc' : '#fde68a'}">${deck === 'a' ? 'TRANSMISSION' : 'CARGAISON'}</div>
+        <div style="font-size:30cqw;line-height:1">${deck === 'a' ? '📡' : '📦'}</div>
+        <div style="font-size:6.6cqw;line-height:1.3;color:#f1f5f9;background:rgba(2,6,23,.6);border:1px solid rgba(255,255,255,.25);border-radius:4cqw;padding:5cqw">${magEsc(c.txt)}</div></div>`;
+    const img = magCardImg(deck, idx);
+    return (img ? `<img src="${img}" alt="${magEsc(c.txt)}" draggable="false" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '') + text;
+}
+function magRenderCard(s) {
+    const view = document.getElementById('mag-cardview');
+    if (!view) return;
+    const c = s.card, me = magMe();
+    ['a', 'b'].forEach(d => { const pile = document.getElementById('mag-pile-' + d); if (pile) pile.classList.toggle('mag-pile-on', !!(c && c.p && c.d === d)); });
+    if (!c || !c.p) { view.style.display = 'none'; view.dataset.k = ''; return; }
+    const key = c.d + ':' + c.i + ':' + c.k + ':' + (s.debts.length ? 1 : 0) + ':' + me;
+    if (view.dataset.k === key) return;
+    const fresh = (view.dataset.k || '').split(':').slice(0, 3).join(':') !== c.d + ':' + c.i + ':' + c.k;
+    view.dataset.k = key;
+    const mine = c.by === me && s.order[s.turn] === me;
+    view.style.display = 'flex';
+    view.innerHTML = `
+        <div class="mag-bigcard ${fresh ? 'mag-flip' : ''}">
+            <div class="mag-face mag-face-front">${magCardFrontHtml(c.d, c.i)}</div>
+            <div class="mag-face mag-face-back">${magCardBackHtml(c.d)}</div>
+        </div>
+        <div class="mag-cz" style="zoom:${magUI.cz || 1};display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:10px">
+            <div style="font-size:13px;color:#e2e8f0"><b style="color:${magColor(s, c.by)}">${magEsc(c.by)}</b> a tiré une carte ${MAG_DECK_NAMES[c.d]}</div>
+            ${mine && !s.debts.length
+                ? `<button data-act="card" style="pointer-events:auto;cursor:pointer;padding:9px 18px;border-radius:10px;border:0;background:#059669;color:#fff;font-weight:800;font-size:13px">Appliquer l'effet</button>`
+                : `<div style="font-size:12px;color:#94a3b8">En attente de ${magEsc(c.by)}...</div>`}
+            <div style="font-size:11px;color:#fbbf24;font-family:monospace">Effet appliqué automatiquement dans <span id="mag-card-timer"></span> s</div>
+        </div>`;
+}
 function magTickTimer() {
     const data = window.magData, g = data && data.magnatGame;
     if (!g || !g.s || g.s.status !== 'PLAYING') return;
     const now = Date.now();
     const el = document.getElementById('mag-timer');
     if (el) el.textContent = '⏱ ' + Math.max(0, Math.ceil(((g.s.dl || 0) - now) / 1000)) + ' s';
+    const ct = document.getElementById('mag-card-timer');
+    if (ct) ct.textContent = Math.max(0, Math.ceil(((g.s.dl || 0) - now) / 1000));
     let txt = 'Sans limite de temps';
     if (g.s.endAt) { const left = Math.max(0, Math.ceil((g.s.endAt - now) / 1000)); txt = left > 0 ? `Fin de partie dans ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : 'Dernier tour'; }
     ['generic-game-timer', 'mag-top-timer'].forEach(id => { const top = document.getElementById(id); if (top) top.innerText = txt; });
@@ -887,7 +975,11 @@ function magActionHtml(s, me) {
     } else if (cur === me) {
         const canTrade = (s.phase === 'ROLL' || s.phase === 'END') && !s.trade;
         const trade = canTrade ? magBtn('🤝 Proposer un échange', 'data-act="tropen"') : '';
-        if (s.phase === 'ROLL' && p.jail > 0) {
+        if (s.phase === 'CARD') {
+            body = `<div class="text-sm font-black text-amber-300">🃏 Vous avez tiré une carte ${s.card ? MAG_DECK_NAMES[s.card.d] : ''}</div>
+                <div class="flex gap-2 flex-wrap">${magBtn("Appliquer l'effet de la carte", 'data-act="card"', GREEN)}</div>
+                ${magHint(`La carte est montrée à tous les joueurs sur le plateau. Son effet s'applique quand vous validez, ou tout seul après ${MAG.CARD_SECONDS} secondes.`)}`;
+        } else if (s.phase === 'ROLL' && p.jail > 0) {
             body = `<div class="text-sm font-black text-amber-300">🧪 Vous êtes en Quarantaine (tentative ${p.jail} / 3)</div>
                 <div class="flex gap-2 flex-wrap">${magBtn('🎲 Tenter un double', 'data-act="roll"', GREEN)}
                 ${magBtn(`Payer ${MAG.BAIL} cr`, 'data-act="bail"', BLUE, p.cash < MAG.BAIL)}
@@ -943,7 +1035,7 @@ function magPlayersHtml(s, me) {
         ${s.order.map(n => { const p = s.players[n];
             return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg text-xs ${n === cur && !p.out ? 'bg-cyan-950/60 border border-cyan-500/50' : 'border border-transparent'} ${p.out ? 'opacity-40' : ''}">
                 <span class="flex items-center gap-1.5 min-w-0"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${magColor(s, n)};border:2px solid #020617;flex-shrink:0"></span>
-                <span class="truncate ${n === me ? 'font-black text-white' : 'text-slate-200'}">${magEsc(n)}</span>${p.jail > 0 ? ' 🧪' : ''}${p.cards > 0 ? ' 🎫' : ''}${p.out ? ' 💀' : ''}</span>
+                <span class="truncate ${n === me ? 'font-black text-white' : 'text-slate-200'}">${magEsc(n)}</span>${p.jail > 0 ? ' 🧪' : ''}${p.skip > 0 ? ' ⏭️' : ''}${p.cards > 0 ? ' 🎫' : ''}${p.out ? ' 💀' : ''}</span>
                 <span class="shrink-0 font-mono"><b class="text-emerald-300">${p.out ? 'faillite' : p.cash + ' cr'}</b>${p.out ? '' : ` <span class="text-slate-500">· ${magOwned(s, n).length} biens · fortune ${magWorth(s, n)}</span>`}</span></div>`; }).join('')}
         <div class="text-[10px] text-slate-500 pt-1">Banque : ${magSupply(s).houses} avant-postes · ${magSupply(s).hotels} métropoles</div></div>`;
 }
@@ -1016,6 +1108,7 @@ function magFit() {
     root.style.setProperty('--mag-side', Math.round(350 * scale) + 'px');
     root.querySelectorAll('.mag-zoom').forEach(el => { el.style.zoom = scale; });
     magUI.cz = Math.max(0.6, board.clientWidth / 640);
+    root.querySelectorAll('.mag-cz').forEach(el => { el.style.zoom = magUI.cz; });
     const inner = document.getElementById('mag-center-in');
     if (inner) inner.style.zoom = magUI.cz;
 }
@@ -1030,6 +1123,7 @@ function magRender(s, force) {
     magRenderDyn(s);
     magRenderTokens(s);
     magRenderCenter(s);
+    magRenderCard(s);
     magRenderSide(s);
     magTickTimer();
     magFit();
@@ -1042,7 +1136,7 @@ function magOnAct(d) {
     if (!s) return;
     const act = d.act, sp = Number(d.sp);
     const tr = magUI.tr;
-    if (['roll', 'bail', 'usecard', 'buy', 'auction', 'pass', 'end', 'accept', 'decline', 'bankrupt'].indexOf(act) >= 0) { if (act === 'bankrupt') magUI.bk = false; magSend({ t: act }); return; }
+    if (['roll', 'bail', 'usecard', 'buy', 'auction', 'pass', 'end', 'accept', 'decline', 'bankrupt', 'card'].indexOf(act) >= 0) { if (act === 'bankrupt') magUI.bk = false; magSend({ t: act }); return; }
     if (['build', 'sell', 'mortgage', 'unmortgage'].indexOf(act) >= 0) { magSend({ t: act, sp: sp }); return; }
     if (act === 'bid') { magSend({ t: 'bid', amt: Number(d.amt) }); return; }
     if (act === 'bidinput') { const el = document.getElementById('mag-bid'); const v = Math.floor(Number(el && el.value) || 0); if (v > 0) { magUI.bid = ''; magSend({ t: 'bid', amt: v }); } return; }
@@ -1082,6 +1176,22 @@ const MAG_CSS = `
 .mag-sec-b>*+*{margin-top:8px}
 .mag-hint{font-size:11px;line-height:1.45;color:#94a3b8;border-top:1px dashed rgba(148,163,184,.3);padding-top:6px}
 .mag-hint b{color:#e2e8f0}
+.mag-pile{position:absolute;bottom:.6%;width:10%;display:flex;flex-direction:column;align-items:center;gap:3%;pointer-events:none;z-index:2}
+.mag-pile-cards{position:relative;width:100%;aspect-ratio:1536/2752;container-type:size}
+.mag-pile-cards>div{position:absolute;inset:0;border-radius:7%;overflow:hidden;border:1px solid rgba(255,255,255,.35);box-shadow:0 2px 6px rgba(0,0,0,.6);background:#0c1a3a}
+.mag-pile-cards>div:nth-child(1){transform:translate(-7%,-4%) rotate(-3deg)}
+.mag-pile-cards>div:nth-child(2){transform:translate(-3.5%,-2%) rotate(-1.5deg)}
+.mag-pile-cards img,.mag-face img{width:100%;height:100%;object-fit:cover;display:block}
+.mag-pile-label{font-size:8.5px;font-weight:800;letter-spacing:0;text-transform:uppercase;color:#e2e8f0;text-shadow:0 1px 3px #000;white-space:nowrap}
+@keyframes magPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(251,191,36,0))}50%{filter:drop-shadow(0 0 14px rgba(251,191,36,.95))}}
+.mag-pile-on .mag-pile-cards{animation:magPulse 1s ease-in-out infinite}
+#mag-cardview{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle,rgba(2,6,23,.9) 0%,rgba(2,6,23,.78) 55%,rgba(2,6,23,0) 71%);pointer-events:none;perspective:1600px}
+.mag-bigcard{position:relative;height:66%;aspect-ratio:1536/2752;transform-style:preserve-3d;container-type:size}
+.mag-face{position:absolute;inset:0;border-radius:5%;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:2px solid rgba(255,255,255,.5);box-shadow:0 12px 40px rgba(0,0,0,.8),0 0 30px rgba(34,211,238,.35);background:#0c1a3a}
+.mag-face-back{transform:rotateY(180deg)}
+.mag-face-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;text-align:center;padding:7cqw;box-sizing:border-box;font-family:Arial,sans-serif}
+@keyframes magFlip{0%{transform:translateY(60%) scale(.25) rotateY(180deg)}55%{transform:translateY(0) scale(1.04) rotateY(180deg)}100%{transform:translateY(0) scale(1) rotateY(0)}}
+.mag-flip{animation:magFlip 1.1s cubic-bezier(.2,.7,.2,1) both}
 @media (max-width:1100px){
  #mag-root{overflow-y:auto}
  #mag-main{display:flex;flex-direction:column;flex:none}
@@ -1111,6 +1221,9 @@ function magBuildLayout() {
                 <div id="mag-boardwrap"><div id="mag-board">
                     ${magBoardSvg()}
                     <div id="mag-center" style="position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;pointer-events:none"></div>
+                    <div id="mag-pile-b" class="mag-pile" style="left:.6%"><span class="mag-pile-label mag-cz">Cargaison</span><div class="mag-pile-cards"><div>${magCardBackHtml('b')}</div><div>${magCardBackHtml('b')}</div><div>${magCardBackHtml('b')}</div></div></div>
+                    <div id="mag-pile-a" class="mag-pile" style="right:.6%"><span class="mag-pile-label mag-cz">Transmission</span><div class="mag-pile-cards"><div>${magCardBackHtml('a')}</div><div>${magCardBackHtml('a')}</div><div>${magCardBackHtml('a')}</div></div></div>
+                    <div id="mag-cardview"></div>
                 </div></div>
                 <div id="mag-col-right" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
                     ${sec('🎮 Actions possibles', 'mag-actions', '#34d399', false)}
@@ -1144,6 +1257,8 @@ function magBuildLayout() {
         }
     };
     if (!window.magResizeBound) { window.magResizeBound = true; window.addEventListener('resize', magFit); }
+    // Préchargement des images de cartes, pour un affichage immédiat au tirage
+    if (!window.magPreloaded) { window.magPreloaded = MAG_CARDS.b.map(c => { const im = new Image(); im.src = MAG_CARD_DIR + 'cargaison-' + String(c.img).padStart(2, '0') + '.jpg'; return im; }); }
     magFit();
     setTimeout(magFit, 60);
 }
