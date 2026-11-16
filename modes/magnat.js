@@ -719,7 +719,7 @@ function magHostProcess(data) {
         window.update(window.ref(window.db, `salons/${magRoom()}`), updates).catch(err => console.error(err));
     }
 }
-// Chaque seconde : si le joueur attendu a dépassé son temps (ou a quitté le salon), l'hôte joue à sa place
+// Chaque seconde : si le joueur attendu a dépassé son temps (ou a quitté le salon depuis 20 s), l'hôte joue à sa place
 function magHostTick() {
     const room = window.currentRoom;
     if (!window.isHost || !room || room.status !== 'IN_GAME' || room.selectedMode !== 'magnat' || !room.magnatGame || !room.magnatGame.s) return;
@@ -728,7 +728,7 @@ function magHostTick() {
     const now = Date.now();
     const present = Object.values(room.players || {}).filter(p => p && p.name && !p.isBot).map(p => p.name);
     const absent = present.indexOf(magActor(s)) < 0;
-    if (now > s.dl || (absent && now > s.dlAt + 3000)) {
+    if (now > s.dl || (absent && now > s.dlAt + 20000)) {
         let next = null;
         try { next = magAuto(s, now); } catch (e) { console.error('Tour automatique impossible :', e); }
         if (next) magHostWrite(next, [], room.players);
