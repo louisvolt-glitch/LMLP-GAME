@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poste de Commandement — Salle d'Opérations</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind : feuille compilée (styles/tailwind.css, produite par outils/compiler-styles.js) chargée plus bas, après les styles de la page.
+         Pour comparer avec l'ancien script en ligne, ajoutez ?cdn à l'adresse de la page. -->
     <script>
-        tailwind.config = {
+        window._twCdn = /[?&]cdn\b/.test(location.search);
+        if (window._twCdn) document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
+    </script>
+    <script>
+        if (window._twCdn && window.tailwind) tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
@@ -215,8 +220,32 @@
     100% { top: 120%; }
 }
 
-    </style>
 
+/* ===== Version téléphone et tablette (moins de 1024 px de large) : le salon défile au lieu de tenir sur un écran ===== */
+@media (max-width: 1023px) {
+    html, body { height: auto !important; min-height: 100vh; min-height: 100dvh; width: 100% !important; overflow-x: hidden; }
+    #screen-lobby { height: auto !important; min-height: calc(100dvh - 1rem); }
+    /* bibliothèque des protocoles : sa liste est en position absolue, il lui faut une hauteur propre */
+    #screen-lobby section > .lg\:col-span-4 { min-height: 21rem; }
+    /* les trois colonnes du bas s'empilent et prennent chacune la hauteur dont elles ont besoin */
+    #screen-lobby > .grid.flex-1 { flex: none; overflow: visible; }
+    #screen-lobby > .grid.flex-1 > div { height: auto; min-height: 16rem; }
+    #operators-grid { min-height: 14rem; }
+    #screen-lobby div:has(> #chat-messages) { min-height: 13rem; }
+    #host-settings-container, #non-host-mission-folder { min-height: 14rem; }
+    #quiz-categories-checklist { max-height: 16rem; }
+    /* cibles tactiles plus confortables */
+    #protocols-list-container [id^="protocol-btn-"] { padding: .6rem .55rem; }
+    #screen-lobby header { font-size: .7rem; }
+    #screen-lobby input, #screen-lobby select, #screen-home input { font-size: 16px; }      /* évite le zoom automatique d'iOS */
+    #toast { max-width: calc(100vw - 2.5rem); }
+    main[id^="screen-"] { padding-left: .25rem; padding-right: .25rem; }
+}
+    </style>
+    <script>if (!window._twCdn) document.write('<link rel="stylesheet" href="./styles/tailwind.css">');</script>
+
+    <script src="./modes/systeme.js"></script>
+    <script src="./modes/mobile.js"></script>
     <script src="./modes/constantes.js"></script>
     <script src="./modes/cine.js"></script>
     <script src="./modes/quiz.js"></script>
@@ -233,6 +262,8 @@
     <script src="./modes/reflexes.js"></script>
     <script src="./modes/memoire.js"></script>
     <script src="./modes/magnat.js"></script>
+    <script src="./modes/bataille.js"></script>
+    <script src="./modes/missive.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -295,6 +326,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             name: window.myPlayerKey,
                             avatar: last.avatar || state.avatar,
                             isBot: false,
+                            cid: window.monCid || '',
                              isHost: !!last.isHost || others.length === 0,
                             score: last.score || 0,
                             isReady: false
@@ -349,7 +381,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'encheres': { name: 'Mise Secrète', icon: '💰', desc: 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.' },
                         'reflexes': { name: 'Réflexes Éclair', icon: '⚡', desc: 'Enchaînez des mini-épreuves de rapidité et réalisez le meilleur temps.' },
                         'memoire': { name: 'Séquence Mémoire', icon: '🧩', desc: 'Mémorisez la séquence de cases lumineuses et reproduisez-la sans erreur.' },
-                        'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' }
+                        'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' },
+                        'bataille': { name: 'Bataille Stellaire', icon: '🛸', desc: 'Duel à 2 joueurs : cachez votre flotte de vaisseaux et détruisez celle de l adversaire.' },
+                        'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -389,6 +423,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		const prevStatus = window._lastRoomStatus;
 		const justStarted = prevStatus !== data.status;
 		window._lastRoomStatus = data.status;
+		if (typeof systemeSurSalon === 'function') systemeSurSalon(data, codeSalon, prevStatus);
 
 		if (data.selectedMode === 'anomaly' && data.settings && data.settings.anomalyTheme && typeof warmupAnomaly === 'function') warmupAnomaly(data.settings.anomalyTheme);
 
@@ -439,6 +474,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		    } else if (selectedMode === 'magnat') {
     			if (justStarted) showScreen('screen-generic-game');
     			if (typeof renderMagnatScreen === 'function') renderMagnatScreen(data);
+		    } else if (selectedMode === 'bataille') {
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderBatailleScreen === 'function') renderBatailleScreen(data);
+		    } else if (selectedMode === 'missive') {
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderMissiveScreen === 'function') renderMissiveScreen(data);
 		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
@@ -505,6 +546,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 }
 
                 if (typeof callbackMiseAJour === 'function') callbackMiseAJour(data);
+            } else if (typeof salonDisparu === 'function') {
+                salonDisparu(codeSalon);      // le salon a été supprimé pendant qu'on y était : on le rétablit
             }
         });
       };
@@ -588,6 +631,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         📋
                     </button>
                 </div>
+
+                <!-- Classement de la soirée + quitter le salon -->
+                <button onclick="ouvrirSoiree()" class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/60 text-amber-300 px-3 py-1 rounded-sm hover:bg-amber-500/25 transition cursor-pointer" title="Classement cumulé de toutes les parties du salon">🏆 Soirée</button>
+                <button onclick="quitterSalon()" class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/60 text-rose-300 px-3 py-1 rounded-sm hover:bg-rose-500/25 transition cursor-pointer" title="Quitter ce salon et revenir à l'accueil">Quitter</button>
 
                 <!-- Status Badge -->
                 <div class="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/80 text-emerald-400 px-3 py-1 rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.2)]">
@@ -807,7 +854,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <!-- Catégorie : Jeu de société -->
             <div>
                 <div class="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (5)
+                    <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (7)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-rose-500/20">
                     <div onclick="selectProtocol('Codenames', '🕵️', 'Donnez un indice unique pour faire deviner vos mots en équipe.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -828,6 +875,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     </div>
                     <div onclick="selectProtocol('Magnat Galactique', '🪐', 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.', 'magnat')" id="protocol-btn-magnat" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Magnat Galactique</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Bataille Stellaire', '🛸', 'Duel à 2 joueurs : cachez votre flotte de vaisseaux et détruisez celle de l adversaire.', 'bataille')" id="protocol-btn-bataille" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Bataille Stellaire</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Missive Stellaire', '✉️', 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.', 'missive')" id="protocol-btn-missive" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Missive Stellaire</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                 </div>
@@ -1048,6 +1103,39 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <div class="text-[10px] text-slate-500">Temps par action : réglez le curseur ci-dessus (30 à 180 s). À la fin du temps, le joueur le plus riche l'emporte.</div>
                 </div>
 
+                <!-- Options Bataille Stellaire -->
+                <div id="host-settings-bataille" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS BATAILLE STELLAIRE</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Duelliste 1 :</span>
+                            <select id="setting-bataille-p1" onchange="bsDuelChanged(1); updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5"><option value="">🎲 Au hasard</option></select>
+                        </div>
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Duelliste 2 :</span>
+                            <select id="setting-bataille-p2" onchange="bsDuelChanged(2); updateHostSettings()" class="w-full bg-black/50 border border-pink-500/40 text-pink-300 px-2 py-1 text-xs mt-0.5"><option value="">🎲 Au hasard</option></select>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Après un tir réussi :</span>
+                        <select id="setting-bataille-again" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            <option value="1" selected>Le tireur rejoue</option>
+                            <option value="0">Un seul tir par tour</option>
+                        </select>
+                    </div>
+                    <div class="text-[10px] text-slate-500">Temps par tir : réglez le curseur ci-dessus (10 à 60 s). Déploiement des flottes : 90 s. Les joueurs qui ne sont pas duellistes assistent au combat en spectateurs.</div>
+                </div>
+
+                <!-- Options Missive Stellaire -->
+                <div id="host-settings-missive" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS MISSIVE STELLAIRE</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Sceaux pour gagner la partie (1-7) :</span>
+                        <input type="number" id="setting-missive-goal" min="1" max="7" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                    <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 16 cartes est doublé.</div>
+                </div>
+
                 <!-- OPTIONS CODENAMES -->
                 <div id="host-settings-codenames" class="hidden space-y-2 text-xs shrink-0">
                     <div class="text-[11px] text-amber-400 uppercase tracking-wide font-bold flex items-center justify-between">
@@ -1248,6 +1336,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <button onclick="backToLobby()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition">
                 Retour au salon
             </button>
+            <div class="flex gap-3">
+                <button onclick="demanderRevanche()" class="btn-revanche flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition" style="display:none">🔁 Revanche (hôte)</button>
+                <button onclick="ouvrirSoiree()" class="flex-1 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/60 text-amber-300 font-bold py-3 rounded-xl transition">🏆 Classement de la soirée</button>
+            </div>
         </div>
     </main>
 
@@ -1376,6 +1468,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <h2 class="text-3xl font-black sci-font text-white">Fin de Partie !</h2>
             <div id="final-leaderboard" class="space-y-3"></div>
             <button onclick="backToLobby()" class="neon-glow-btn w-full font-bold py-3 rounded-xl uppercase tracking-wider text-xs cursor-pointer">Retour au Salon</button>
+            <div class="flex gap-3">
+                <button onclick="demanderRevanche()" class="btn-revanche flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs cursor-pointer" style="display:none">🔁 Revanche (hôte)</button>
+                <button onclick="ouvrirSoiree()" class="flex-1 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/60 text-amber-300 font-bold py-3 rounded-xl uppercase tracking-wider text-xs cursor-pointer">🏆 Classement de la soirée</button>
+            </div>
         </div>
     </main>
 
@@ -1412,6 +1508,7 @@ const AVATARS = [
             renderAvatarSelector();
             document.getElementById('input-username').value = "Opérateur_" + Math.floor(Math.random() * 900 + 100);
             updatePlayerProfile();
+            if (typeof reconnexionAuto === 'function') reconnexionAuto();      // pseudo mémorisé + retour dans le salon après un rafraîchissement
 
 	    initQuizCategoriesChecklist();
 	    showScreen('screen-home');
@@ -1439,7 +1536,9 @@ function renderAvatarSelector() {
         }
 
 function updatePlayerProfile() {
-            state.username = document.getElementById('input-username').value.trim() || "Opérateur";
+            const champPseudo = document.getElementById('input-username');
+            state.username = (typeof nettoyerPseudo === 'function' ? nettoyerPseudo(champPseudo.value) : champPseudo.value.trim()) || "Opérateur";
+            if (champPseudo.value !== state.username && document.activeElement !== champPseudo) champPseudo.value = state.username;
             const headerProfile = document.getElementById('header-player-profile');
             if (headerProfile) {
                 headerProfile.classList.remove('hidden');
@@ -1477,6 +1576,16 @@ function updatePlayerProfile() {
 
         function createRoom() {
             updatePlayerProfile();
+            // Un code déjà utilisé par un salon actif n'est pas écrasé : on rejoint ce salon
+            const codeSaisi = document.getElementById('input-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            document.getElementById('input-room').value = codeSaisi;
+            if (codeSaisi && window.get && window.db && !window._creationVerifiee) {
+                window.get(window.ref(window.db, 'salons/' + codeSaisi)).then(snap => {
+                    if (snap.exists() && snap.val() && snap.val().players) { showToast("Le salon " + codeSaisi + " existe déjà : connexion..."); joinRoom(); }
+                    else { window._creationVerifiee = true; try { createRoom(); } finally { window._creationVerifiee = false; } }
+                });
+                return;
+            }
             let roomCode = document.getElementById('input-room').value.trim().toUpperCase();
             if (!roomCode) {
                 roomCode = generateRoomCode();
@@ -1499,11 +1608,13 @@ function updatePlayerProfile() {
                         isHost: true,
                         isBot: false,
                         score: 0,
-                        isReady: false
+                        isReady: false,
+                        cid: window.monCid || ''
                     }
                 },
                 selectedMode: '',
-                status: 'LOBBY'
+                status: 'LOBBY',
+                createdAt: Date.now()
             };
 
             if (window.set && window.ref && window.db) {
@@ -1511,6 +1622,7 @@ function updatePlayerProfile() {
                     showScreen('screen-lobby');
                     setupLobbyViewForUser();
                     window.rejoindreSalonFirebase(roomCode);
+                    if (typeof systemeApresConnexion === 'function') systemeApresConnexion();
                     showToast("Salon " + roomCode + " créé avec succès !");
                 });
             } else {
@@ -1522,7 +1634,7 @@ function updatePlayerProfile() {
 
 function joinRoom() {
     updatePlayerProfile();
-    let roomCode = document.getElementById('input-room').value.trim().toUpperCase();
+    let roomCode = document.getElementById('input-room').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!roomCode) {
         alert("Veuillez entrer un code de salon.");
         return;
@@ -1534,6 +1646,16 @@ function joinRoom() {
                 const dataSalon = snapshot.val();
                 const players = dataSalon.players || {};
                 const playerCount = Object.keys(players).length;
+
+                // Pseudo déjà porté par un autre joueur de ce salon : on ajoute un numéro
+                if (typeof pseudoLibre === 'function') {
+                    const libre = pseudoLibre(state.username, players, window.monCid);
+                    if (libre !== state.username) {
+                        showToast("Le pseudo " + state.username + " est déjà pris : vous êtes " + libre + ".");
+                        document.getElementById('input-username').value = libre;
+                        updatePlayerProfile();
+                    }
+                }
 
                 // Limite portée à 8 joueurs max
                 if (playerCount >= 8 && !players[state.username]) {
@@ -1548,9 +1670,11 @@ function joinRoom() {
                     isBot: false,
                     isHost: existingEntry ? !!existingEntry.isHost : false,
                     score: existingEntry ? (existingEntry.score || 0) : 0,
-                    isReady: false
+                    isReady: false,
+                    cid: window.monCid || ''
                 };
-                window.mettreAJourSalonFirebase(roomCode, { players: players });
+                // On n'écrit que sa propre fiche (écrire toute la liste pouvait effacer un joueur arrivé au même instant)
+                window.mettreAJourSalonFirebase(roomCode, { ['players/' + state.username]: players[state.username] });
                 window.isHost = false;
                 state.roomCode = roomCode;
                 window.myPlayerKey = state.username;
@@ -1561,6 +1685,7 @@ function joinRoom() {
                 showScreen('screen-lobby');
                 setupLobbyViewForUser();
                 window.rejoindreSalonFirebase(roomCode);
+                if (typeof systemeApresConnexion === 'function') systemeApresConnexion();
                 showToast("Connecté au salon " + roomCode);
             } else {
                 alert("Salon introuvable.");
@@ -1676,6 +1801,12 @@ if (mode === 'codenames') {
 	    } else if (mode === 'impostor') {
     		displayEl.innerText = `${timer}s/indice | ${s.impostorRounds || 2} tours`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (mode === 'missive') {
+                displayEl.innerText = `${timer}s/tour | ${s.msGoal || 3} sceaux pour gagner`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (mode === 'bataille') {
+                displayEl.innerText = `${timer}s/tir | ${s.bsAgain === '0' ? 'un tir par tour' : 'touché = rejoue'} | ${s.bsDuel1 || 'au hasard'} contre ${s.bsDuel2 || 'au hasard'}`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'magnat') {
                 const mm = parseInt(s.magnatMinutes, 10);
                 displayEl.innerText = `${timer}s/action | ${mm > 0 ? mm + ' min' : (s.magnatMinutes === undefined ? '30 min' : 'sans limite')}`;
@@ -1763,6 +1894,7 @@ function updateLobbyUI() {
     }
     grid.innerHTML = slotsHTML;
     renderCodenamesTeams();
+    if (typeof bsRefreshDuelSelects === 'function') bsRefreshDuelSelects();
 }
 
 // Transfère le rôle d'Hôte à un autre joueur du salon (un seul écrit atomique : jamais 0 ou 2 hôtes).
@@ -1862,7 +1994,7 @@ function launchGame() {
                 const playersArr = Array.isArray(state.players) ? state.players : Object.values(state.players);
                 const allReady = playersArr.every(p => p.isReady || p.isBot); // On ignore les bots éventuels
                 
-                if (!allReady) {
+                if (!allReady && !window._revanche) {
                     showToast("⚠️ Action refusée : Tous les opérateurs doivent être PRÊTS.");
                     return;
                 }
@@ -1943,6 +2075,10 @@ function launchGame() {
     			if (typeof window.startManchesGame === 'function') window.startManchesGame(state.selectedMode);
 		} else if (state.selectedMode === 'magnat') {
     			if (typeof window.startMagnatGame === 'function') window.startMagnatGame();
+		} else if (state.selectedMode === 'bataille') {
+    			if (typeof window.startBatailleGame === 'function') window.startBatailleGame();
+		} else if (state.selectedMode === 'missive') {
+    			if (typeof window.startMissiveGame === 'function') window.startMissiveGame();
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -2050,6 +2186,10 @@ function showScreen(id) {
 
 		const manchesRounds = document.getElementById('setting-manches-rounds')?.value || 6;
 		const magnatMinutes = document.getElementById('setting-magnat-minutes')?.value ?? 30;
+		const bsAgain = document.getElementById('setting-bataille-again')?.value || '1';
+		const bsDuel1 = document.getElementById('setting-bataille-p1')?.value || '';
+		const bsDuel2 = document.getElementById('setting-bataille-p2')?.value || '';
+		const msGoal = document.getElementById('setting-missive-goal')?.value || 3;
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
@@ -2064,7 +2204,11 @@ function showScreen(id) {
 			anomalyStages: anomalyStages,
 			anomalyTheme: anomalyTheme,
 			manchesRounds: manchesRounds,
-			magnatMinutes: magnatMinutes
+			magnatMinutes: magnatMinutes,
+			bsAgain: bsAgain,
+			bsDuel1: bsDuel1,
+			bsDuel2: bsDuel2,
+			msGoal: msGoal
                     }
                 });
             }
@@ -2252,6 +2396,30 @@ const protocolData = {
         complexity: "90%",
         sync: "70%",
         settingsId: "host-settings-magnat"
+    },
+    'bataille': {
+        rules: [
+            "Chaque amiral cache 5 vaisseaux (de 2 à 5 cases) sur sa grille de 10 × 10.",
+            "À tour de rôle, visez une case du secteur ennemi : manqué, touché ou vaisseau détruit.",
+            "Le premier qui détruit toute la flotte adverse remporte la bataille."
+        ],
+        players: "2 JOUEURS",
+        duration: "10-20 MIN",
+        complexity: "55%",
+        sync: "60%",
+        settingsId: "host-settings-bataille"
+    },
+    'missive': {
+        rules: [
+            "Chacun tient une carte secrète. À votre tour, piochez-en une seconde puis jouez l'une des deux et appliquez son effet.",
+            "Huit personnages : démasquer, espionner, provoquer en duel, se protéger, échanger... Un joueur éliminé attend la manche suivante.",
+            "La manche revient au dernier en lice, ou à la carte la plus forte quand la pioche est vide. Le premier à réunir les sceaux gagne."
+        ],
+        players: "2 - 8 JOUEURS",
+        duration: "10-25 MIN",
+        complexity: "65%",
+        sync: "55%",
+        settingsId: "host-settings-missive"
     }
 };
 
@@ -2319,7 +2487,7 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
@@ -2343,6 +2511,8 @@ if (timerSlider) {
     anomaly:   { min: 60, max: 600, step: 30, value: 300 },
     references: { min: 60, max: 600, step: 30, value: 240 },
     magnat: { min: 30, max: 180, step: 10, value: 90 },
+    bataille: { min: 10, max: 60, step: 5, value: 30 },
+    missive: { min: 15, max: 120, step: 5, value: 45 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
