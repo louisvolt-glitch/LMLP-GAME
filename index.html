@@ -226,6 +226,12 @@
     <script src="./modes/codenames.js"></script>
     <script src="./modes/petitbac.js"></script>
     <script src="./modes/references.js"></script>
+    <script src="./modes/manches.js"></script>
+    <script src="./modes/estimation.js"></script>
+    <script src="./modes/telepathie.js"></script>
+    <script src="./modes/encheres.js"></script>
+    <script src="./modes/reflexes.js"></script>
+    <script src="./modes/memoire.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -336,7 +342,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'petitsbac': { name: 'Petit Bac', icon: '📝', desc: 'Trouvez des mots par catégorie avec la lettre imposée.' },
                         'impostor': { name: 'Impostor', icon: '🥷', desc: 'Démasquez l impostor ou bluffez pour survivre incognito.' },
                         'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Surveillez le couloir infini et détectez les anomalies visuelles.' },
-			'references': { name: 'Références Gaming', icon: '🎮', desc: 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.' }
+			'references': { name: 'Références Gaming', icon: '🎮', desc: 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.' },
+                        'estimation': { name: 'Au Plus Proche', icon: '🎯', desc: 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.' },
+                        'telepathie': { name: 'Esprit Commun', icon: '🧠', desc: 'Une consigne, un mot : écrivez la même réponse que les autres joueurs.' },
+                        'encheres': { name: 'Mise Secrète', icon: '💰', desc: 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.' },
+                        'reflexes': { name: 'Réflexes Éclair', icon: '⚡', desc: 'Enchaînez des mini-épreuves de rapidité et réalisez le meilleur temps.' },
+                        'memoire': { name: 'Séquence Mémoire', icon: '🧩', desc: 'Mémorisez la séquence de cases lumineuses et reproduisez-la sans erreur.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -420,6 +431,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         if (typeof renderCodenamesScreen === 'function') renderCodenamesScreen(data);
                     } else if (selectedMode === 'cine') {
     			if (typeof renderCineScreen === 'function') renderCineScreen(data);
+		    } else if (window.MANCHES_MODES && window.MANCHES_MODES[selectedMode]) {
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderManchesScreen === 'function') renderManchesScreen(data);
 		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
@@ -763,7 +777,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <!-- Catégorie : Culture G -->
             <div>
                 <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <i class="fa-solid fa-folder"></i> [CULTURE GÉNÉRALE] (3)
+                    <i class="fa-solid fa-folder"></i> [CULTURE GÉNÉRALE] (4)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-amber-500/20">
                     <div onclick="selectProtocol('Quiz Culture G', '❓', 'Quiz chronométré en équipe à travers 20 catégories de culture générale.', 'quiz')" id="protocol-btn-quiz" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -778,13 +792,17 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Cinématophile</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
+                    <div onclick="selectProtocol('Au Plus Proche', '🎯', 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Au Plus Proche</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
                 </div>
             </div>
 
             <!-- Catégorie : Jeu de société -->
             <div>
                 <div class="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (2)
+                    <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (4)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-rose-500/20">
                     <div onclick="selectProtocol('Codenames', '🕵️', 'Donnez un indice unique pour faire deviner vos mots en équipe.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -793,6 +811,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     </div>
                     <div onclick="selectProtocol('Petit Bac', '📝', 'Trouvez des mots par catégorie avec la lettre imposée.', 'petitsbac')" id="protocol-btn-petitsbac" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Petit Bac</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Esprit Commun', '🧠', 'Une consigne, un mot : écrivez la même réponse que les autres joueurs.', 'telepathie')" id="protocol-btn-telepathie" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Esprit Commun</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Mise Secrète', '💰', 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.', 'encheres')" id="protocol-btn-encheres" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Mise Secrète</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                 </div>
@@ -816,6 +842,23 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <span class="text-slate-200">Références Gaming</span>
     <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
 </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : Réflexes & Mémoire -->
+            <div>
+                <div class="text-[10px] text-sky-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [RÉFLEXES & MÉMOIRE] (2)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-sky-500/20">
+                    <div onclick="selectProtocol('Réflexes Éclair', '⚡', 'Enchaînez des mini-épreuves de rapidité et réalisez le meilleur temps.', 'reflexes')" id="protocol-btn-reflexes" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Réflexes Éclair</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Séquence Mémoire', '🧩', 'Mémorisez la séquence de cases lumineuses et reproduisez-la sans erreur.', 'memoire')" id="protocol-btn-memoire" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Séquence Mémoire</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
                 </div>
             </div>
 
@@ -967,6 +1010,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     				<span class="text-slate-300 text-[11px]">Catégories par manche (3-8) :</span>
     				<input type="number" id="setting-petitsbac-categories" min="3" max="8" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
 		    </div>
+                </div>
+
+                <!-- Options des modes à manches (Au Plus Proche, Esprit Commun, Mise Secrète, Réflexes Éclair, Séquence Mémoire) -->
+                <div id="host-settings-manches" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS DE LA PARTIE</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Manches (3-12) :</span>
+                        <input type="number" id="setting-manches-rounds" min="3" max="12" value="6" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                    </div>
+                    <div id="host-settings-manches-hint" class="text-[10px] text-slate-500"></div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -1597,6 +1650,9 @@ if (mode === 'codenames') {
 	    } else if (mode === 'impostor') {
     		displayEl.innerText = `${timer}s/indice | ${s.impostorRounds || 2} tours`;
     		if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (protocolData[mode] && protocolData[mode].settingsId === 'host-settings-manches') {
+                displayEl.innerText = (protocolData[mode].noTimer ? '' : `${timer}s/manche | `) + `${s.manchesRounds || 6} manches`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else {
                 // Autres modes : on n'affiche que le temps, sans les catégories du Quiz
                 displayEl.innerText = `${timer}s`;
@@ -1853,6 +1909,8 @@ function launchGame() {
     			if (typeof window.startReferencesGame === 'function') window.startReferencesGame();
 		} else if (state.selectedMode === 'impostor') {
     			if (typeof window.startImpostorGame === 'function') window.startImpostorGame();
+		} else if (window.MANCHES_MODES && window.MANCHES_MODES[state.selectedMode]) {
+    			if (typeof window.startManchesGame === 'function') window.startManchesGame(state.selectedMode);
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -1958,6 +2016,8 @@ function showScreen(id) {
 		const anomalyStages = document.getElementById('setting-anomaly-stages')?.value || 8;
 		const anomalyTheme = document.getElementById('setting-anomaly-theme')?.value || 'metro';
 
+		const manchesRounds = document.getElementById('setting-manches-rounds')?.value || 6;
+
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
                         timer: timer,
@@ -1969,7 +2029,8 @@ function showScreen(id) {
 			bacCategories: bacCategories,
 			impostorRounds: impostorRounds,
 			anomalyStages: anomalyStages,
-			anomalyTheme: anomalyTheme
+			anomalyTheme: anomalyTheme,
+			manchesRounds: manchesRounds
                     }
                 });
             }
@@ -2078,7 +2139,74 @@ const protocolData = {
     duration: "5-10 MIN",
     complexity: "60%",
     sync: "70%"
-}
+},
+    'estimation': {
+        rules: [
+            "Une question dont la réponse est un nombre : hauteur, année, quantité...",
+            "Saisissez votre estimation avant la fin du temps. Plus l'écart est faible, plus vous marquez.",
+            "Bonus pour l'estimation la plus proche du salon, et jackpot pour la valeur exacte."
+        ],
+        players: "1 - 8 JOUEURS",
+        duration: "5-10 MIN",
+        complexity: "45%",
+        sync: "80%",
+        settingsId: "host-settings-manches",
+        hint: "Temps par question : réglez le curseur ci-dessus (5 à 60 s)."
+    },
+    'telepathie': {
+        rules: [
+            "Une consigne s'affiche (ex. : « Un fruit rouge »). Écrivez un seul mot.",
+            "Le but n'est pas d'être original : pensez comme les autres !",
+            "Vous marquez pour chaque joueur ayant écrit la même réponse. Une réponse unique ne rapporte rien."
+        ],
+        players: "2 - 8 JOUEURS",
+        duration: "5-10 MIN",
+        complexity: "35%",
+        sync: "98%",
+        settingsId: "host-settings-manches",
+        hint: "Temps par consigne : réglez le curseur ci-dessus (5 à 60 s)."
+    },
+    'encheres': {
+        rules: [
+            "Chaque joueur dispose de 100 crédits pour toute la partie. Un lot est mis en jeu à chaque manche.",
+            "Tout le monde mise en secret. La mise la plus haute ET unique remporte le lot et paie sa mise.",
+            "Les mises identiques s'annulent. Les crédits non dépensés ne rapportent rien à la fin."
+        ],
+        players: "2 - 8 JOUEURS",
+        duration: "5-10 MIN",
+        complexity: "80%",
+        sync: "65%",
+        settingsId: "host-settings-manches",
+        hint: "Temps pour miser : réglez le curseur ci-dessus (5 à 60 s)."
+    },
+    'reflexes': {
+        rules: [
+            "Chaque manche tire une mini-épreuve : Feu vert, Tir de précision, Couleur piège ou Suite logique.",
+            "Lisez la consigne, appuyez sur « Je suis prêt », puis soyez le plus rapide possible.",
+            "Votre temps donne vos points. Bonus pour le joueur le plus rapide de la manche."
+        ],
+        players: "1 - 8 JOUEURS",
+        duration: "3-8 MIN",
+        complexity: "30%",
+        sync: "75%",
+        settingsId: "host-settings-manches",
+        noTimer: true,
+        hint: "Chaque épreuve dure 30 secondes au maximum."
+    },
+    'memoire': {
+        rules: [
+            "Des cases s'allument l'une après l'autre sur une grille : mémorisez l'ordre.",
+            "Reproduisez la séquence. Une seule erreur met fin à votre manche.",
+            "La séquence s'allonge d'une case à chaque manche. Bonus pour une séquence parfaite."
+        ],
+        players: "1 - 8 JOUEURS",
+        duration: "5-10 MIN",
+        complexity: "55%",
+        sync: "70%",
+        settingsId: "host-settings-manches",
+        noTimer: true,
+        hint: "La séquence commence à 4 cases et gagne une case par manche."
+    }
 };
 
 function selectProtocol(name, icon, desc, modeKey) {
@@ -2145,7 +2273,7 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
@@ -2185,6 +2313,10 @@ timerSlider.dataset.mode = modeKey;
     // Codenames n'a pas de minuteur : on masque le réglage du temps
 const timerSection = document.getElementById('host-timer-section');
 if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames');
+    // Nouveaux modes à manches : pas de curseur de temps pour ceux qui ont une durée fixe, et aide contextuelle
+    if (timerSection && data.noTimer) timerSection.classList.add('hidden');
+    const manchesHint = document.getElementById('host-settings-manches-hint');
+    if (manchesHint) manchesHint.innerText = data.hint || '';
 
     setupLobbyViewForUser();
 
