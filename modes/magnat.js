@@ -630,7 +630,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // ============================ 3) BOUCLE DE L'HÔTE ============================
 const magHost = { startedAt: 0, state: null, done: {} };
-const magUI = { sess: '', sel: -1, sig: '', trOpen: false, tr: null, bid: '', bk: false, lastRoll: -1, shown: '' };
+const magUI = { seenSess: '', seenSeq: 0, sess: '', sel: -1, sig: '', trOpen: false, tr: null, bid: '', bk: false, lastRoll: -1, shown: '' };
 
 function magEsc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1172,10 +1172,17 @@ if (typeof window !== 'undefined') {
     window.renderMagnatScreen = function(data) {
         const g = data && data.magnatGame;
         if (!g || !g.s) return;
-        window.magData = data;
-        if (window.isHost) magHostProcess(data);
         const s = magNorm(g.s);
         const sess = String(s.startedAt);
+        // Une écriture de l'hôte déclenche aussitôt un nouvel affichage, imbriqué dans celui-ci : on ne doit
+        // jamais réafficher un état plus ancien que celui déjà à l'écran.
+        if (magUI.seenSess === sess && s.seq < magUI.seenSeq) return;
+        magUI.seenSess = sess; magUI.seenSeq = s.seq;
+        window.magData = data;
+        try { magShow(data, s, sess); }
+        finally { if (window.isHost) magHostProcess(data); }      // l'arbitrage se fait APRÈS l'affichage
+    };
+    function magShow(data, s, sess) {
 
         if (!window.magTicker) window.magTicker = setInterval(() => { magTickTimer(); magHostTick(); }, 1000);
 
@@ -1202,5 +1209,5 @@ if (typeof window !== 'undefined') {
             magBuildLayout();
         }
         magRender(s);
-    };
+    }
 }
