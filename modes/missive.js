@@ -285,7 +285,7 @@ function msHostTick() {
     const present = Object.values(room.players || {}).filter(p => p && p.name && !p.isBot).map(p => p.name);
     const actor = msActor(s);
     const absent = actor && present.indexOf(actor) < 0;
-    if (now > s.dl || (absent && now > s.dlAt + 3000)) {
+    if (now > s.dl || (absent && now > s.dlAt + 20000)) {
         let next = null;
         try { next = msAuto(s, now); } catch (e) { console.error('Tour automatique impossible :', e); }
         if (next) msHostWrite(next, [], room.players);
