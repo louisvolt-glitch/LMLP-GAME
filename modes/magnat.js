@@ -1178,6 +1178,7 @@ function magRender(s, force) {
     const sig = JSON.stringify([s.seq, magUI.props, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
     if (!force && sig === magUI.sig) return;
     magUI.sig = sig;
+    magSounds(s);
     magRenderDyn(s);
     magRenderTokens(s);
     magRenderCenter(s);
@@ -1185,6 +1186,20 @@ function magRender(s, force) {
     magRenderSide(s);
     magTickTimer();
     magFit();
+}
+// Sons : dés, carte tirée, crédits reçus, début de mon tour (rien au premier affichage)
+function magSounds(s) {
+    const me = magMe(), p = s.players[me], prev = magUI.snd;
+    const now = { sess: s.startedAt, roll: s.rollSeq, card: s.card && s.card.p ? s.card.d + ':' + s.card.i + ':' + s.card.k : '', mine: s.status === 'PLAYING' && magActor(s) === me, cash: p ? p.cash : 0 };
+    magUI.snd = now;
+    if (!prev || prev.sess !== now.sess || typeof window.sfx !== 'function') return;
+    if (now.roll !== prev.roll) window.sfx('des');
+    else if (now.card && now.card !== prev.card) window.sfx('carte');
+    else if (now.cash > prev.cash) window.sfx('argent');
+    if (now.mine && !prev.mine) {
+        setTimeout(() => window.sfx('tour'), 350);
+        const sec = document.getElementById('mag-actions-sec'); if (sec) { sec.classList.remove('mag-myturn'); void sec.offsetWidth; sec.classList.add('mag-myturn'); }
+    }
 }
 function magCurrent() { const d = window.magData; return d && d.magnatGame && d.magnatGame.s ? magNorm(d.magnatGame.s) : null; }
 
@@ -1236,6 +1251,8 @@ const MAG_CSS = `
 .mag-sec-b>*+*{margin-top:8px}
 .mag-hint{font-size:11px;line-height:1.45;color:#94a3b8;border-top:1px dashed rgba(148,163,184,.3);padding-top:6px}
 .mag-hint b{color:#e2e8f0}
+@keyframes magTurn{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}50%{box-shadow:0 0 28px 4px rgba(52,211,153,.85)}}
+.mag-myturn{animation:magTurn .9s ease-in-out 2}
 .mag-player{display:flex;align-items:center;gap:11px;padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.6)}
 .mag-player-on{border-color:var(--mag-pc);background:rgba(8,47,73,.55);box-shadow:0 0 14px -4px var(--mag-pc)}
 .mag-mini{padding:5px 9px;border-radius:8px;border:1px solid rgba(148,163,184,.45);background:#1e293b;color:#f1f5f9;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit}
@@ -1265,6 +1282,8 @@ const MAG_CSS = `
 .mag-flip{animation:magFlip 1.1s cubic-bezier(.2,.7,.2,1) both}
 @media (max-width:1100px){
  #mag-root{overflow-y:auto}
+ #mag-top{padding:6px 10px}
+ #mag-top span{font-size:11px !important;letter-spacing:.08em !important;white-space:nowrap}
  #mag-main{display:flex;flex-direction:column;flex:none}
  #mag-boardwrap{container-type:normal;order:1}
  #mag-board{width:100%;height:auto;aspect-ratio:1/1;max-width:720px}
@@ -1386,6 +1405,7 @@ if (typeof window !== 'undefined') {
                         </div>`).join('');
                 }
                 showScreen('screen-results');
+                if (typeof window.sfx === 'function') window.sfx('victoire');
             }
             return;
         }
