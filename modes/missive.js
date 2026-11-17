@@ -444,7 +444,16 @@ function msRender(s, force) {
     s.order.forEach(n => r.disc[n].forEach(c => { seen[c] = (seen[c] || 0) + 1; }));
     r.shown.forEach(c => { seen[c] = (seen[c] || 0) + 1; });
     const mult = s.order.length > 4 ? 2 : 1;
-    document.getElementById('ms-ref').innerHTML = [8, 7, 6, 5, 4, 3, 2, 1].map(v => { const C = MS_CARDS[v], left = C.q * mult - (seen[v] || 0);
+    // compteur des cartes jouées, rang par rang : ✕ = déjà vue de tous, ◆ = dans ma main, ● = encore cachée
+    const maMain = {};
+    (r.hands[me] || []).forEach(c => { maMain[c] = (maMain[c] || 0) + 1; });
+    const compteur = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.3em;margin-bottom:.45em">` + [8, 7, 6, 5, 4, 3, 2, 1].map(v => {
+        const C = MS_CARDS[v], total = C.q * mult, vues = Math.min(total, seen[v] || 0), main = Math.min(total - vues, maMain[v] || 0), cachees = total - vues - main;
+        return `<div title="${C.n} : ${vues} jouée${vues > 1 ? 's' : ''} sur ${total}" style="display:flex;align-items:center;gap:.25em;padding:.2em .3em;border-radius:.5em;background:rgba(15,23,42,.7);border:1px solid ${cachees ? 'rgba(148,163,184,.3)' : 'rgba(148,163,184,.12)'};opacity:${cachees ? 1 : .5}">
+            <span class="ms-num" style="--c:${C.c}">${v}</span>
+            <span style="font-size:.62em;letter-spacing:.05em;line-height:1;word-break:break-all"><span style="color:#f87171">${'✕'.repeat(vues)}</span><span style="color:#67e8f9">${'◆'.repeat(main)}</span><span style="color:#fbbf24">${'●'.repeat(cachees)}</span></span>
+        </div>`; }).join('') + `</div><div style="font-size:.6em;color:#94a3b8;margin-bottom:.4em"><span style="color:#f87171">✕</span> déjà jouée · <span style="color:#67e8f9">◆</span> dans votre main · <span style="color:#fbbf24">●</span> encore cachée</div>`;
+    document.getElementById('ms-ref').innerHTML = compteur + [8, 7, 6, 5, 4, 3, 2, 1].map(v => { const C = MS_CARDS[v], left = C.q * mult - (seen[v] || 0);
         return `<div class="ms-ref" style="${left <= 0 ? 'opacity:.4' : ''}"><span class="ms-num" style="--c:${C.c}">${v}</span><div><b>${C.i} ${C.n}</b> <span style="color:#fbbf24">${left} / ${C.q * mult} en jeu</span><br><span style="color:#cbd5e1">${C.t}</span></div></div>`; }).join('');
     document.getElementById('ms-log').innerHTML = s.log.slice().reverse().map((l, i) => `<div style="${i ? 'color:#94a3b8' : 'color:#f8fafc;font-weight:700'}">• ${msEsc(l)}</div>`).join('');
 
