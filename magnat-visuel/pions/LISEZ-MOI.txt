@@ -1,0 +1,22 @@
+PIONS DE MAGNAT GALACTIQUE
+==========================
+
+Chaque pion existe en deux fichiers portant le même nom :
+
+    <nom>.glb   le modèle 3D allégé, affiché en relief sur le plateau
+    <nom>.png   son image : vignette du choix de pion, et pion de secours quand la 3D n'est pas disponible
+
+Les joueurs choisissent leur pion avec le bouton « 🎭 Choisir mon pion » (dans le salon quand Magnat Galactique
+est sélectionné) ou « 🎭 Mon pion » (pendant la partie). Sans choix, chacun reçoit un pion selon son rang.
+
+Ajouter un pion
+---------------
+1. Modèle : un fichier .glb de 1 Mo ou moins (environ 12 000 triangles, textures de 512 px).
+2. Image : un PNG carré à fond transparent, 256 × 256 px, du même nom.
+3. Ajouter une ligne dans la liste MAG_PIONS, au début de la section « PIONS » de modes/magnat.js
+   (nom affiché, auteur, licence, adresse d'origine, et boîte englobante « bb » du modèle).
+4. Publier le dossier magnat-visuel/pions et modes/magnat.js sur GitHub.
+
+Les noms de fichiers sont en minuscules, sans espace ni accent (GitHub distingue majuscules et minuscules).
+
+Crédits : voir CREDITS.txt (à conserver, les licences l'exigent).

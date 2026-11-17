@@ -1,0 +1,31 @@
+CRÉDITS DES MODÈLES 3D
+======================
+
+Les modèles de ce dossier ont été allégés pour le jeu (moins de triangles, textures réduites, format .glb)
+à partir des œuvres suivantes. Les images .png sont des rendus de ces modèles.
+
+pion.glb — « Idle Pawn Animation Test » par tobywallace — CC-BY-4.0
+  https://sketchfab.com/3d-models/idle-pawn-animation-test-ce8cad3a82fa4b90a0e9c4d435655c6c
+
+steampunk.glb — « Steampunk Widget Chess Pawn Preliminary Sketch » par Dawnstar-Chronicles — CC-BY-4.0
+  https://sketchfab.com/3d-models/steampunk-widget-chess-pawn-preliminary-sketch-ddd41eae4c064dbcb42a70fb80d9cb85
+
+astronaute.glb — « OutHere Space Buddy » par OutHereVR — CC-BY-4.0
+  https://sketchfab.com/3d-models/outhere-space-buddy-4fb60251c9f446d0ad70b672bb0bf9c2
+
+cephalopode.glb — « Space cephalopod » par XennaDemonorph — CC-BY-4.0
+  https://sketchfab.com/3d-models/space-cephalopod-ae8fefbd633c429998eb3c15ffeb8d4d
+
+maintenance.glb — « space maintenance robot » par norbyscook (Andy An) — CC-BY-4.0
+  https://sketchfab.com/3d-models/space-maintenance-robot-a612ed4feea14fc390beeb3a47943054
+
+combat.glb — « Combat Steampunk Robot » par Milin Andrei — CC-BY-4.0
+  https://sketchfab.com/3d-models/combat-steampunk-robot-81914abdc5b64b259d36ec7044118949
+
+chasseur.glb — « Hammerhead Space Fighter » par Pedro B. Goulart — CC-BY-4.0
+  https://sketchfab.com/3d-models/hammerhead-space-fighter-19daeb543508430c8807edbcf27a9741
+
+robot.glb — « robot_unity_test » par eelgod — CC-BY-NC-4.0 (usage NON COMMERCIAL uniquement)
+  https://sketchfab.com/3d-models/robot-unity-test-bd526b0b811a463f9b9fb8cf9f113d56
+
+Licences : https://creativecommons.org/licenses/by/4.0/ et https://creativecommons.org/licenses/by-nc/4.0/
