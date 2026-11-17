@@ -23773,6 +23773,412 @@ exp: "La PCA shunte le sang oxygéné de l'aorte vers l'artère pulmonaire, cré
    		}
             });
 
+// Catégorie ajoutée : Espace & Science-fiction
+pools.scifi = {
+ "easy": [
+  {
+   "q": "Dans la saga « Star Wars », comment s'appelle le vaisseau de Han Solo ?",
+   "opts": [
+    "Le Serenity",
+    "L'Enterprise",
+    "Le Faucon Millenium",
+    "Le Nostromo"
+   ],
+   "correct": 2,
+   "exp": "Le Faucon Millenium est le cargo corellien piloté par Han Solo et Chewbacca."
+  },
+  {
+   "q": "Quel astronaute a été le premier être humain à marcher sur la Lune, en 1969 ?",
+   "opts": [
+    "Youri Gagarine",
+    "Neil Armstrong",
+    "Michael Collins",
+    "Buzz Aldrin"
+   ],
+   "correct": 1,
+   "exp": "Neil Armstrong a posé le pied sur la Lune le 21 juillet 1969 lors de la mission Apollo 11."
+  },
+  {
+   "q": "Dans le film « E.T. l'extra-terrestre », que veut faire E.T. ?",
+   "opts": [
+    "Téléphoner à sa maison",
+    "Conquérir la Terre",
+    "Devenir humain",
+    "Trouver de l'or"
+   ],
+   "correct": 0,
+   "exp": "La réplique « E.T. téléphone maison » résume son souhait de rentrer chez lui."
+  },
+  {
+   "q": "Comment appelle-t-on un robot à l'apparence humaine ?",
+   "opts": [
+    "Un cyclope",
+    "Un satellite",
+    "Un androïde",
+    "Un drone"
+   ],
+   "correct": 2,
+   "exp": "Un androïde est un robot conçu pour ressembler à un être humain."
+  },
+  {
+   "q": "Quelle planète est surnommée la « planète rouge » ?",
+   "opts": [
+    "Mars",
+    "Vénus",
+    "Jupiter",
+    "Saturne"
+   ],
+   "correct": 0,
+   "exp": "Mars doit sa couleur à l'oxyde de fer présent à sa surface."
+  },
+  {
+   "q": "Dans « Star Trek », quelle est la planète d'origine de Monsieur Spock ?",
+   "opts": [
+    "Tatooine",
+    "Pandora",
+    "Vulcain",
+    "Krypton"
+   ],
+   "correct": 2,
+   "exp": "Spock est à moitié vulcain, à moitié humain."
+  },
+  {
+   "q": "Quel romancier français a écrit « De la Terre à la Lune » ?",
+   "opts": [
+    "Jules Verne",
+    "Alexandre Dumas",
+    "Émile Zola",
+    "Victor Hugo"
+   ],
+   "correct": 0,
+   "exp": "Jules Verne publie ce roman d'anticipation en 1865."
+  },
+  {
+   "q": "Comment s'appelle la station habitée en orbite autour de la Terre depuis 1998 ?",
+   "opts": [
+    "Hubble",
+    "La Station spatiale internationale",
+    "L'Étoile de la mort",
+    "Skylab"
+   ],
+   "correct": 1,
+   "exp": "L'ISS est assemblée en orbite à partir de 1998 et occupée en continu depuis 2000."
+  },
+  {
+   "q": "Dans « Retour vers le futur », quelle voiture sert de machine à voyager dans le temps ?",
+   "opts": [
+    "Une DeLorean",
+    "Une Cadillac",
+    "Une Ford Mustang",
+    "Une Coccinelle"
+   ],
+   "correct": 0,
+   "exp": "Doc Brown transforme une DeLorean DMC-12 en machine temporelle."
+  },
+  {
+   "q": "Dans le film « WALL-E », quel est le travail du petit robot ?",
+   "opts": [
+    "Compacter les déchets",
+    "Cultiver des plantes",
+    "Soigner les humains",
+    "Piloter un vaisseau"
+   ],
+   "correct": 0,
+   "exp": "WALL-E compacte les déchets laissés sur une Terre abandonnée."
+  },
+  {
+   "q": "Quel animal a été le premier être vivant mis en orbite autour de la Terre, en 1957 ?",
+   "opts": [
+    "Une souris",
+    "Un singe",
+    "Une chienne",
+    "Un chat"
+   ],
+   "correct": 2,
+   "exp": "La chienne Laïka a été envoyée en orbite à bord de Spoutnik 2."
+  },
+  {
+   "q": "Dans « Avatar » de James Cameron, comment s'appelle le peuple à la peau bleue ?",
+   "opts": [
+    "Les Ewoks",
+    "Les Wookiees",
+    "Les Klingons",
+    "Les Na'vi"
+   ],
+   "correct": 3,
+   "exp": "Les Na'vi vivent sur la lune Pandora."
+  }
+ ],
+ "medium": [
+  {
+   "q": "Dans « 2001, l'Odyssée de l'espace », comment s'appelle l'ordinateur de bord ?",
+   "opts": [
+    "Mother",
+    "GLaDOS",
+    "HAL 9000",
+    "Skynet"
+   ],
+   "correct": 2,
+   "exp": "HAL 9000 contrôle le vaisseau Discovery One et se retourne contre l'équipage."
+  },
+  {
+   "q": "Quel écrivain a formulé les trois lois de la robotique ?",
+   "opts": [
+    "Isaac Asimov",
+    "Ray Bradbury",
+    "Philip K. Dick",
+    "Arthur C. Clarke"
+   ],
+   "correct": 0,
+   "exp": "Isaac Asimov les énonce dans ses nouvelles des années 1940, reprises dans « Les Robots »."
+  },
+  {
+   "q": "Dans le roman « Dune », quelle substance précieuse ne se trouve que sur la planète Arrakis ?",
+   "opts": [
+    "L'Épice",
+    "L'unobtainium",
+    "Le tibérium",
+    "Le mithril"
+   ],
+   "correct": 0,
+   "exp": "L'Épice, ou mélange, permet notamment le voyage spatial dans l'univers de Frank Herbert."
+  },
+  {
+   "q": "Quel roman de Philip K. Dick a inspiré le film « Blade Runner » ?",
+   "opts": [
+    "Ubik",
+    "Le Maître du Haut Château",
+    "Les androïdes rêvent-ils de moutons électriques ?",
+    "Substance Mort"
+   ],
+   "correct": 2,
+   "exp": "Ridley Scott adapte ce roman de 1968 au cinéma en 1982."
+  },
+  {
+   "q": "Quelle sonde, lancée en 1977, a été le premier objet humain à atteindre l'espace interstellaire ?",
+   "opts": [
+    "Voyager 1",
+    "New Horizons",
+    "Pioneer 10",
+    "Cassini"
+   ],
+   "correct": 0,
+   "exp": "Voyager 1 a franchi l'héliopause en 2012."
+  },
+  {
+   "q": "Dans « Alien, le huitième passager », comment s'appelle le vaisseau de l'équipage ?",
+   "opts": [
+    "L'Event Horizon",
+    "Le Nostromo",
+    "Le Prometheus",
+    "Le Sulaco"
+   ],
+   "correct": 1,
+   "exp": "Le Nostromo est un remorqueur spatial commercial."
+  },
+  {
+   "q": "Qui a réalisé le film « Interstellar », sorti en 2014 ?",
+   "opts": [
+    "Alfonso Cuarón",
+    "Denis Villeneuve",
+    "Ridley Scott",
+    "Christopher Nolan"
+   ],
+   "correct": 3,
+   "exp": "Christopher Nolan signe ce film avec le conseil scientifique du physicien Kip Thorne."
+  },
+  {
+   "q": "Dans « Le Guide du voyageur galactique », quelle est la réponse à la grande question sur la vie, l'Univers et le reste ?",
+   "opts": [
+    "1984",
+    "42",
+    "101",
+    "7"
+   ],
+   "correct": 1,
+   "exp": "L'ordinateur Pensées Profondes donne la réponse 42 après des millions d'années de calcul."
+  },
+  {
+   "q": "Quel véhicule de la NASA s'est posé sur Mars en février 2021 avec le petit hélicoptère Ingenuity ?",
+   "opts": [
+    "Curiosity",
+    "Perseverance",
+    "Opportunity",
+    "Spirit"
+   ],
+   "correct": 1,
+   "exp": "Perseverance s'est posé dans le cratère Jezero le 18 février 2021."
+  },
+  {
+   "q": "Dans « Matrix », quelle pilule Neo choisit-il pour découvrir la vérité ?",
+   "opts": [
+    "La rouge",
+    "La bleue",
+    "La noire",
+    "La verte"
+   ],
+   "correct": 0,
+   "exp": "La pilule rouge le fait sortir de la simulation."
+  },
+  {
+   "q": "Quel romancier a écrit « La Guerre des mondes » en 1898 ?",
+   "opts": [
+    "George Orwell",
+    "Jules Verne",
+    "Aldous Huxley",
+    "H. G. Wells"
+   ],
+   "correct": 3,
+   "exp": "H. G. Wells y imagine l'invasion de l'Angleterre par des Martiens."
+  },
+  {
+   "q": "Comment s'appelle le premier satellite artificiel, lancé par l'URSS en 1957 ?",
+   "opts": [
+    "Vostok 1",
+    "Explorer 1",
+    "Telstar",
+    "Spoutnik 1"
+   ],
+   "correct": 3,
+   "exp": "Spoutnik 1 est mis en orbite le 4 octobre 1957."
+  }
+ ],
+ "hard": [
+  {
+   "q": "Quel roman de Stanisław Lem met en scène une planète recouverte d'un océan pensant ?",
+   "opts": [
+    "L'Invincible",
+    "Solaris",
+    "Fiasco",
+    "Éden"
+   ],
+   "correct": 1,
+   "exp": "« Solaris » paraît en 1961 et sera adapté notamment par Andreï Tarkovski."
+  },
+  {
+   "q": "Dans « Fondation » d'Isaac Asimov, quelle science fictive permet de prédire l'avenir des sociétés ?",
+   "opts": [
+    "La futurologie",
+    "La cliodynamique",
+    "La sociométrie",
+    "La psychohistoire"
+   ],
+   "correct": 3,
+   "exp": "La psychohistoire est mise au point par le mathématicien Hari Seldon."
+  },
+  {
+   "q": "Quel film de Fritz Lang, sorti en 1927, est un classique fondateur de la science-fiction au cinéma ?",
+   "opts": [
+    "Metropolis",
+    "Nosferatu",
+    "M le maudit",
+    "Le Cabinet du docteur Caligari"
+   ],
+   "correct": 0,
+   "exp": "« Metropolis » imagine une ville futuriste divisée entre ouvriers et dirigeants."
+  },
+  {
+   "q": "Quelle romancière a écrit « La Main gauche de la nuit » en 1969 ?",
+   "opts": [
+    "Ursula K. Le Guin",
+    "Octavia Butler",
+    "Margaret Atwood",
+    "Mary Shelley"
+   ],
+   "correct": 0,
+   "exp": "Ce roman d'Ursula K. Le Guin se déroule sur la planète glacée Gethen."
+  },
+  {
+   "q": "Quel cosmonaute soviétique a réalisé la première sortie dans l'espace, en 1965 ?",
+   "opts": [
+    "Guerman Titov",
+    "Alexeï Leonov",
+    "Valeri Bykovski",
+    "Youri Gagarine"
+   ],
+   "correct": 1,
+   "exp": "Alexeï Leonov sort de la capsule Voskhod 2 le 18 mars 1965."
+  },
+  {
+   "q": "Dans « Neuromancien » de William Gibson, quel terme popularisé par l'auteur désigne l'espace virtuel des réseaux ?",
+   "opts": [
+    "Le métavers",
+    "Le cyberespace",
+    "La matrice numérique",
+    "Le datavers"
+   ],
+   "correct": 1,
+   "exp": "Gibson popularise le mot « cyberespace », apparu dans sa nouvelle « Gravé sur chrome »."
+  },
+  {
+   "q": "Quelle mission de l'Agence spatiale européenne a posé l'atterrisseur Philae sur une comète en 2014 ?",
+   "opts": [
+    "Huygens",
+    "Giotto",
+    "Gaia",
+    "Rosetta"
+   ],
+   "correct": 3,
+   "exp": "Rosetta a rejoint la comète 67P/Tchourioumov-Guérassimenko."
+  },
+  {
+   "q": "Quel roman de Liu Cixin ouvre une trilogie récompensée par le prix Hugo en 2015 ?",
+   "opts": [
+    "Le Problème à trois corps",
+    "La Mort immortelle",
+    "La Forêt sombre",
+    "Terre errante"
+   ],
+   "correct": 0,
+   "exp": "« Le Problème à trois corps » est le premier roman asiatique à recevoir le prix Hugo du meilleur roman."
+  },
+  {
+   "q": "Quel paradoxe demande pourquoi nous n'avons observé aucune civilisation extraterrestre malgré l'immensité de l'Univers ?",
+   "opts": [
+    "Le paradoxe du grand-père",
+    "Le paradoxe d'Olbers",
+    "Le paradoxe de Fermi",
+    "Le paradoxe des jumeaux"
+   ],
+   "correct": 2,
+   "exp": "Il est attribué au physicien Enrico Fermi, qui aurait demandé : « Où sont-ils ? »"
+  },
+  {
+   "q": "Quelle romancière a publié « Frankenstein ou le Prométhée moderne » en 1818, souvent cité comme l'un des premiers romans de science-fiction ?",
+   "opts": [
+    "Jane Austen",
+    "Charlotte Brontë",
+    "Mary Shelley",
+    "Ann Radcliffe"
+   ],
+   "correct": 2,
+   "exp": "Mary Shelley l'écrit à la suite d'un défi lancé près du lac Léman en 1816."
+  },
+  {
+   "q": "Quel télescope spatial, lancé en décembre 2021, observe l'Univers principalement dans l'infrarouge ?",
+   "opts": [
+    "Hubble",
+    "Kepler",
+    "James Webb",
+    "Chandra"
+   ],
+   "correct": 2,
+   "exp": "Le télescope James Webb est placé au point de Lagrange L2."
+  },
+  {
+   "q": "Dans le film « Bienvenue à Gattaca », sur quel critère repose la sélection des individus ?",
+   "opts": [
+    "Leur fortune",
+    "Leur âge",
+    "Leur patrimoine génétique",
+    "Leur lieu de naissance"
+   ],
+   "correct": 2,
+   "exp": "La société de Gattaca distingue les personnes conçues naturellement de celles génétiquement sélectionnées."
+  }
+ ]
+};
+
 // Les catégories du Quiz (quiz.js) reçoivent leurs questions maintenant qu'elles sont chargées
 if (typeof categoriesMeta !== 'undefined' && typeof QUIZ_CATEGORIES_DATA !== 'undefined') {
     categoriesMeta.forEach(cat => {
