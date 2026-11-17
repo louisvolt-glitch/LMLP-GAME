@@ -126,16 +126,17 @@ window.renderManchesScreen = function(data) {
                     </div>`).join('');
             }
             showScreen('screen-results');
+            if (typeof window.sfx === 'function') window.sfx('victoire');
         }
         return;
     }
 
     const roundKey = sess + ':' + g.round;
     if (g.phase === 'REVEAL') {
-        if (window.mchRevealKey !== roundKey) { window.mchRevealKey = roundKey; mchShowReveal(data, def); }
+        if (window.mchRevealKey !== roundKey) { window.mchRevealKey = roundKey; mchShowReveal(data, def); if (typeof window.sfx === 'function') window.sfx('carte'); }
         else mchUpdateReveal(data, def);
     } else {
-        if (window.mchRoundKey !== roundKey) { window.mchRoundKey = roundKey; mchStartRound(data, def, sess); }
+        if (window.mchRoundKey !== roundKey) { window.mchRoundKey = roundKey; mchStartRound(data, def, sess); if (g.round > 1 && typeof window.sfx === 'function') window.sfx('tour'); }
         mchUpdateProgress(data);
     }
 
@@ -183,6 +184,7 @@ function mchStartRound(data, def, sess) {
         <div id="mch-box" class="w-full max-w-2xl mx-auto space-y-3">
             <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
                 <div class="text-[11px] uppercase tracking-widest text-indigo-300">Manche ${g.round} / ${g.maxRounds}</div>
+                ${g.maxRounds > 1 && g.round >= g.maxRounds ? '<div class="mch-finale" style="display:inline-block;margin-top:4px;padding:3px 12px;border-radius:999px;border:2px solid #fbbf24;background:rgba(251,191,36,.15);color:#fde68a;font-weight:900;font-size:12px;letter-spacing:.14em">🔥 MANCHE FINALE — POINTS DOUBLÉS</div>' : ''}
                 <div class="text-xl font-mono font-bold text-amber-400" id="mch-timer"></div>
             </div>
             <div id="mch-play" class="space-y-3"></div>
@@ -304,7 +306,7 @@ function mchUpdateReveal(data, def) {
             <span><b class="text-emerald-400">+${r.pts}</b> <span class="text-slate-400 font-mono">· total ${r.total}</span></span></div>`).join('');
 
     root.innerHTML = `
-        <div class="text-[11px] uppercase tracking-widest text-indigo-300 text-center">Manche ${g.round} / ${g.maxRounds} · Résultat</div>
+        <div class="text-[11px] uppercase tracking-widest text-indigo-300 text-center">Manche ${g.round} / ${g.maxRounds} · Résultat${g.maxRounds > 1 && g.round >= g.maxRounds ? ' · <span style="color:#fde68a">🔥 points doublés</span>' : ''}</div>
         ${top}
         <div class="text-[10px] uppercase tracking-wider text-slate-400 pt-1">Classement</div>
         <div class="space-y-1.5">${board}</div>
@@ -363,6 +365,7 @@ function mchReveal(data, def) {
     players.forEach(p => {
         const r = Object.assign({ pts: 0 }, resP[p.name] || {});
         r.pts = Math.max(0, Math.round(Number(r.pts) || 0));
+        if (g.maxRounds > 1 && g.round >= g.maxRounds) { r.pts *= 2; r.x2 = true; }      // manche finale : points doublés
         updates[`mancheGame/results/r${g.round}/p/${p.name}`] = r;
         updates[`players/${p.name}/score`] = (p.score || 0) + r.pts;
     });
