@@ -15,6 +15,29 @@ window.loadGoogleMapsApi = function(callback) {
 
 const GLOBAL_UNIQUE_POOL = [];
 
+// ---- Icônes de la carte de résultat (SVG en ligne : pas de fichier externe, pas de http://) ----
+// Point d'impact : un cratère fumant
+function geoIconeCratere() {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+        <defs><radialGradient id="c" cx="50%" cy="55%" r="50%"><stop offset="0" stop-color="#1c1917"/><stop offset=".55" stop-color="#44403c"/><stop offset=".8" stop-color="#a16207"/><stop offset="1" stop-color="#a16207" stop-opacity="0"/></radialGradient>
+        <radialGradient id="f" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fde047"/><stop offset=".5" stop-color="#f97316"/><stop offset="1" stop-color="#f97316" stop-opacity="0"/></radialGradient></defs>
+        <ellipse cx="32" cy="38" rx="28" ry="20" fill="url(#c)"/>
+        <ellipse cx="32" cy="38" rx="17" ry="11" fill="#0c0a09" stroke="#78716c" stroke-width="2"/>
+        <ellipse cx="32" cy="37" rx="8" ry="5" fill="url(#f)"/>
+        <path d="M24 26 q-4 -8 2 -14 q2 6 6 4 q-2 -8 6 -12 q-1 8 4 10 q3 -3 2 -8 q6 7 0 18z" fill="#94a3b8" fill-opacity=".55"/>
+    </svg>`;
+    return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(48, 48), anchor: new google.maps.Point(24, 28) };
+}
+// Estimation d'un joueur : une petite sonde de sa couleur
+function geoIconeSonde(couleur) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
+        <path d="M20 46 L8 26 A14 14 0 1 1 32 26 Z" fill="${couleur}" stroke="#0f172a" stroke-width="2"/>
+        <circle cx="20" cy="17" r="7" fill="#0f172a"/><circle cx="20" cy="17" r="4" fill="#e0f2fe"/>
+        <path d="M6 12 L1 8 M34 12 L39 8" stroke="${couleur}" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`;
+    return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(30, 36), anchor: new google.maps.Point(15, 35), labelOrigin: new google.maps.Point(15, 46) };
+}
+
         baseRealCoords.forEach(([lat, lng]) => {
             GLOBAL_UNIQUE_POOL.push({ coords: [lat, lng] });
             for (let i = 1; i <= 20; i++) {
@@ -339,20 +362,13 @@ window.renderSummaryDetails = function(data) {
                     position: targetLatLng, 
                     map: state.summaryGoogleMap,
                     title: "Point d'impact de la capsule",
-                    icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+                    icon: geoIconeCratere(),
+                    zIndex: 1000
                 });
 
                 // Définition d'une palette de couleurs et d'icônes pour différencier les joueurs
                 const playerColors = ['#FF3366', '#3388FF', '#33FF88', '#FFCC33', '#9933FF', '#FF8833', '#33FFFF'];
-                const iconUrls = [
-                    "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/purple-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/orange-dot.png",
-                    "http://maps.google.com/mapfiles/ms/icons/ltblue-dot.png"
-                ];
+                // (les anciennes épingles en http:// sont remplacées par des sondes dessinées en SVG, sans fichier externe)
 
                 let validGuesses = 0; // AJOUT 1 : Compteur de repères valides
 
@@ -366,7 +382,7 @@ window.renderSummaryDetails = function(data) {
                         
                         // Assigner une couleur unique basée sur l'index du joueur
                         let pColor = playerColors[index % playerColors.length];
-                        let pIcon = iconUrls[index % iconUrls.length];
+                        let pIcon = geoIconeSonde(pColor);
 
                         new google.maps.Marker({
                             position: guessLatLng,
