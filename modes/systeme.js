@@ -222,6 +222,22 @@ function soireeResultat(joueurs, base) {
     gains.forEach((x, i) => { if (i > 0 && x.g < gains[i - 1].g) rang = i; out[x.n] = { pts: SOIREE_POINTS[rang] || 0, win: rang === 0 && x.g > 0 }; });
     return out;
 }
+// ---------- Grades de soirée : ils montent avec les points de soirée cumulés ----------
+const SOIREE_GRADES = [
+    { min: 0, n: 'Cadet', i: '🎓', c: '#94a3b8' }, { min: 3, n: 'Enseigne', i: '🔰', c: '#67e8f9' }, { min: 7, n: 'Lieutenant', i: '⭐', c: '#6ee7b7' },
+    { min: 12, n: 'Capitaine', i: '🌟', c: '#a78bfa' }, { min: 18, n: 'Commandant', i: '🎖️', c: '#fb923c' }, { min: 25, n: 'Amiral', i: '👑', c: '#fbbf24' }
+];
+function soireeGrade(pts) {
+    pts = Number(pts) || 0;
+    let k = 0;
+    SOIREE_GRADES.forEach((g, i) => { if (pts >= g.min) k = i; });
+    const g = SOIREE_GRADES[k], suivant = SOIREE_GRADES[k + 1] || null;
+    return { k: k, n: g.n, i: g.i, c: g.c, suivant: suivant, manque: suivant ? suivant.min - pts : 0 };
+}
+// Titres du podium : choisis de façon stable d'après le nom et l'heure de fin (identiques chez tous les joueurs)
+const PODIUM_TITRES_OR = ['Maître de la galaxie', 'Légende de l\'Académie', 'As de la flotte', 'Étoile montante du secteur', 'Terreur des trous noirs', 'Génie interstellaire', 'Pilote d\'élite'];
+const PODIUM_TITRES_FIN = ['Stagiaire de la soute', 'Passager de dernière classe', 'Astéroïde errant', 'Préposé au nettoyage du sas', 'Touriste égaré', 'Naufragé de l\'espace', 'Champion de la sieste en orbite'];
+function podiumTitre(liste, nom, t) { let h = Math.floor((t || 0) / 1000) % 9973; String(nom).split('').forEach(ch => { h = (h * 31 + ch.charCodeAt(0)) % 9973; }); return liste[h % liste.length]; }
 let soireeVerrou = '';
 function soireeSuivre(data, code, prevStatus) {
     if (!window.isHost || !window.update || prevStatus === undefined || prevStatus === data.status) return;
@@ -240,6 +256,17 @@ function soireeSuivre(data, code, prevStatus) {
         const updates = { soireeBase: null, partie: null };
         if (res) {
             const cur = data.soiree || {};
+            // podium commun à tous les jeux : gains de la partie, rang, et points de soirée avant / après (pour les promotions)
+            const base = data.soireeBase.scores || {};
+            let gains = humans.map(p => ({ n: p.name, g: (Number(p.score) || 0) - (Number(base[p.name]) || 0) }));
+            if (gains.some(x => x.g < 0)) gains = humans.map(p => ({ n: p.name, g: Number(p.score) || 0 }));
+            gains.sort((a, b) => b.g - a.g);
+            let rang = 0;
+            updates.podium = { t: SYS_REAL_NOW(), mode: data.soireeBase.mode || data.selectedMode || '', rows: gains.map((x, i) => {
+                if (i > 0 && x.g < gains[i - 1].g) rang = i;
+                const av = (cur[x.n] && cur[x.n].pts) || 0;
+                return { n: x.n, g: x.g, r: rang, av: av, ap: av + ((res[x.n] && res[x.n].pts) || 0) };
+            }) };
             Object.keys(res).forEach(n => {
                 const c = cur[n] || {};
                 updates['soiree/' + n] = { pts: (c.pts || 0) + res[n].pts, wins: (c.wins || 0) + (res[n].win ? 1 : 0), games: (c.games || 0) + 1 };
@@ -260,10 +287,80 @@ function soireeHtml(data) {
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(148,163,184,.2);${i === 0 ? 'background:rgba(251,191,36,.12);border-radius:8px' : ''}">
             <span style="width:26px;text-align:center;font-weight:900;color:${i === 0 ? '#fbbf24' : '#94a3b8'}">${i === 0 ? '🏆' : '#' + (i + 1)}</span>
             ${av ? `<img src="${soireeEsc(av)}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #22d3ee">` : ''}
-            <span style="flex:1;min-width:0;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${soireeEsc(r.n)}${players[r.n] ? '' : ' <span style="font-weight:400;color:#64748b;font-size:11px">(parti)</span>'}</span>
+            <span style="flex:1;min-width:0">
+                <span style="display:block;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${soireeEsc(r.n)}${players[r.n] ? '' : ' <span style="font-weight:400;color:#64748b;font-size:11px">(parti)</span>'}</span>
+                <span style="display:block;font-size:11px;font-weight:700;color:${soireeGrade(r.pts).c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${soireeGrade(r.pts).i} ${soireeGrade(r.pts).n}${soireeGrade(r.pts).suivant ? ` <span style="font-weight:400;color:#64748b">· ${soireeGrade(r.pts).suivant.n} dans ${soireeGrade(r.pts).manque} pt${soireeGrade(r.pts).manque > 1 ? 's' : ''}</span>` : ''}</span>
+            </span>
             <span style="font-size:11px;color:#94a3b8;white-space:nowrap">${r.wins} victoire${r.wins > 1 ? 's' : ''} · ${r.games} partie${r.games > 1 ? 's' : ''}</span>
             <span style="font-family:monospace;font-weight:900;font-size:18px;color:#6ee7b7;min-width:52px;text-align:right">${r.pts} pts</span></div>`;
     }).join('');
+}
+// ---------- Podium de fin de partie, identique pour tous les jeux ----------
+let sysPodiumVu = 0;
+function sysFermerPodium() { const el = document.getElementById('sys-podium'); if (el) el.remove(); clearTimeout(sysFermerPodium.t); }
+function sysPodium(data) {
+    const p = data.podium;
+    if (!p || !p.t) return;
+    if (p.t === sysPodiumVu) return;
+    const neuf = sysPodiumVu !== 0 || SYS_REAL_NOW() - p.t < 12000;      // en arrivant dans un salon, on ne rejoue pas un vieux podium
+    sysPodiumVu = p.t;
+    const rows = Array.isArray(p.rows) ? p.rows.filter(Boolean) : Object.values(p.rows || {});
+    if (!neuf || !rows.length || data.status !== 'LOBBY') return;
+    if (!document.getElementById('sys-podium-style')) {
+        const st = document.createElement('style'); st.id = 'sys-podium-style';
+        st.textContent = `
+#sys-podium{position:fixed;inset:0;z-index:10045;display:flex;align-items:center;justify-content:center;padding:12px;background:radial-gradient(circle at 50% 25%,rgba(30,27,75,.97) 0%,rgba(2,6,23,.97) 70%);overflow:hidden;animation:sysPodFond .4s ease}
+#sys-podium .boite{position:relative;width:min(560px,100%);max-height:96vh;overflow-y:auto;text-align:center}
+#sys-podium .marches{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:14px 0 10px}
+#sys-podium .place{flex:1 1 0;max-width:150px;display:flex;flex-direction:column;align-items:center;min-width:0}
+#sys-podium .place img,#sys-podium .place .rond{width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--c);background:#0f172a;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:28px;color:var(--c);box-shadow:0 0 18px var(--c);opacity:0;animation:sysPodTombe .6s cubic-bezier(.3,1.5,.5,1) forwards;animation-delay:var(--d)}
+#sys-podium .place .nom{font-weight:900;color:#f8fafc;font-size:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+#sys-podium .place .gain{font-family:monospace;font-weight:800;font-size:12px;color:#6ee7b7}
+#sys-podium .place .bloc{width:100%;margin-top:6px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,var(--c),rgba(15,23,42,.9));display:flex;align-items:flex-start;justify-content:center;font-weight:900;font-size:26px;color:#020617;padding-top:6px;height:0;animation:sysPodMonte .8s ease-out forwards;animation-delay:var(--d)}
+#sys-podium .titre{margin:6px auto;padding:8px 12px;border-radius:12px;border:1px solid var(--c);background:rgba(2,6,23,.6);color:#e2e8f0;font-size:13px;opacity:0;animation:sysPodApparait .5s ease forwards;animation-delay:var(--d)}
+#sys-podium .titre b{color:var(--c)}
+#sys-podium .confetti{position:absolute;top:-6%;width:9px;height:14px;border-radius:2px;animation:sysPodPluie linear infinite;pointer-events:none}
+@keyframes sysPodFond{0%{opacity:0}100%{opacity:1}}
+@keyframes sysPodMonte{0%{height:0}100%{height:var(--h)}}
+@keyframes sysPodTombe{0%{opacity:0;transform:translateY(-70px) scale(.5)}100%{opacity:1;transform:none}}
+@keyframes sysPodApparait{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:none}}
+@keyframes sysPodPluie{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(115vh) rotate(720deg)}}`;
+        document.head.appendChild(st);
+    }
+    sysFermerPodium();
+    const players = data.players || {};
+    const visage = n => { const src = players[n] && players[n].avatar && players[n].avatar.src; return src ? `<img src="${soireeEsc(src)}" alt="">` : `<div class="rond">${soireeEsc(String(n).charAt(0).toUpperCase())}</div>`; };
+    const btn = document.getElementById('protocol-btn-' + p.mode);
+    const jeu = btn && btn.querySelector('span') ? btn.querySelector('span').innerText : 'la partie';
+    const top = rows.slice(0, 3);
+    const ordre = top.length === 3 ? [top[1], top[0], top[2]] : (top.length === 2 ? [top[1], top[0]] : top);      // 2e à gauche, 1er au centre, 3e à droite
+    const style = { 0: ['#fbbf24', '150px', '1.3s', '1'], 1: ['#cbd5e1', '105px', '.7s', '2'], 2: ['#f59e0b', '72px', '.2s', '3'] };
+    const marches = ordre.map(x => { const k = top.indexOf(x), st = style[Math.min(2, x.r === 0 ? 0 : k)];
+        return `<div class="place" style="--c:${st[0]};--h:${st[1]};--d:${st[2]}">${visage(x.n)}<div class="nom">${soireeEsc(x.n)}</div><div class="gain">+${x.g} pts</div><div class="bloc">${x.r + 1}</div></div>`; }).join('');
+    const gagnants = rows.filter(x => x.r === 0), dernier = rows[rows.length - 1];
+    let titres = gagnants.map(x => `<div class="titre" style="--c:#fbbf24;--d:2s">🏆 <b>${soireeEsc(x.n)}</b> est sacré <b>« ${soireeEsc(podiumTitre(PODIUM_TITRES_OR, x.n, p.t))} »</b></div>`).join('');
+    if (rows.length >= 3 && dernier.r > 0) titres += `<div class="titre" style="--c:#94a3b8;--d:2.5s">🧹 <b>${soireeEsc(dernier.n)}</b> reçoit le titre de <b>« ${soireeEsc(podiumTitre(PODIUM_TITRES_FIN, dernier.n, p.t))} »</b></div>`;
+    const promos = rows.filter(x => soireeGrade(x.ap).k > soireeGrade(x.av).k)
+        .map(x => `<div class="titre" style="--c:${soireeGrade(x.ap).c};--d:3s">${soireeGrade(x.ap).i} <b>${soireeEsc(x.n)}</b> est promu <b>${soireeGrade(x.ap).n}</b> !</div>`).join('');
+    const reste = rows.slice(3).map(x => `<span style="display:inline-block;margin:2px 5px;font-size:12px;color:#cbd5e1">${x.r + 1}. ${soireeEsc(x.n)} <span style="color:#6ee7b7;font-family:monospace">+${x.g}</span></span>`).join('');
+    let confettis = '';
+    const couleurs = ['#fbbf24', '#22d3ee', '#f472b6', '#a78bfa', '#34d399', '#fb923c'];
+    for (let i = 0; i < 36; i++) confettis += `<i class="confetti" style="left:${(i * 37) % 100}%;background:${couleurs[i % couleurs.length]};animation-duration:${2.6 + (i % 5) * 0.5}s;animation-delay:${1.2 + (i % 9) * 0.25}s"></i>`;
+    const ov = document.createElement('div');
+    ov.id = 'sys-podium';
+    ov.innerHTML = `${confettis}<div class="boite">
+        <div class="sci-font" style="font-weight:900;letter-spacing:.16em;font-size:20px;color:#a5f3fc">🏁 FIN DE MISSION</div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:2px">${soireeEsc(jeu)}</div>
+        <div class="marches">${marches}</div>
+        ${reste ? `<div style="margin-bottom:6px">${reste}</div>` : ''}
+        ${titres}${promos}
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+            <button onclick="sysFermerPodium()" style="padding:11px 22px;border-radius:12px;border:0;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit">Continuer</button>
+            <button onclick="sysFermerPodium();ouvrirSoiree()" style="padding:11px 16px;border-radius:12px;border:1px solid rgba(251,191,36,.6);background:rgba(251,191,36,.12);color:#fcd34d;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">🏆 Classement de la soirée</button>
+        </div></div>`;
+    document.body.appendChild(ov);
+    if (typeof window.sfx === 'function') setTimeout(() => window.sfx('victoire'), 1300);
+    sysFermerPodium.t = setTimeout(sysFermerPodium, 25000);
 }
 function ouvrirSoiree() {
     let m = document.getElementById('sys-soiree');
@@ -626,10 +723,17 @@ function sysBoutons() {
 let sysRevancheVue = 0;
 // Appelé par index.html à chaque mise à jour du salon
 function systemeSurSalon(data, code, prevStatus) {
+    // Les écritures faites ici (podium, classement, vote, appareil...) partent juste APRÈS la fin de cette mise à jour.
+    // Écrire pendant le traitement relancerait aussitôt une mise à jour imbriquée, et la suite du traitement en cours
+    // (retour au salon, remise à zéro de « Prêt ») s'appliquerait alors sur un état dépassé.
+    const ecrire = window.update;
+    if (typeof ecrire === 'function') window.update = (r, u) => new Promise((ok, ko) => setTimeout(() => { try { ecrire(r, u).then(ok, ko); } catch (e) { ko(e); } }, 0));
     try {
         sysPauseEtVote(data, code);
         sysPromouvoirSpectateur(data, code);
         sysAppareil(data, code);
+        sysPodium(data);
+        if (data.status === 'IN_GAME') sysFermerPodium();
         if (data.selectedMode) sysCharger(data.selectedMode);      // les données du jeu choisi se chargent dès le salon
         sysNettoyage(data, code);
         soireeSuivre(data, code, prevStatus);
@@ -645,6 +749,7 @@ function systemeSurSalon(data, code, prevStatus) {
         }
         if (Date.now() - (window._sessionVue || 0) > 60000) { window._sessionVue = Date.now(); sessionEcrire(); }
     } catch (e) { console.error('Système :', e); }
+    finally { if (typeof ecrire === 'function') window.update = ecrire; }
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { nettoyerPseudo, pseudoLibre, soireeResultat };
