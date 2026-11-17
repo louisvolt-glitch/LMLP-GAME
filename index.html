@@ -35,8 +35,7 @@
     </script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Le moteur 3D (three.js) et modes/anomaly.js sont chargés à la demande, quand le mode Anomalies est choisi (voir modes/systeme.js) -->
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@400;600;800&display=swap" rel="stylesheet">
 
     <style>
@@ -221,6 +220,9 @@
 }
 
 
+/* La notification cachée sort entièrement de l'écran (elle dépassait de 20 px sur le bord droit) */
+#toast.translate-x-full { transform: translateX(calc(100% + 2.5rem)); }
+
 /* ===== Version téléphone et tablette (moins de 1024 px de large) : le salon défile au lieu de tenir sur un écran ===== */
 @media (max-width: 1023px) {
     html, body { height: auto !important; min-height: 100vh; min-height: 100dvh; width: 100% !important; overflow-x: hidden; }
@@ -246,12 +248,12 @@
 
     <script src="./modes/systeme.js"></script>
     <script src="./modes/mobile.js"></script>
-    <script src="./modes/constantes.js"></script>
+    <!-- Petites données au démarrage ; les questions du Quiz et les films se chargent quand leur jeu est choisi (voir modes/systeme.js) -->
+    <script src="./modes/donnees-base.js"></script>
     <script src="./modes/cine.js"></script>
     <script src="./modes/quiz.js"></script>
     <script src="./modes/impostor.js"></script>
     <script src="./modes/geoguessr.js"></script>
-    <script src="./modes/anomaly.js"></script>
     <script src="./modes/codenames.js"></script>
     <script src="./modes/petitbac.js"></script>
     <script src="./modes/references.js"></script>
@@ -309,7 +311,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         window._lastMyPlayer = null;
         armDisconnect();
 
-        onValue(salonRef, (snapshot) => {
+        window._surSalon = (snapshot) => {
+            if (typeof systemeFiltre === 'function' && systemeFiltre(snapshot)) return;      // données du jeu en cours de chargement
             const data = snapshot.val();
             if (data) {
                 // --- 🔌 Réintégration : coupure réseau brève (ou course lors d'un rafraîchissement) ---
@@ -431,7 +434,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     // On ne vérifie pas si le lobby est affiché, si le statut est IN_GAME on force l'affichage du jeu pour tout le monde
                     const selectedMode = data.selectedMode || 'quiz';
                     
-                    if (selectedMode === 'quiz') {
+                    if (typeof systemeSpectateur === 'function' && systemeSpectateur(data)) {
+                        // arrivé en cours de partie : écran « spectateur » (voir modes/systeme.js)
+                    } else if (selectedMode === 'quiz') {
                         // Pour le quiz, le processus commence par le choix de la difficulté
                         if (justStarted && !window.isHost && typeof prepareNextQuizQuestion === 'function') {
     				state.quizGame.currentIndex = 0;
@@ -549,7 +554,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             } else if (typeof salonDisparu === 'function') {
                 salonDisparu(codeSalon);      // le salon a été supprimé pendant qu'on y était : on le rétablit
             }
-        });
+        };
+        onValue(salonRef, (snapshot) => window._surSalon(snapshot));
       };
 
       window.mettreAJourSalonFirebase = function(codeSalon, donnees) {
@@ -1155,7 +1161,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             </div>
                             <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'spymaster')">
                                 <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
-                                <div id="team-blue-spymaster" class="min-h-[24px] bg-blue-950/50 border border-dashed border-blue-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
+                                <div id="team-blue-spymaster" class="min-h-[24px] bg-blue-950/50 border border-dashed border-blue-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Aucun</div>
                             </div>
                             <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'agent')">
                                 <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Espions :</div>
@@ -1171,7 +1177,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             </div>
                             <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'spymaster')">
                                 <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
-                                <div id="team-red-spymaster" class="min-h-[24px] bg-rose-950/50 border border-dashed border-rose-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Glisser ici</div>
+                                <div id="team-red-spymaster" class="min-h-[24px] bg-rose-950/50 border border-dashed border-rose-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Aucun</div>
                             </div>
                             <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'agent')">
                                 <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Espions :</div>
@@ -1182,7 +1188,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                     <!-- Réserve d'opérateurs non assignés -->
                     <div class="bg-black/40 border border-cyan-500/20 p-2 rounded mt-1" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'unassigned', 'agent')">
-                        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve d'Opérateurs (Glisser vers une équipe) :</div>
+                        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve d'Opérateurs (glisser, ou toucher un joueur pour le placer) :</div>
                         <div id="team-unassigned-container" class="flex flex-wrap gap-1 min-h-[35px]"></div>
                     </div>
                 </div>
@@ -1649,7 +1655,7 @@ function joinRoom() {
 
                 // Pseudo déjà porté par un autre joueur de ce salon : on ajoute un numéro
                 if (typeof pseudoLibre === 'function') {
-                    const libre = pseudoLibre(state.username, players, window.monCid);
+                    const libre = pseudoLibre(state.username, players, window.monCid, dataSalon.spectateurs);
                     if (libre !== state.username) {
                         showToast("Le pseudo " + state.username + " est déjà pris : vous êtes " + libre + ".");
                         document.getElementById('input-username').value = libre;
@@ -1662,6 +1668,9 @@ function joinRoom() {
                     alert("Ce salon est complet (Maximum 8 opérateurs).");
                     return;
                 }
+
+                // Une partie est en cours et ce joueur n'en fait pas partie : il entre en spectateur
+                if (typeof entrerEnSpectateur === 'function' && entrerEnSpectateur(dataSalon, roomCode)) return;
 
                 const existingEntry = players[state.username];
                 players[state.username] = {
@@ -2000,6 +2009,7 @@ function launchGame() {
                 }
             }
 
+            if (typeof systemeAvantLancement === 'function' && !systemeAvantLancement()) return;      // données du jeu pas encore chargées
             showToast("🚀 Lancement de la mission en cours...");
             
             // 2. Synchronisation Firebase : Au lieu de juste ouvrir l'écran localement, on indique à tout le salon que le jeu démarre.
@@ -2645,9 +2655,9 @@ function renderCodenamesTeams() {
     
     if (!blueSpymaster || !blueAgents || !redSpymaster || !redAgents || !unassignedContainer) return;
 
-    blueSpymaster.innerHTML = '<span class="text-[10px] text-slate-500">Glisser ici</span>';
+    blueSpymaster.innerHTML = '<span class="text-[10px] text-slate-500">Aucun</span>';
     blueAgents.innerHTML = '';
-    redSpymaster.innerHTML = '<span class="text-[10px] text-slate-500">Glisser ici</span>';
+    redSpymaster.innerHTML = '<span class="text-[10px] text-slate-500">Aucun</span>';
     redAgents.innerHTML = '';
     unassignedContainer.innerHTML = '';
 
@@ -2660,7 +2670,7 @@ function renderCodenamesTeams() {
         const role = p.role || 'agent';
 
         const itemHTML = `
-            <div draggable="true" ondragstart="dragOperator(event, '${p.name}')" 
+            <div draggable="true" ondragstart="dragOperator(event, '${p.name}')" onclick="if (typeof cnChoisir === 'function') cnChoisir('${p.name}')" title="Glisser, ou toucher pour placer ce joueur" 
                  class="bg-black/60 border border-slate-700 hover:border-cyan-400 p-1 rounded text-[10px] text-white flex items-center justify-between cursor-grab active:cursor-grabbing transition">
                 <span class="truncate">${p.name} ${role === 'spymaster' ? '👑' : ''}</span>
                 <span class="text-[8px] text-cyan-400">⠿</span>
