@@ -381,13 +381,13 @@ const MS_CSS = `
 .ms-card .tx{font-size:6.6cqw;line-height:1.25;color:#e2e8f0;background:rgba(2,6,23,.55);border-radius:3cqw;padding:3cqw}
 .ms-back{background:repeating-linear-gradient(135deg,#312e81 0 8%,#1e1b4b 8% 16%);align-items:center;justify-content:center}
 .ms-back span{font-size:36cqw;filter:drop-shadow(0 2px 6px #000)}
-.ms-mini{--w:2.4em;border-width:1px;border-radius:.3em;padding:0;justify-content:center}
+.ms-mini{--w:3.6em;border-width:1px;border-radius:.3em;padding:0;justify-content:center}
 .ms-card:not(.ms-mini){aspect-ratio:1536/2752;overflow:hidden}
 .ms-card .ms-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;pointer-events:none;user-select:none}
 .ms-mini-art{background-size:cover;background-position:50% 42%}
 .ms-mini-art .v{font-size:46cqw;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 2px #000}
 .ms-mini .v{position:static;font-size:42cqw}.ms-mini .ic{font-size:30cqw;margin:0}
-.ms-hand .ms-card{--w:clamp(120px,13vw,300px);transition:transform .15s}
+.ms-hand .ms-card{--w:clamp(110px,min(17vw,25vh),420px);transition:transform .15s}
 .ms-hand .ms-pick{cursor:pointer}.ms-hand .ms-pick:hover{transform:translateY(-4%)}
 .ms-hand .ms-sel{transform:translateY(-7%);border-color:#6ee7b7;box-shadow:0 0 26px rgba(52,211,153,.8)}
 .ms-hand .ms-no{filter:grayscale(.8) brightness(.6)}
@@ -474,7 +474,7 @@ function msRender(s, force) {
     // ----- centre : pioche, cartes écartées, dernier coup, informations secrètes -----
     const last = r.last;
     let secret = '';
-    if (r.peek && r.peek.by === me) secret = `<div class="ms-box" style="border-color:#22d3ee;display:flex;align-items:center;gap:.8em"><div>${msCardHtml(r.peek.c, '', '', '5.5em')}</div><div><b style="color:#67e8f9">🔭 Vous seul le voyez :</b><br>${msEsc(r.peek.target)} tient <b>${MS_CARDS[r.peek.c].n} (${r.peek.c})</b>.</div></div>`;
+    if (r.peek && r.peek.by === me) secret = `<div class="ms-box" style="border-color:#22d3ee;display:flex;align-items:center;gap:.8em"><div>${msCardHtml(r.peek.c, '', '', '8em')}</div><div><b style="color:#67e8f9">🔭 Vous seul le voyez :</b><br>${msEsc(r.peek.target)} tient <b>${MS_CARDS[r.peek.c].n} (${r.peek.c})</b>.</div></div>`;
     else if (r.peek && r.peek.target === me) secret = `<div class="ms-box" style="border-color:#22d3ee"><b style="color:#67e8f9">🔭 ${msEsc(r.peek.by)} a vu votre carte.</b></div>`;
     if (r.duel && (r.duel.a === me || r.duel.b === me)) {
         const d = r.duel, mine = d.a === me ? d.ca : d.cb, theirs = d.a === me ? d.cb : d.ca, foe = d.a === me ? d.b : d.a;
@@ -482,12 +482,12 @@ function msRender(s, force) {
     }
     document.getElementById('ms-center').innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;gap:1.2em;flex-wrap:wrap">
-            <div style="text-align:center"><div id="ms-deck" style="position:relative;display:inline-block">${msCardHtml(0, '', '', '4.6em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
-            <div style="text-align:center;opacity:${r.aside ? 1 : .25}">${r.phase === 'END' && r.aside ? msCardHtml(r.aside, '', '', '4.6em') : msCardHtml(0, '', '', '4.6em')}<div style="font-size:.62em;color:#94a3b8;margin-top:.4em">CARTE ÉCARTÉE</div></div>
+            <div style="text-align:center"><div id="ms-deck" style="position:relative;display:inline-block">${msCardHtml(0, '', '', '6.5em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
+            <div style="text-align:center;opacity:${r.aside ? 1 : .25}">${r.phase === 'END' && r.aside ? msCardHtml(r.aside, '', '', '6.5em') : msCardHtml(0, '', '', '6.5em')}<div style="font-size:.62em;color:#94a3b8;margin-top:.4em">CARTE ÉCARTÉE</div></div>
             ${r.shown.length ? `<div style="text-align:center"><div style="display:flex;gap:.3em">${r.shown.map(msMiniHtml).join('')}</div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">HORS JEU (2 JOUEURS)</div></div>` : ''}
             <div class="ms-box" style="flex:1;min-width:14em;max-width:34em">
                 <div class="ms-box-h">Dernier coup</div>
-                ${last ? `<div style="display:flex;align-items:center;gap:.7em"><span id="ms-last-card">${msMiniHtml(last.c)}</span><div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
+                ${last ? `<div style="display:flex;align-items:center;gap:.7em"><span id="ms-last-card">${msCardHtml(last.c, '', '', '5.5em')}</span><div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
             </div>
         </div>${secret}`;
 
@@ -608,7 +608,7 @@ function msAnimer(s, me) {
     // 2) carte jouée : elle vole de son joueur jusqu'au « dernier coup »
     if (maintenant.last && maintenant.last !== avant.last && r.last) {
         const cible = document.getElementById('ms-last-card'), origine = r.last.by === me ? document.getElementById('ms-hand') : msFoeEl(r.last.by);
-        if (cible) { cible.style.visibility = 'hidden'; msVol(msCardHtml(r.last.c, '', '', '6em'), msRect(origine), msRect(cible), 520, () => { cible.style.visibility = ''; cible.firstElementChild && cible.firstElementChild.classList.add('ms-pose'); }); }
+        if (cible) { cible.style.visibility = 'hidden'; msVol(msCardHtml(r.last.c, '', '', '5.5em'), msRect(origine), msRect(cible), 520, () => { cible.style.visibility = ''; cible.firstElementChild && cible.firstElementChild.classList.add('ms-pose'); }); }
     }
     // 3) cartes défaussées (jouées, ou perdues sur un Téléporteur / une élimination) : la dernière « tombe » dans la rangée du joueur
     s.order.forEach(n => {
@@ -624,7 +624,7 @@ function msAnimer(s, me) {
         if (typeof window.sfx === 'function') window.sfx('carte');
     } else if (maintenant.acteur && maintenant.acteur !== avant.acteur && maintenant.acteur !== me && r.phase === 'PLAY') {
         const f = msFoeEl(maintenant.acteur);
-        msVol(msCardHtml(0, '', '', '4.6em'), deck, msRect(f && (f.querySelector('.ms-back') || f)), 480);
+        msVol(msCardHtml(0, '', '', '6.5em'), deck, msRect(f && (f.querySelector('.ms-back') || f)), 480);
     } else if (maintenant.main.length === avant.main.length && maintenant.main.join() !== avant.main.join() && maintenant.acteur !== me && cartes.length && deck) {
         // ma carte a été remplacée (Téléporteur, Diplomate) : la nouvelle arrive
         const c = cartes[0], cr = msRect(c);
@@ -647,9 +647,9 @@ function msDuel(d, me) {
     ov.className = issue > 0 ? 'gagne' : (issue < 0 ? 'perd' : 'egal');
     ov.innerHTML = `<div class="titre">⚔️ DUEL <span>— vous êtes les deux seuls à voir ces cartes</span></div>
         <div class="arene">
-            <div class="cote moi"><div class="nom">Vous</div>${msCardHtml(mine, '', '', '9em')}</div>
+            <div class="cote moi"><div class="nom">Vous</div>${msCardHtml(mine, '', '', '13em')}</div>
             <div class="vs">VS</div>
-            <div class="cote lui"><div class="nom">${msEsc(foe)}</div>${msCardHtml(theirs, '', '', '9em')}</div>
+            <div class="cote lui"><div class="nom">${msEsc(foe)}</div>${msCardHtml(theirs, '', '', '13em')}</div>
         </div>
         <div class="verdict">${issue > 0 ? 'Votre carte est la plus forte : ' + msEsc(foe) + ' est éliminé !' : (issue < 0 ? 'Votre carte est la plus faible : vous êtes éliminé...' : 'Égalité : personne n\'est éliminé.')}</div>`;
     ov.onclick = () => ov.remove();
