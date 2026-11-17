@@ -57,7 +57,7 @@ const MAG_SPACES = [
     { t: 'prop', f: 'D', n: 'Forge Titan', p: 180 },
     { t: 'prop', f: 'D', n: 'Forge Vulcain', p: 180 },
     { t: 'free', n: 'Zone Franche', i: '🌌' },
-    { t: 'prop', f: 'D', n: 'Forge Atlas', p: 200 },
+    { t: 'prop', f: 'D', n: 'Forge Kryos', p: 200 },             // nommée par la carte Transmission 8
     { t: 'card', d: 'a', n: 'Transmission', i: '📡' },
     { t: 'prop', f: 'E', n: 'Cité Rubis', p: 220 },
     { t: 'prop', f: 'E', n: 'Cité Grenat', p: 220 },
@@ -66,34 +66,52 @@ const MAG_SPACES = [
     { t: 'prop', f: 'F', n: 'Jardin Hélios', p: 260 },
     { t: 'net', n: 'Réseau Quantique', p: 150, i: '🛰️' },
     { t: 'gojail', n: 'Patrouille', i: '🚨' },
-    { t: 'prop', f: 'F', n: 'Jardin Aurore', p: 260 },
+    { t: 'prop', f: 'F', n: 'Jardin Aurora', p: 260 },           // nommée par la carte Transmission 6
     { t: 'prop', f: 'F', n: 'Jardin Zénith', p: 280 },
     { t: 'card', d: 'b', n: 'Cargaison', i: '📦' },
     { t: 'prop', f: 'G', n: 'Citadelle Émeraude', p: 300 },
     { t: 'prop', f: 'G', n: 'Citadelle Saphir', p: 320 },
     { t: 'portal', n: 'Portail Delta', p: 200, i: '🌀' },
     { t: 'tax', a: 100, n: 'Taxe de prestige', i: '💎' },
-    { t: 'prop', f: 'G', n: 'Citadelle Nova', p: 350 }
+    { t: 'prop', f: 'G', n: 'Citadelle Terra Nova', p: 350 }     // nommée par la carte Transmission 26
 ];
 const MAG_N = MAG_SPACES.length;
 
 // Cartes. x : gain | pay | start | goto | back | portal | jail | free | repairs | each | payeach | payper | skip
 const MAG_CARDS = {
+    // Les 30 cartes Transmission : le texte reprend celui de l'image magnat-visuel/cartes/transmission-XX.jpg (XX = img)
+    // choice : le joueur choisit entre payer v crédits ou l'alternative alt (skip = perdre un tour, half = perdre la moitié de ses crédits)
     a: [
-        { x: 'start', txt: "Signal de détresse capté : rejoignez la Station Mère et touchez votre solde." },
-        { x: 'portal', txt: "Une faille s'ouvre : avancez jusqu'au prochain Portail." },
-        { x: 'jail', txt: "Contrôle de routine : la Patrouille vous place en Quarantaine." },
-        { x: 'free', txt: "Sauf-conduit diplomatique : conservez cette carte pour sortir de Quarantaine." },
-        { x: 'gain', v: 150, txt: "Vos brevets rapportent : recevez 150 crédits." },
-        { x: 'pay', v: 40, txt: "Amende pour excès de vitesse lumière : payez 40 crédits." },
-        { x: 'back', v: 3, txt: "Tempête solaire : reculez de 3 cases." },
-        { x: 'goto', sp: 21, txt: "Cap sur Cité Rubis. Si vous passez par la Station Mère, touchez votre solde." },
-        { x: 'goto', sp: 11, txt: "Cap sur Comptoir Néon. Si vous passez par la Station Mère, touchez votre solde." },
-        { x: 'repairs', h: 25, H: 100, txt: "Révision de vos installations : payez 25 crédits par avant-poste et 100 par métropole." },
-        { x: 'payeach', v: 25, txt: "Vous êtes élu porte-parole de la flotte : versez 25 crédits à chaque joueur." },
-        { x: 'gain', v: 50, txt: "Dividendes de la banque orbitale : recevez 50 crédits." },
-        { x: 'goto', sp: 35, txt: "Cap sur Citadelle Nova." },
-        { x: 'gain', v: 100, txt: "Subvention d'exploration : recevez 100 crédits." }
+        { x: 'pay', v: 40, img: 1, txt: "Pris dans une tempête cosmique : payez 40 crédits pour stabiliser vos boucliers." },
+        { x: 'gain', v: 150, img: 2, txt: "Victoire commerciale de prestige : recevez 150 crédits." },
+        { x: 'gain', v: 60, img: 3, txt: "Mission d'approvisionnement urgente réussie : recevez 60 crédits." },
+        { x: 'repairs', h: 25, H: 100, img: 4, txt: "Réparations générales de vos bases : payez 25 crédits par avant-poste et 100 par métropole." },
+        { x: 'portal', img: 5, txt: "Ordre de transit : avancez jusqu'au prochain Portail." },
+        { x: 'goto', sp: 28, img: 6, txt: "Escorte diplomatique : rendez-vous sur Aurora." },
+        { x: 'pay', v: 45, img: 7, txt: "Contribution de défense sectorielle : payez 45 crédits." },
+        { x: 'goto', sp: 19, img: 8, txt: "Inspectez la colonie minière : rendez-vous sur Kryos." },
+        { x: 'gain', v: 150, img: 9, txt: "Votre prêt interstellaire arrive à échéance : recevez 150 crédits." },
+        { x: 'nextprop', img: 10, txt: "Priorité commerciale : avancez jusqu'à la prochaine planète." },
+        { x: 'portal', img: 11, txt: "Couloir subspatial dégagé : avancez jusqu'au prochain Portail." },
+        { x: 'gain', v: 150, img: 12, txt: "Subvention galactique : la banque vous verse 150 crédits." },
+        { x: 'payeach', v: 50, img: 13, txt: "Élu président du Conseil : versez 50 crédits à chaque joueur." },
+        { x: 'jail', img: 14, txt: "Alerte sécurité : allez directement en Quarantaine." },
+        { x: 'pay', v: 25, img: 15, txt: "Tempête géomagnétique : votre système de navigation est perturbé, payez 25 crédits." },
+        { x: 'gain', v: 45, img: 16, txt: "Sauvetage de données historiques réussi : recevez 45 crédits." },
+        { x: 'choice', v: 35, alt: 'skip', img: 17, txt: "Contrôle douanier de routine : payez 35 crédits ou perdez un tour." },
+        { x: 'back', v: 2, img: 18, txt: "Perdu dans la ceinture d'astéroïdes : reculez de 2 cases." },
+        { x: 'choice', v: 60, alt: 'half', img: 19, txt: "Des pirates pillent vos soutes : payez 60 crédits ou perdez la moitié de vos ressources." },
+        { x: 'gain', v: 80, img: 20, txt: "Vos investissements dans la colonie portent leurs fruits : recevez 80 crédits." },
+        { x: 'gain', v: 120, img: 21, txt: "Spéculation sur les ressources minières réussie : recevez 120 crédits." },
+        { x: 'gain', v: 20, img: 22, txt: "Remboursement sur les taxes d'exploration : recevez 20 crédits de la banque." },
+        { x: 'pay', v: 150, img: 23, txt: "Frais de scolarité pour l'entraînement des cadets : payez 150 crédits à la banque." },
+        { x: 'gain', v: 25, img: 24, txt: "Vente de ferraille spatiale : la banque vous verse 25 crédits." },
+        { x: 'pay', v: 15, img: 25, txt: "Excès de vitesse dans le couloir orbital : payez 15 crédits d'amende." },
+        { x: 'goto', sp: 35, img: 26, txt: "Ordre de mission : rendez-vous sur Terra Nova." },
+        { x: 'gain', v: 50, img: 27, txt: "Dividende spatial : la banque vous verse 50 crédits." },
+        { x: 'back', v: 3, img: 28, txt: "Anomalie gravitationnelle : reculez de 3 cases." },
+        { x: 'free', img: 29, txt: "Amnistie galactique : conservez cette carte pour sortir de Quarantaine." },
+        { x: 'start', img: 30, txt: "Saut hyperespace : avancez jusqu'à la Station Mère et recevez 200 crédits." }
     ],
     // Les 30 cartes Cargaison : le texte reprend celui de l'image magnat-visuel/cartes/cargaison-XX.jpg (XX = img)
     b: [
@@ -416,7 +434,7 @@ function magDrawCard(s, name, deck) {
     s.phase = 'CARD';
     magLog(s, `${name} tire une carte ${MAG_DECK_NAMES[deck]} : ${MAG_CARDS[deck][idx].txt}`);
 }
-function magCardEffect(s, name, card) {
+function magCardEffect(s, name, card, opt) {
     const p = s.players[name];
     if (card.x === 'gain') { p.cash += card.v; magLog(s, `${name} reçoit ${card.v} cr.`); }
     else if (card.x === 'pay') magCharge(s, name, card.v, '', 'carte');
@@ -434,6 +452,20 @@ function magCardEffect(s, name, card) {
     }
     else if (card.x === 'goto') magMoveToDepth(s, name, card.sp, true, 0);
     else if (card.x === 'back') magMoveToDepth(s, name, (p.pos - card.v + MAG_N) % MAG_N, false, 0);
+    else if (card.x === 'nextprop') {
+        let t = p.pos;
+        do { t = (t + 1) % MAG_N; } while (MAG_SPACES[t].t !== 'prop');
+        magMoveToDepth(s, name, t, true, 0);
+    }
+    else if (card.x === 'choice') {
+        // opt 1 = l'alternative ; sinon on paie
+        if (opt === 1 && card.alt === 'skip') { p.skip = (p.skip || 0) + 1; magLog(s, `${name} choisit de perdre un tour.`); }
+        else if (opt === 1 && card.alt === 'half') {
+            const perte = Math.floor(Math.max(0, p.cash) / 2);
+            if (perte > 0) magCharge(s, name, perte, '', 'pillage : moitié des crédits'); else magLog(s, `${name} n'a rien à se faire piller.`);
+        }
+        else magCharge(s, name, card.v, '', 'carte');
+    }
     else if (card.x === 'portal') {
         let t = p.pos;
         do { t = (t + 1) % MAG_N; } while (MAG_SPACES[t].t !== 'portal');
@@ -575,7 +607,7 @@ function magApply(s0, a, now, rnd) {
         if (!myTurn || s.phase !== 'CARD' || !s.card || !s.card.p) return null;
         const card = MAG_CARDS[s.card.d] && MAG_CARDS[s.card.d][s.card.i];
         s.card.p = false; s.phase = 'END';
-        if (card) magCardEffect(s, by, card);
+        if (card) magCardEffect(s, by, card, Number(a.opt) === 1 ? 1 : 0);
         if (me.jail > 0 || me.out) s.again = false;
         break;
     }
@@ -736,7 +768,12 @@ function magAuto(s, now, rnd) {
         return st === s ? null : st;
     }
     if (s.auction) return magApply(s, { by: who, t: 'pass' }, now, rnd);
-    if (s.phase === 'CARD') return magApply(s, { by: who, t: 'card' }, now, rnd);
+    if (s.phase === 'CARD') {
+        // carte à choix : on paie si on en a les moyens, sinon on prend l'alternative
+        const c = s.card && MAG_CARDS[s.card.d] && MAG_CARDS[s.card.d][s.card.i], pl = s.players[who];
+        const opt = c && c.x === 'choice' && pl && pl.cash < c.v ? 1 : 0;
+        return magApply(s, { by: who, t: 'card', opt: opt }, now, rnd);
+    }
     if (s.phase === 'BUY') return magApply(s, { by: who, t: 'auction' }, now, rnd);
     if (s.phase === 'ROLL' || (s.phase === 'END' && s.again)) return magApply(s, { by: who, t: 'roll' }, now, rnd);
     if (s.phase === 'END') return magApply(s, { by: who, t: 'end' }, now, rnd);
@@ -1523,12 +1560,12 @@ function magRenderCenter(s) {
 const MAG_CARD_DIR = './magnat-visuel/cartes/';
 function magCardImg(deck, idx) {
     const c = MAG_CARDS[deck] && MAG_CARDS[deck][idx];
-    return c && c.img ? MAG_CARD_DIR + 'cargaison-' + String(c.img).padStart(2, '0') + '.jpg' : '';
+    return c && c.img ? MAG_CARD_DIR + (deck === 'a' ? 'transmission-' : 'cargaison-') + String(c.img).padStart(2, '0') + '.jpg' : '';
 }
 function magCardBackHtml(deck) {
-    // Cargaison : image du dos fournie ; Transmission : dos dessiné (pas d'image pour ce paquet)
-    const drawn = `<div class="mag-face-text" style="background:linear-gradient(160deg,#083344,#0c1a3a 60%,#1e1b4b)"><div style="font-size:26cqw">📡</div><div style="font-size:9.5cqw;font-weight:900;letter-spacing:.08em;color:#a5f3fc">TRANSMISSION</div></div>`;
-    if (deck !== 'b') return drawn;
+    // Dos illustrés : dos-transmission.jpg et dos-cargaison.jpg ; si l'image manque, un dos dessiné prend le relais
+    if (deck !== 'b') return `<img src="${MAG_CARD_DIR}dos-transmission.jpg" alt="" draggable="false" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="mag-face-text" style="display:none;background:linear-gradient(160deg,#083344,#0c1a3a 60%,#1e1b4b)"><div style="font-size:26cqw">📡</div><div style="font-size:9.5cqw;font-weight:900;letter-spacing:.08em;color:#a5f3fc">TRANSMISSION</div></div>`;
     return `<img src="${MAG_CARD_DIR}dos-cargaison.jpg" alt="" draggable="false" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="mag-face-text" style="display:none;background:linear-gradient(160deg,#3b2a06,#0c1a3a 60%,#1e1b4b)"><div style="font-size:26cqw">📦</div><div style="font-size:10cqw;font-weight:900;letter-spacing:.08em;color:#fde68a">CARGAISON</div></div>`;
 }
@@ -1686,8 +1723,16 @@ function magActionHtml(s, me) {
         const trade = canTrade ? magBtn('🤝 Proposer un échange', 'data-act="tropen"') : '';
         if (s.phase === 'CARD') {
             body = `<div class="text-sm font-black text-amber-300">🃏 Vous avez tiré une carte ${s.card ? MAG_DECK_NAMES[s.card.d] : ''}</div>
-                <div class="flex gap-2 flex-wrap">${magBtn("Appliquer l'effet de la carte", 'data-act="card"', GREEN)}</div>
-                ${magHint(`La carte est montrée à tous les joueurs sur le plateau. Son effet s'applique quand vous validez, ou tout seul après ${MAG.CARD_SECONDS} secondes.`)}`;
+                ${(() => {
+                    const cc = s.card && MAG_CARDS[s.card.d] && MAG_CARDS[s.card.d][s.card.i];
+                    if (cc && cc.x === 'choice') {
+                        const alt = cc.alt === 'skip' ? 'Perdre un tour' : `Perdre la moitié de mes crédits (${Math.floor(Math.max(0, p.cash) / 2)} cr)`;
+                        return `<div class="flex gap-2 flex-wrap">${magBtn(`Payer ${cc.v} cr`, 'data-act="card" data-opt="0"', GREEN)}${magBtn(alt, 'data-act="card" data-opt="1"', BLUE)}</div>
+                            ${magHint(`À vous de choisir. Sans réponse après ${MAG.CARD_SECONDS} secondes, vous payez ${cc.v} cr si vous en avez les moyens, sinon c'est l'autre option.`)}`;
+                    }
+                    return `<div class="flex gap-2 flex-wrap">${magBtn("Appliquer l'effet de la carte", 'data-act="card"', GREEN)}</div>
+                        ${magHint(`La carte est montrée à tous les joueurs sur le plateau. Son effet s'applique quand vous validez, ou tout seul après ${MAG.CARD_SECONDS} secondes.`)}`;
+                })()}`;
         } else if (s.phase === 'ROLL' && p.jail > 0) {
             body = `<div class="text-sm font-black text-amber-300">🧪 Vous êtes en Quarantaine (tentative ${p.jail} / 3)</div>
                 <div class="flex gap-2 flex-wrap">${magBtn('🎲 Tenter un double', 'data-act="roll"', GREEN)}
@@ -1932,7 +1977,8 @@ function magOnAct(d) {
     if (!s) return;
     const act = d.act, sp = Number(d.sp);
     const tr = magUI.tr;
-    if (['roll', 'bail', 'usecard', 'buy', 'auction', 'pass', 'end', 'accept', 'decline', 'bankrupt', 'card'].indexOf(act) >= 0) { if (act === 'bankrupt') magUI.bk = false; magSend({ t: act }); return; }
+    if (act === 'card') { magSend({ t: 'card', opt: Number(d.opt) === 1 ? 1 : 0 }); return; }      // opt : choix des cartes « payez ou… »
+    if (['roll', 'bail', 'usecard', 'buy', 'auction', 'pass', 'end', 'accept', 'decline', 'bankrupt'].indexOf(act) >= 0) { if (act === 'bankrupt') magUI.bk = false; magSend({ t: act }); return; }
     if (['build', 'sell', 'mortgage', 'unmortgage'].indexOf(act) >= 0) { magSend({ t: act, sp: sp }); return; }
     if (act === 'bid') { magSend({ t: 'bid', amt: Number(d.amt) }); return; }
     if (act === 'bidinput') { const el = document.getElementById('mag-bid'); const v = Math.floor(Number(el && el.value) || 0); if (v > 0) { magUI.bid = ''; magSend({ t: 'bid', amt: v }); } return; }
@@ -2146,7 +2192,11 @@ function magBuildLayout() {
     };
     if (!window.magResizeBound) { window.magResizeBound = true; window.addEventListener('resize', magFit); }
     // Préchargement des images de cartes, pour un affichage immédiat au tirage
-    if (!window.magPreloaded) { window.magPreloaded = MAG_CARDS.b.map(c => { const im = new Image(); im.src = MAG_CARD_DIR + 'cargaison-' + String(c.img).padStart(2, '0') + '.jpg'; return im; }); }
+    if (!window.magPreloaded) {
+        window.magPreloaded = ['a', 'b'].map(d => MAG_CARDS[d].map((c, i) => magCardImg(d, i))).flat()
+            .concat([MAG_CARD_DIR + 'dos-transmission.jpg', MAG_CARD_DIR + 'dos-cargaison.jpg'])
+            .filter(Boolean).map(src => { const im = new Image(); im.src = src; return im; });
+    }
     magFit();
     setTimeout(magFit, 60);
 }
