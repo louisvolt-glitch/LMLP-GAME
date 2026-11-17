@@ -60,6 +60,23 @@ function mchFmt(n) {
     if (!isFinite(v)) return String(n);
     return v.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 }
+// Image d'avatar d'un joueur (ou null) : sert aux révélations illustrées
+function mchAvatar(name) {
+    const lists = [window.mchData && window.mchData.players, typeof state !== 'undefined' && state.players];
+    for (const l of lists) {
+        const p = Object.values(l || {}).find(x => x && x.name === name);
+        if (p && p.avatar && p.avatar.src) return p.avatar.src;
+    }
+    return null;
+}
+// Petite pastille ronde : avatar du joueur, ou son initiale à défaut
+function mchPastille(name, size, extra) {
+    const src = mchAvatar(name), s = size || 32;
+    const base = `width:${s}px;height:${s}px;border-radius:50%;flex-shrink:0;${extra ? extra + ';' : ''}`;
+    return src
+        ? `<img src="${mchEsc(src)}" alt="" title="${mchEsc(name)}" style="${base}object-fit:cover">`
+        : `<span title="${mchEsc(name)}" style="${base}display:inline-flex;align-items:center;justify-content:center;background:#1e293b;color:#e2e8f0;font-weight:800;font-size:${Math.round(s * 0.45)}px">${mchEsc(String(name).charAt(0).toUpperCase())}</span>`;
+}
 function mchRoundTimer(g, rd) { return Number(rd && rd.t) || Number(g && g.timer) || 20; }
 function mchAnswers(g, round) { return (g.answers && g.answers['r' + round]) || {}; }
 function mchResults(g, round) { return (g.results && g.results['r' + round]) || {}; }
