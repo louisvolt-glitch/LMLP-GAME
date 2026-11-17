@@ -530,6 +530,10 @@ function impSas(g, roleName) {
     v.style.color = coupable ? '#6ee7b7' : '#f87171';
     v.textContent = e.name + (coupable ? ' était ' + (e.role === 'mrwhite' ? 'le Clandestin' : "l'Infiltré") + ' !' : " était un membre d'équipage innocent...");
     document.body.appendChild(ov);
-    if (typeof window.sfx === 'function') { window.sfx('erreur'); setTimeout(() => window.sfx(coupable ? 'victoire' : 'coule'), 3500); }
+    if (typeof window.sfx === 'function') {
+        window.sfx('alarme');                               // alerte d'éjection
+        setTimeout(() => window.sfx('sas'), 900);           // les portes s'ouvrent (18 % de 5,2 s)
+        setTimeout(() => window.sfx(coupable ? 'victoire' : 'coule'), 3500);
+    }
     setTimeout(() => ov.remove(), 5200);
 }
