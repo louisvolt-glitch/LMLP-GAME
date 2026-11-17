@@ -1,4 +1,5 @@
-// --- 5. CINÉMATOPHILE ---
+// --- 5. ARCHIVES TERRESTRES (Cinématophile, habillage spatial) ---
+// L'affiche est un fichier corrompu des archives terrestres qui se restaure peu à peu.
 
 if (typeof CINE_MOVIES !== 'undefined' && Array.isArray(CINE_MOVIES)) {
     CINE_MOVIES.forEach(movie => { const img = new Image(); img.src = movie.poster; });
@@ -284,7 +285,7 @@ function renderCineScreen(data) {
 
     if (roundIndicator) {
         roundIndicator.innerHTML =
-            `<i class="fa-solid fa-film"></i> Cinématophile - Manche ${roundNumber}/${gameData.maxRounds}`;
+            `<i class="fa-solid fa-database"></i> Archives terrestres - Fichier ${roundNumber}/${gameData.maxRounds}`;
     }
 
     const winnerBox = document.getElementById('cine-winner-box');
@@ -357,7 +358,7 @@ function renderCineScreen(data) {
                 };
 
                 let icon =
-                    '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Cherche...';
+                    '<i class="fa-solid fa-hourglass-half animate-pulse text-amber-400"></i> Analyse...';
 
                 let badgeColore =
                     'bg-slate-900 text-slate-400 border-slate-700';
@@ -368,7 +369,7 @@ function renderCineScreen(data) {
                         'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
 
                     icon =
-                        '<i class="fa-solid fa-check text-emerald-400"></i> Trouvé !';
+                        '<i class="fa-solid fa-check text-emerald-400"></i> Identifié !';
 
                 } else if (pStat.timedOut || gameData.status === 'ROUND_OVER') {
 
@@ -836,7 +837,7 @@ cineCurrentImg.onerror = () => {
             winnerBox.style.display = '';
 
             winnerBox.innerHTML =
-                `Fin de la manche ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
+                `Archive restaurée ! Le film était : <strong class="text-white">${currentMovie.title}</strong>`;
 
             winnerBox.className =
                 'w-full max-w-xl p-4 bg-indigo-500/20 border border-indigo-500 rounded-xl text-indigo-300 font-bold mb-4 shadow-lg';
@@ -968,6 +969,44 @@ function drawPixelatedPoster(img, pixelSize) {
         canvas.width,
         canvas.height
     );
+
+    drawCineCorruption(ctx, canvas, pixelSize);
+}
+
+// Habillage « fichier corrompu » : bandes décalées, lignes de balayage et jauge de restauration.
+// Purement décoratif : la difficulté reste celle de la pixellisation ci-dessus.
+function drawCineCorruption(ctx, canvas, pixelSize) {
+    const W = canvas.width, H = canvas.height;
+    const restauration = Math.max(0, Math.min(1, 1 - (pixelSize - 1) / 59));
+    const degats = 1 - restauration;
+    try {
+        // bandes horizontales décalées, de moins en moins nombreuses
+        const bandes = Math.round(7 * degats);
+        for (let i = 0; i < bandes; i++) {
+            const y = Math.floor(Math.random() * (H - 30)), h = 6 + Math.floor(Math.random() * 22);
+            const dx = Math.round((Math.random() - 0.5) * 70 * degats);
+            ctx.drawImage(canvas, 0, y, W, h, dx, y, W, h);
+            ctx.fillStyle = Math.random() < 0.5 ? 'rgba(34,211,238,' + (0.16 * degats) + ')' : 'rgba(244,63,94,' + (0.14 * degats) + ')';
+            ctx.fillRect(0, y, W, h);
+        }
+        // blocs de données manquants
+        const blocs = Math.round(5 * degats);
+        ctx.fillStyle = 'rgba(2,6,23,' + (0.75 * degats) + ')';
+        for (let i = 0; i < blocs; i++) ctx.fillRect(Math.floor(Math.random() * (W - 60)), Math.floor(Math.random() * (H - 30)), 24 + Math.random() * 60, 8 + Math.random() * 18);
+    } catch (e) {}
+    // lignes de balayage
+    ctx.fillStyle = 'rgba(2,6,23,' + (0.10 + 0.16 * degats) + ')';
+    for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    // bandeau et jauge
+    ctx.fillStyle = 'rgba(2,6,23,.78)';
+    ctx.fillRect(0, 0, W, 34); ctx.fillRect(0, H - 30, W, 30);
+    ctx.font = 'bold 15px monospace'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = degats > 0.5 ? '#f87171' : '#fbbf24';
+    ctx.textAlign = 'left'; ctx.fillText(degats > 0.5 ? '⚠ FICHIER CORROMPU' : '⟳ RESTAURATION EN COURS', 10, 17);
+    ctx.fillStyle = '#67e8f9'; ctx.textAlign = 'right'; ctx.fillText(Math.round(restauration * 100) + ' %', W - 10, 17);
+    ctx.fillStyle = 'rgba(148,163,184,.35)'; ctx.fillRect(10, H - 19, W - 20, 8);
+    ctx.fillStyle = '#22d3ee'; ctx.fillRect(10, H - 19, (W - 20) * restauration, 8);
+    ctx.textAlign = 'left';
 }
 
 
