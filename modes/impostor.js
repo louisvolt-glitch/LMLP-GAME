@@ -93,6 +93,17 @@ window.startImpostorGame = function() {
 window.setImpostorReadyForWriting = function() {
     impUpdate({ [`impostorGame/readyToWriting/${impMe()}`]: true }).catch(e => console.error(e));
 };
+// Dernière chance de l'Infiltré démasqué : il propose le mot de l'équipage
+const IMP_GUESS_SECONDS = 30;
+function impMotCle(v) {
+    return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^((les|le|la|une|un|des)\s+|l['’]\s*)/, '').replace(/[^a-z0-9]/g, '').replace(/(s|x)$/, '');
+}
+window.submitImpostorGuess = function() {
+    const el = document.getElementById('imp-guess-input');
+    const mot = el ? el.value.trim().slice(0, 40) : '';
+    if (!mot) { if (el) el.focus(); return; }
+    impUpdate({ 'impostorGame/guess/word': mot, 'impostorGame/guess/sent': true }).catch(e => console.error(e));
+};
 window.setImpostorReadyForVote = function() {
     impUpdate({ [`impostorGame/readyToVote/${impMe()}`]: true }).catch(e => console.error(e));
 };
@@ -198,7 +209,24 @@ function impHostAdvance(data) {
             }
             // joueur expulsé par le sas (vide en cas d'égalité) : sert à l'animation d'éjection chez tout le monde
             const ejecte = top.length > 1 ? { name: '', egalite: top.join(', ') } : { name: top[0], role: (g.roles[top[0]] || {}).role || 'citizen' };
-            send({ 'impostorGame/status': 'SUMMARY', 'impostorGame/winnerMessage': msg, 'impostorGame/ejecte': ejecte });
+            const demasque = top.length === 1 && (ejecte.role === 'impostor' || ejecte.role === 'mrwhite') && present.indexOf(top[0]) >= 0;
+            if (demasque) {
+                // Dernière chance : l'Infiltré démasqué peut encore gagner en devinant le mot de l'équipage
+                send({ 'impostorGame/status': 'GUESS', 'impostorGame/guess': { name: top[0], role: ejecte.role, at: Date.now(), word: '' } });
+            } else send({ 'impostorGame/status': 'SUMMARY', 'impostorGame/winnerMessage': msg, 'impostorGame/ejecte': ejecte });
+        }
+
+    } else if (g.status === 'GUESS') {
+        const q = g.guess || {};
+        const fini = !!q.sent || present.indexOf(q.name) < 0 || Date.now() - (q.at || 0) > (IMP_GUESS_SECONDS + 1) * 1000;
+        if (fini) {
+            const mot = (g.pair && g.pair.citizen) || '';
+            const ok = !!q.word && impMotCle(q.word) === impMotCle(mot);
+            const qui = q.role === 'mrwhite' ? 'le Clandestin' : "l'Infiltré";
+            const msg = ok
+                ? `${q.name} était ${qui}... mais il a deviné le mot de l'équipage (« ${mot} ») : il s'échappe et gagne !`
+                : `Victoire de l'équipage ! ${q.name} était ${qui} et n'a pas trouvé le mot (« ${mot} »)${q.word ? ' : il a proposé « ' + q.word + ' »' : ''}.`;
+            send({ 'impostorGame/status': 'SUMMARY', 'impostorGame/winnerMessage': msg, 'impostorGame/ejecte': { name: q.name, role: q.role, sauve: ok } });
         }
 
     } else if (g.status === 'SUMMARY') {
@@ -230,6 +258,10 @@ function impTick() {
             window.impAutoSentKey = window.impTurnKey;
             window.submitImpostorClue(true);
         }
+    }
+    if (g.status === 'GUESS' && g.guess) {
+        const el = document.getElementById('imp-guess-left');
+        if (el) el.innerText = Math.max(0, Math.ceil(IMP_GUESS_SECONDS - (Date.now() - (g.guess.at || 0)) / 1000)) + ' s';
     }
     if (window.isHost) impHostAdvance(data);
 }
@@ -266,7 +298,7 @@ window.renderImpostorScreen = function(data) {
             timerEl.innerHTML = `Tour ${round} / ${g.maxRounds} - <span id="impostor-timer-display" class="text-amber-400 font-black">${left}s</span>`;
         }
     } else if (timerEl) {
-        timerEl.innerText = { WORD_REVEAL: 'Transmission du mot de passe', DISCUSSION: 'Conseil de bord', VOTE: 'Sas d\'éjection', SUMMARY: 'Rapport de mission' }[g.status] || '';
+        timerEl.innerText = { WORD_REVEAL: 'Transmission du mot de passe', DISCUSSION: 'Conseil de bord', VOTE: 'Sas d\'éjection', GUESS: 'Dernière chance', SUMMARY: 'Rapport de mission' }[g.status] || '';
     }
 
     if (!myRole) {
@@ -277,7 +309,7 @@ window.renderImpostorScreen = function(data) {
 
     // On ne reconstruit l'HTML que si quelque chose de pertinent a changé (sinon le champ de saisie est effacé)
     const sig = JSON.stringify([g.startedAt, g.status, round, idx, g.writingData || null, g.readyToWriting || null,
-        g.readyToVote || null, g.votes || null, g.readyToMenu || null, g.winnerMessage || null, present]);
+        g.readyToVote || null, g.votes || null, g.readyToMenu || null, g.winnerMessage || null, g.guess ? [g.guess.name, !!g.guess.sent] : null, present]);
     if (sig !== window.impSig) {
         window.impSig = sig;
         impBuildHtml(mainArea, g, me, myRole, present, order, round, idx);
@@ -398,6 +430,28 @@ function impBuildHtml(mainArea, g, me, myRole, present, order, round, idx) {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">${buttons}</div>`;
         }
 
+    } else if (g.status === 'GUESS') {
+        const q = g.guess || {}, qui = q.role === 'mrwhite' ? 'le Clandestin' : "l'Infiltré";
+        const reste = `<span id="imp-guess-left" style="font-family:monospace;font-weight:800;color:#fbbf24">${IMP_GUESS_SECONDS} s</span>`;
+        if (q.name === me) {
+            mainArea.innerHTML = `
+                <h3 style="font-size:1.7rem;font-weight:900;color:#f87171;margin-bottom:.4rem">🚨 Vous êtes démasqué !</h3>
+                <p style="color:#e2e8f0;margin-bottom:1rem">Dernière chance avant le sas : devinez le <b>mot de l'équipage</b> et vous vous échappez. ${reste}</p>
+                ${q.sent ? '<div style="color:#94a3b8"><i class="fa-solid fa-hourglass-half"></i> Proposition envoyée...</div>' : `
+                <div style="display:flex;gap:.5rem;max-width:26rem;margin:0 auto">
+                    <input id="imp-guess-input" type="text" maxlength="40" autocomplete="off" placeholder="Le mot de l'équipage..." onkeydown="if(event.key==='Enter') submitImpostorGuess()" style="flex:1;min-width:0;background:#0f172a;border:1px solid #f87171;border-radius:12px;padding:.8rem 1rem;color:#fff;font-size:16px">
+                    <button onclick="submitImpostorGuess()" style="padding:.8rem 1.1rem;border-radius:12px;border:0;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;font-family:inherit">Tenter</button>
+                </div>
+                <p style="font-size:.8rem;color:#94a3b8;margin-top:.8rem">Les accents, les majuscules et le pluriel ne comptent pas.</p>`}`;
+            const champ = document.getElementById('imp-guess-input'); if (champ) champ.focus();
+        } else {
+            mainArea.innerHTML = `
+                <h3 style="font-size:1.7rem;font-weight:900;color:#6ee7b7;margin-bottom:.4rem">🚨 ${impEsc(q.name)} est démasqué !</h3>
+                <p style="color:#e2e8f0;margin-bottom:.6rem">C'était bien ${qui}. Mais il lui reste une <b>dernière chance</b> : s'il devine votre mot, il s'échappe et gagne.</p>
+                <div style="display:inline-block;padding:.9rem 1.4rem;border-radius:14px;border:1px dashed #fbbf24;background:rgba(69,26,3,.4);color:#fde68a;font-weight:700">
+                    <i class="fa-solid fa-hourglass-half animate-spin"></i> ${impEsc(q.name)} cherche le mot de l'équipage... ${reste}</div>`;
+        }
+
     } else if (g.status === 'SUMMARY') {
         const roleName = { impostor: 'Infiltré', mrwhite: 'Clandestin', citizen: 'Équipage' };
         if (window.impSasVu !== g.startedAt) { window.impSasVu = g.startedAt; impSas(g, roleName); }      // animation du sas, une fois par partie
@@ -453,6 +507,15 @@ function impSas(g, roleName) {
             <div class="verdict" style="bottom:42%;color:#fbbf24;animation:impVerdict 3.4s ease forwards;animation-delay:-2s">ÉGALITÉ DES VOTES<br><span style="font-size:15px;color:#e2e8f0">Le sas reste fermé : l'Infiltré est toujours à bord.</span></div>`;
         document.body.appendChild(ov);
         setTimeout(() => ov.remove(), 3000);
+        return;
+    }
+    if (e.sauve) {
+        // le mot a été deviné : le sas ne s'ouvre pas
+        ov.innerHTML = `<div class="etoiles"></div><div class="porte g" style="animation:none"></div><div class="porte d" style="animation:none"></div>
+            <div class="verdict" style="bottom:40%;color:#f87171;animation:impVerdict 3.6s ease forwards;animation-delay:-2s">${impEsc(e.name)} A DEVINÉ LE MOT !<br><span style="font-size:15px;color:#e2e8f0">Le sas reste fermé : ${e.role === 'mrwhite' ? 'le Clandestin' : "l'Infiltré"} s'échappe et gagne.</span></div>`;
+        document.body.appendChild(ov);
+        if (typeof window.sfx === 'function') window.sfx('coule');
+        setTimeout(() => ov.remove(), 3300);
         return;
     }
     const room = window.currentRoom || {}, pl = (room.players || {})[e.name] || {};
