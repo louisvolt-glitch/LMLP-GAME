@@ -1,4 +1,4 @@
-// --- LOGIQUE DU PETIT BAC ---
+// --- TRANSMISSION CODÉE (Petit Bac, habillage spatial) ---
 let currentBacLetter = 'A';
 let bacCategories = [
     		// --- Classiques ---
@@ -41,6 +41,13 @@ let bacCategories = [
     		"Chose qu'on garde secret", "Chose qu'on emporte sur une île déserte", "Cadeau d'anniversaire idéal",
     		"Excuse pour arriver en retard", "Mot de 4 lettres maximum", "Mot de plus de 10 lettres"
 	];
+// Catégories spatiales : chaque manche en contient au moins une
+const bacCategoriesEspace = [
+    "Planète / Étoile / Lune", "Objet à emporter dans une fusée", "Nom d'extraterrestre", "Nom de vaisseau spatial",
+    "Film ou série de science-fiction", "Chose qu'on trouve dans une station spatiale", "Métier du futur",
+    "Robot ou IA célèbre", "Raison d'annuler un décollage", "Chose qui flotte en apesanteur",
+    "Nom de planète inventée", "Invention du futur"
+];
 
 // =====================================================================
 //  PETIT BAC — multijoueur synchronisé via Firebase (salons/{code}/bacGame)
@@ -79,10 +86,13 @@ function bacHumanNames(data) {
 window.prepareBacGame = function(rounds, perRound) {
     const letters = [..."ABCDEFGHIJKLMNOPRSTUV"].sort(() => Math.random() - 0.5);
     const pool = [...bacCategories].sort(() => Math.random() - 0.5);
+    const espace = [...bacCategoriesEspace].sort(() => Math.random() - 0.5);
     const out = [];
     for (let r = 0; r < rounds; r++) {
         const cats = [];
         for (let i = 0; i < perRound; i++) cats.push(pool[(r * perRound + i) % pool.length]);
+        // une catégorie spatiale par manche, à une place au hasard
+        if (perRound >= 2) cats[Math.floor(Math.random() * cats.length)] = espace[r % espace.length];
         out.push({ letter: letters[r % letters.length], categories: cats });
     }
     return out;
@@ -157,7 +167,7 @@ window.renderPetitsBacScreen = function(data) {
     const ind = document.getElementById('bac-round-indicator');
     if (ind) ind.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Manche ${round} / ${g.maxRounds}`;
     const letterEl = document.getElementById('bac-letter-display');
-    if (letterEl) letterEl.innerText = rd.letter;
+    if (letterEl) bacDecrypter(letterEl, rd.letter, `${g.startedAt || ''}:${round}`, g.status === 'PLAYING');
 
     const show = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); };
     show('bac-phase-play', g.status === 'PLAYING');
@@ -165,7 +175,7 @@ window.renderPetitsBacScreen = function(data) {
     show('bac-phase-scores', g.status === 'ROUND_SCORES');
 
     const label = document.getElementById('bac-phase-label');
-    if (label) label.innerText = g.status === 'PLAYING' ? 'Écrivez un mot par catégorie'
+    if (label) label.innerText = g.status === 'PLAYING' ? 'Signal décrypté : un mot par catégorie'
         : g.status === 'VOTING' ? 'Votez : les mots des autres sont-ils valides ?'
         : 'Résultats de la manche';
 
@@ -512,4 +522,30 @@ function bacTick() {
         }
     }
     if (window.isHost) bacHostAdvance(data);
+}
+
+// ---------- La lettre arrive comme un signal brouillé qui se décrypte ----------
+window.bacSignal = { key: '', timer: 0 };
+function bacDecrypter(el, lettre, key, animer) {
+    if (window.bacSignal.key === key) { if (!window.bacSignal.timer) el.innerText = lettre; return; }
+    window.bacSignal.key = key;
+    clearInterval(window.bacSignal.timer); window.bacSignal.timer = 0;
+    if (!animer) { el.innerText = lettre; return; }
+    const brouillage = 'ΔΩΞΨ#%&@ABCDEFGHJKLMNPRSTUVXZ0123456789';
+    let n = 0;
+    el.style.transition = 'none'; el.style.textShadow = '0 0 18px #22d3ee'; el.style.color = '#67e8f9';
+    if (typeof window.sfx === 'function') window.sfx('carte');
+    const pas = (typeof window.sysRealSetInterval === 'function' ? window.sysRealSetInterval : setInterval);
+    window.bacSignal.timer = pas(() => {
+        n++;
+        if (n >= 16 || !el.isConnected) {
+            clearInterval(window.bacSignal.timer); window.bacSignal.timer = 0;
+            el.innerText = lettre; el.style.color = ''; el.style.textShadow = '0 0 26px rgba(251,191,36,.9)';
+            el.animate([{ transform: 'scale(1.9)' }, { transform: 'scale(1)' }], { duration: 350, easing: 'ease-out' });
+            setTimeout(() => { el.style.textShadow = ''; }, 900);
+            if (typeof window.sfx === 'function') window.sfx('tour');
+            return;
+        }
+        el.innerText = brouillage[Math.floor(Math.random() * brouillage.length)];
+    }, 70);
 }
