@@ -444,12 +444,14 @@ const SYS_RESSOURCES = {
 };
 const sysRes = {};       // mode -> 'ok' | 'cours' ; absent = pas encore demandé
 function sysRessourcesPretes(mode) { return !SYS_RESSOURCES[mode] || sysRes[mode] === 'ok'; }
+const sysScripts = {};      // adresse -> promesse : un même fichier (ex. le moteur 3D) n'est chargé qu'une fois
 function sysChargerScript(src) {
-    return new Promise((resolve, reject) => {
+    if (sysScripts[src]) return sysScripts[src];
+    return sysScripts[src] = new Promise((resolve, reject) => {
         const el = document.createElement('script');
         el.src = src; el.async = false;
         el.onload = resolve;
-        el.onerror = () => { el.remove(); reject(new Error('Chargement impossible : ' + src)); };
+        el.onerror = () => { el.remove(); delete sysScripts[src]; reject(new Error('Chargement impossible : ' + src)); };
         document.head.appendChild(el);
     });
 }
