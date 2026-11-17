@@ -176,14 +176,19 @@ function magEvTexte(ev) {
     return `loyers ${quoi} ${d.m === 0 ? 'suspendus' : 'doublés'}`;
 }
 // Appelé à chaque changement de tour : termine l'événement en cours, ou en déclenche un nouveau
+// Réglage de l'hôte (s.evMode) : 'souvent' = un tour de table entre deux événements, 'normal' = deux,
+// 'rare' = quatre, 'non' = aucun événement (partie classique).
+const MAG_EV_MODES = { souvent: 1, normal: 2, rare: 4, non: 0 };
 function magEvTour(s) {
     if (s.status !== 'PLAYING') return;
+    const freq = MAG_EV_MODES[s.evMode] === undefined ? 2 : MAG_EV_MODES[s.evMode];
+    if (!freq) return;
     const vivants = Math.max(2, magAlive(s).length);
     if (s.ev && s.turnCount >= s.ev.until) {
         magLog(s, `${MAG_EVENTS[s.ev.k].i} Fin de l'événement « ${MAG_EVENTS[s.ev.k].n} ».`);
-        s.ev = null; s.evNext = s.turnCount + vivants * 2;
+        s.ev = null; s.evNext = s.turnCount + vivants * freq;
     }
-    if (!s.evNext) s.evNext = vivants * 2 + 1;
+    if (!s.evNext) s.evNext = vivants * freq + 1;
     if (s.ev || s.turnCount < s.evNext) return;
     // tirage reproductible à partir de l'état (pas de hasard supplémentaire à synchroniser)
     const h = s.turnCount * 7 + s.rollSeq * 13 + s.dice[0] * 3 + s.dice[1] * 5 + (s.evSeq || 0) * 3;
@@ -197,7 +202,7 @@ function magEvTour(s) {
     if (k === 'subvention') {
         magAlive(s).forEach(n => { s.players[n].cash += MAG_EV_SUBVENTION; });
         ev.until = s.turnCount;      // effet immédiat : rien ne dure
-        s.evNext = s.turnCount + vivants * 2;
+        s.evNext = s.turnCount + vivants * freq;
         s.evShow = { k: k, f: ev.f, id: s.evSeq };
         magLog(s, `🎁 Événement — Subvention de la Station Mère : chaque joueur reçoit ${MAG_EV_SUBVENTION} cr.`);
         return;
@@ -329,6 +334,7 @@ function magNewGame(names, opts, now, rnd) {
         deck: { a: magShuffle(MAG_CARDS.a.map((c, i) => i), rnd), b: magShuffle(MAG_CARDS.b.map((c, i) => i), rnd) }, di: { a: 0, b: 0 },
         timer: Math.max(20, Math.min(300, Number(opts.timer) || 90)),
         endAt: opts.minutes > 0 ? now + opts.minutes * 60000 : 0,
+        evMode: MAG_EV_MODES[opts.events] === undefined ? 'normal' : opts.events,
         dl: 0, dlAt: now, dlKey: '', outCount: 0
     };
     s.log.push(`La partie commence. ${order[0]} ouvre le jeu.`);
@@ -976,10 +982,24 @@ const MAG_PIONS = [
 const MAG_PION_TAILLE = 54;            // taille d'un pion sur le plateau (le plateau fait 720 unités de large)
 function magPionInfo(key) { return MAG_PIONS.find(x => x.key === key) || null; }
 // Pion d'un joueur : son choix enregistré dans le salon, sinon un pion attribué selon son rang
-function magPionDe(s, name) {
+// Un pion par joueur. Les choix enregistrés sont servis dans l'ordre des joueurs ; un joueur sans choix (ou dont
+// le choix est déjà pris par un joueur placé avant lui) reçoit le premier pion libre à partir de son rang.
+function magPionsAttribues(s) {
     const room = (window.currentRoom && window.currentRoom.players) || (window.magData && window.magData.players) || {};
-    const choix = room[name] && room[name].pion;
-    if (choix && magPionInfo(choix)) return choix;
+    const noms = s && s.order ? s.order.slice() : Object.values(room).filter(p => p && p.name && !p.isBot).map(p => p.name).sort();
+    const out = {}, pris = {};
+    noms.forEach(n => { const k = room[n] && room[n].pion; if (k && magPionInfo(k) && !pris[k]) { pris[k] = n; out[n] = k; } });
+    noms.forEach((n, i) => {
+        if (out[n]) return;
+        const p = s && s.players ? s.players[n] : null, depart = p ? p.c : i;
+        for (let d = 0; d < MAG_PIONS.length; d++) { const k = MAG_PIONS[(depart + d) % MAG_PIONS.length].key; if (!pris[k]) { pris[k] = n; out[n] = k; return; } }
+        out[n] = MAG_PIONS[depart % MAG_PIONS.length].key;      // plus de joueurs que de pions : on réutilise
+    });
+    return out;
+}
+function magPionDe(s, name) {
+    const k = magPionsAttribues(s)[name];
+    if (k) return k;
     const p = s && s.players ? s.players[name] : null;
     return MAG_PIONS[(p ? p.c : 0) % MAG_PIONS.length].key;
 }
@@ -1286,6 +1306,10 @@ function magFermerPions() { const el = document.getElementById('mag-pions'); if 
 function magChoisirPion(key) {
     const moi = window.myPlayerKey, code = window.currentCodeSalon;
     if (!magPionInfo(key)) return;
+    // pris = choisi par un autre joueur (un pion seulement attribué par défaut reste disponible)
+    const salle = (window.currentRoom && window.currentRoom.players) || {};
+    const autre = Object.keys(salle).find(n => n !== moi && salle[n] && salle[n].pion === key);
+    if (autre) { if (typeof showToast === 'function') showToast('🎭 Ce pion est déjà pris par ' + autre + '.'); if (typeof window.sfx === 'function') window.sfx('erreur'); magOuvrirPions(); return; }
     try { localStorage.setItem('lmlp-pion', key); } catch (e) {}
     if (moi && code && window.update && !window.estSpectateur) {
         window.update(window.ref(window.db, 'salons/' + code), { ['players/' + moi + '/pion']: key }).catch(err => console.error('Pion :', err));
@@ -1298,6 +1322,9 @@ function magPionMemoire(data) {
     const moi = window.myPlayerKey, code = window.currentCodeSalon;
     if (!moi || !code || window.estSpectateur || !data || !data.players || !data.players[moi] || data.players[moi].pion) return;
     let k = ''; try { k = localStorage.getItem('lmlp-pion') || ''; } catch (e) {}
+    const dejaPris = Object.values(data.players).some(p => p && p.name !== moi && p.pion === k);
+    // en partie, le pion attribué par défaut devient le choix du joueur : personne ne peut plus le lui prendre
+    if (!k || !magPionInfo(k) || dejaPris) k = data.status === 'IN_GAME' ? (magPionsAttribues(magCurrent())[moi] || '') : '';
     if (k && magPionInfo(k) && window.update) window.update(window.ref(window.db, 'salons/' + code), { ['players/' + moi + '/pion']: k }).catch(() => {});
 }
 function magBasculer3d() {
@@ -1310,19 +1337,20 @@ function magOuvrirPions() {
     magFermerPions();
     const room = window.currentRoom || window.magData || {}, players = room.players || {}, moi = window.myPlayerKey;
     const cur = magCurrent();
-    const pris = {};
-    Object.values(players).forEach(p => { if (p && p.name && !p.isBot) { const k = cur && cur.players && cur.players[p.name] ? magPionDe(cur, p.name) : p.pion; if (k) (pris[k] = pris[k] || []).push(p.name); } });
-    const mien = players[moi] ? (cur && cur.players && cur.players[moi] ? magPionDe(cur, moi) : players[moi].pion) : '';
+    const attrib = magPionsAttribues(cur && cur.players ? cur : null);
+    const pris = {};      // pions choisis par un joueur : grisés pour les autres
+    Object.keys(players).forEach(n => { const k = players[n] && players[n].pion; if (k && attrib[n] === k) pris[k] = n; });
+    const mien = players[moi] ? (attrib[moi] || '') : '';
     const ov = document.createElement('div');
     ov.id = 'mag-pions';
     ov.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:12px';
     ov.onclick = e => { if (e.target === ov) magFermerPions(); };
     const cartes = MAG_PIONS.map(m => {
-        const qui = (pris[m.key] || []).filter(n => n !== moi);
-        return `<button onclick="magChoisirPion('${m.key}')" style="position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px 8px;border-radius:14px;cursor:pointer;font-family:inherit;border:2px solid ${m.key === mien ? '#34d399' : 'rgba(148,163,184,.3)'};background:${m.key === mien ? 'rgba(6,78,59,.55)' : 'rgba(15,23,42,.9)'}">
-            <img src="${MAG_PIONS_DIR}${m.key}.png" alt="" loading="lazy" style="width:100%;max-width:104px;aspect-ratio:1/1;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))">
-            <span style="font-weight:800;font-size:12px;color:#f8fafc;line-height:1.15">${magEsc(m.nom)}</span>
-            <span style="font-size:10px;min-height:12px;color:${m.key === mien ? '#6ee7b7' : '#94a3b8'}">${m.key === mien ? '✓ Votre pion' : (qui.length ? 'Aussi : ' + magEsc(qui.join(', ')) : '')}</span>
+        const qui = pris[m.key] && pris[m.key] !== moi ? pris[m.key] : '';
+        return `<button ${qui ? 'disabled' : `onclick="magChoisirPion('${m.key}')"`} style="position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px 8px;border-radius:14px;cursor:${qui ? 'not-allowed' : 'pointer'};font-family:inherit;border:2px solid ${m.key === mien ? '#34d399' : 'rgba(148,163,184,.3)'};background:${m.key === mien ? 'rgba(6,78,59,.55)' : 'rgba(15,23,42,.9)'}">
+            <img src="${MAG_PIONS_DIR}${m.key}.png" alt="" loading="lazy" style="width:100%;max-width:104px;aspect-ratio:1/1;object-fit:contain;filter:${qui ? 'grayscale(1) brightness(.55)' : 'drop-shadow(0 4px 6px rgba(0,0,0,.6))'}">
+            <span style="font-weight:800;font-size:12px;color:${qui ? '#64748b' : '#f8fafc'};line-height:1.15">${magEsc(m.nom)}</span>
+            <span style="font-size:10px;min-height:12px;color:${m.key === mien ? '#6ee7b7' : '#fbbf24'}">${m.key === mien ? '✓ Votre pion' : (qui ? '🔒 Pris par ' + magEsc(qui) : '')}</span>
         </button>`;
     }).join('');
     const credits = MAG_PIONS.map(m => `« <a href="${m.source}" target="_blank" rel="noopener" style="color:#7dd3fc">${magEsc(m.titre)}</a> » par ${magEsc(m.auteur)} (${m.licence})`).join(' · ');
@@ -1970,9 +1998,10 @@ if (typeof window !== 'undefined') {
         }
         const timer = Math.max(30, Math.min(180, parseInt(document.getElementById('input-host-timer')?.value, 10) || 90));
         const minutes = Math.max(0, Math.min(180, parseInt(document.getElementById('setting-magnat-minutes')?.value, 10) || 0));
-        const s = magNewGame(names, { timer: timer, minutes: minutes }, Date.now());
+        const evenements = document.getElementById('setting-magnat-events')?.value || 'normal';
+        const s = magNewGame(names, { timer: timer, minutes: minutes, events: evenements }, Date.now());
         magHost.startedAt = s.startedAt; magHost.state = s; magHost.done = {};
-        const updates = { status: 'IN_GAME', selectedMode: 'magnat', 'settings/timer': timer, 'settings/magnatMinutes': minutes, magnatGame: { s: s } };
+        const updates = { status: 'IN_GAME', selectedMode: 'magnat', 'settings/timer': timer, 'settings/magnatMinutes': minutes, 'settings/magnatEvents': evenements, magnatGame: { s: s } };
         Object.values(state.players || {}).forEach(p => { if (p && p.name) updates[`players/${p.name}/score`] = 0; });
         window.mettreAJourSalonFirebase(code, updates);
     };
