@@ -84,9 +84,10 @@ window.startNextRound = function() {
             const minimapBox = document.getElementById('minimap-box');
             if (minimapBox) {
                 minimapBox.innerHTML = `
+                    <div style="position:absolute;top:12px;left:14px;z-index:5;pointer-events:none;font-size:9px;font-weight:800;letter-spacing:.14em;color:#67e8f9;background:rgba(2,6,23,.75);border:1px solid rgba(34,211,238,.5);border-radius:6px;padding:2px 6px">📡 ÉCRAN DE LOCALISATION</div>
                     <div id="geoguessr-map" class="w-full h-[calc(100%-40px)] rounded-xl"></div>
                     <button onclick="submitGeoGuess()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2 rounded-xl transition text-xs shadow-lg mt-2 flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-check-circle"></i> Valider mon Repère
+                        <i class="fa-solid fa-satellite-dish"></i> Transmettre ma position
                     </button>
                 `;
             }
@@ -95,7 +96,7 @@ window.startNextRound = function() {
             
             const roundIndicator = document.getElementById('round-indicator');
             if (roundIndicator) {
-                roundIndicator.innerText = `Manche ${state.currentRound + 1} / ${totalRounds}`;
+                roundIndicator.innerText = `🛰️ Atterrissage ${state.currentRound + 1} / ${totalRounds}`;
             }
 
             let holder = document.getElementById('streetview-holder');
@@ -159,7 +160,7 @@ window.startNextRound = function() {
                     state.googleMarkerGuess = new google.maps.Marker({
                         position: e.latLng,
                         map: state.googleMapGuess,
-                        title: "Mon Repère"
+                        title: "Position estimée"
                     });
                 }
             });
@@ -233,7 +234,7 @@ window.submitGeoGuess = function() {
                 minimapBox.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full text-center p-4 space-y-2">
                         <i class="fa-solid fa-hourglass-half text-amber-400 text-2xl animate-spin"></i>
-                        <span class="text-xs font-bold text-white">Repère validé.</span>
+                        <span class="text-xs font-bold text-white">Position transmise à la base.</span>
                         <span class="text-[11px] text-slate-400">En attente des autres joueurs...</span>
                     </div>
                 `;
@@ -284,7 +285,7 @@ window.showRoundSummary = function(dist, pts) {
     if (sEl && !sEl.classList.contains('hidden') && sEl.style.display !== 'none') return;
     
             showScreen('screen-round-summary');
-            document.getElementById('round-score-info').innerText = `+${pts} pts (${dist} km)`;
+            document.getElementById('round-score-info').innerText = `+${pts} pts — à ${dist} km du point d'impact`;
             
             let roomCode = window.currentCodeSalon || state.roomCode;
             
@@ -316,7 +317,7 @@ window.renderSummaryDetails = function(data) {
                 <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl text-xs border border-slate-800">
                     <span class="font-bold text-white">${pName}</span>
                     <div class="flex items-center gap-3">
-                        <span class="text-amber-400 font-mono">${pGuessData.dist !== '?' ? pGuessData.dist + ' km' : 'N/A'}</span>
+                        <span class="text-amber-400 font-mono">${pGuessData.dist !== '?' ? 'à ' + pGuessData.dist + ' km de l\'impact' : 'aucune position'}</span>
                         <span class="text-emerald-400 font-mono font-bold">+${roundPts} pts (Total: ${totalScore})</span>
                     </div>
                 </div>
@@ -337,7 +338,7 @@ window.renderSummaryDetails = function(data) {
                 new google.maps.Marker({ 
                     position: targetLatLng, 
                     map: state.summaryGoogleMap,
-                    title: "Emplacement Réel",
+                    title: "Point d'impact de la capsule",
                     icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
                 });
 
@@ -455,7 +456,7 @@ window.executeActualNextRoundOrFinish = function() {
     if (btn) {
         btn.disabled = false;
         btn.className = "w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition shadow-lg";
-        btn.innerHTML = 'Manche Suivante <i class="fa-solid fa-arrow-right ml-2"></i>';
+        btn.innerHTML = 'Atterrissage suivant <i class="fa-solid fa-arrow-right ml-2"></i>';
     }
 
     if (state.currentRound >= state.settings.rounds) {
