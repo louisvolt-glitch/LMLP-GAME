@@ -382,6 +382,10 @@ const MS_CSS = `
 .ms-back{background:repeating-linear-gradient(135deg,#312e81 0 8%,#1e1b4b 8% 16%);align-items:center;justify-content:center}
 .ms-back span{font-size:36cqw;filter:drop-shadow(0 2px 6px #000)}
 .ms-mini{--w:2.4em;border-width:1px;border-radius:.3em;padding:0;justify-content:center}
+.ms-card:not(.ms-mini){aspect-ratio:1536/2752;overflow:hidden}
+.ms-card .ms-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;pointer-events:none;user-select:none}
+.ms-mini-art{background-size:cover;background-position:50% 42%}
+.ms-mini-art .v{font-size:46cqw;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 2px #000}
 .ms-mini .v{position:static;font-size:42cqw}.ms-mini .ic{font-size:30cqw;margin:0}
 .ms-hand .ms-card{--w:clamp(120px,13vw,300px);transition:transform .15s}
 .ms-hand .ms-pick{cursor:pointer}.ms-hand .ms-pick:hover{transform:translateY(-4%)}
@@ -404,16 +408,29 @@ function msAvatarHtml(name) {
     const src = p && p.avatar && p.avatar.src;
     return src ? `<img class="ms-av" src="${msEsc(src)}" alt="">` : `<span class="ms-av">${msEsc(String(name).charAt(0).toUpperCase())}</span>`;
 }
+// ---- Illustrations des cartes (dossier missive-visuel/cartes/) ----
+// Chaque carte illustrée contient déjà son numéro, son nom et son effet. Si une image manque,
+// la carte dessinée en CSS (numéro, icône, texte) reste visible en dessous.
+const MS_IMG_DIR = './missive-visuel/cartes/';
+function msImg(v) { return MS_IMG_DIR + (MS_CARDS[v] ? 'carte-' + v : 'dos') + '.jpg'; }
+function msPrechargerImages() {
+    if (msPrechargerImages.fait) return;
+    msPrechargerImages.fait = true;
+    MS_RANGS.concat([0]).forEach(v => { const im = new Image(); im.src = msImg(v); });
+}
 function msCardHtml(v, cls, attrs, w) {
     const C = MS_CARDS[v], width = w ? `--w:${w};` : '';
-    if (!C) return `<div class="ms-card ms-back ${cls || ''}" style="${width}" ${attrs || ''}><span>✉️</span></div>`;
-    return `<div class="ms-card ${cls || ''}" style="${width}--c:${C.c}" ${attrs || ''}>
+    const img = `<img class="ms-art" src="${msImg(v)}" alt="" draggable="false" onerror="this.remove()">`;
+    if (!C) return `<div class="ms-card ms-back ${cls || ''}" style="${width}" ${attrs || ''}><span>✉️</span>${img}</div>`;
+    return `<div class="ms-card ${cls || ''}" style="${width}--c:${C.c}" title="${C.n} (${v}) : ${msEsc(C.t)}" ${attrs || ''}>
         <span class="v">${v}</span><span class="q">× ${C.q}</span>
-        <span class="ic">${C.i}</span><span class="nm">${C.n}</span><span class="tx">${C.t}</span></div>`;
+        <span class="ic">${C.i}</span><span class="nm">${C.n}</span><span class="tx">${C.t}</span>${img}</div>`;
 }
+// Petite carte (défausses, mains adverses) : l'illustration en fond, le numéro bien lisible par-dessus
 function msMiniHtml(v) {
     const C = MS_CARDS[v];
-    return C ? `<div class="ms-card ms-mini" style="--c:${C.c}" title="${C.n} (${v})"><span class="v">${v}</span><span class="ic">${C.i}</span></div>` : `<div class="ms-card ms-mini ms-back"><span>✉️</span></div>`;
+    return C ? `<div class="ms-card ms-mini ms-mini-art" style="--c:${C.c};background-image:url('${msImg(v)}')" title="${C.n} (${v})"><span class="v">${v}</span></div>`
+             : `<div class="ms-card ms-mini ms-back ms-mini-art" style="background-image:url('${msImg(0)}')"></div>`;
 }
 function msSeals(n, goal) { return '<span style="color:#fbbf24;letter-spacing:.1em">' + '◆'.repeat(n) + '</span><span style="color:#475569;letter-spacing:.1em">' + '◇'.repeat(Math.max(0, goal - n)) + '</span>'; }
 
@@ -685,6 +702,7 @@ function msOnAct(d) {
     msRender(s);
 }
 function msBuildLayout() {
+    msPrechargerImages();
     const content = document.getElementById('generic-game-content');
     if (!content) return;
     let st = document.getElementById('ms-style');
