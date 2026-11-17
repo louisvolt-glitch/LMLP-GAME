@@ -29,3 +29,8 @@ robot.glb — « robot_unity_test » par eelgod — CC-BY-NC-4.0 (usage NON COMM
   https://sketchfab.com/3d-models/robot-unity-test-bd526b0b811a463f9b9fb8cf9f113d56
 
 Licences : https://creativecommons.org/licenses/by/4.0/ et https://creativecommons.org/licenses/by-nc/4.0/
+
+FOND DU PLATEAU (magnat-visuel/galaxie.webp)
+--------------------------------------------
+Image calculée à partir du nuage de points « Need some space? » par Loïc Norgeot — CC-BY-4.0
+  https://sketchfab.com/3d-models/need-some-space-d6521362b37b48e3a82bce4911409303
