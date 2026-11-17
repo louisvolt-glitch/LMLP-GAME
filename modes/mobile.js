@@ -91,6 +91,58 @@ body.mob.mob-lobby #mob-tabs { display: grid; grid-template-columns: repeat(4, 1
 /* ----- écran de connexion ----- */
 body.mob #screen-home { padding: 1rem .8rem; }
 body.mob #screen-home > div { padding: 1.4rem 1.1rem; border-radius: 22px; }
+/* ===================== ÉCRANS DE JEU D'ORIGINE SUR TÉLÉPHONE ===================== */
+/* champs de saisie : 16 px minimum, sinon l'iPhone zoome dans la page à chaque saisie */
+body.mob main input[type="text"], body.mob main input[type="number"], body.mob main input:not([type]), body.mob main textarea, body.mob main select { font-size: 16px !important; }
+/* place réservée en bas pour les boutons Son / Pause, qui ne recouvrent plus le dernier élément */
+body.mob main[id^="screen-"]:not(#screen-home) { padding-bottom: 4.2rem !important; }
+body.mob:not(.mob-lobby) #sys-son, body.mob:not(.mob-lobby) #sys-menu { opacity: .82; }
+/* ----- Quiz ----- */
+body.mob #screen-quiz { padding: .6rem !important; }
+body.mob #screen-quiz-summary, body.mob #screen-quiz-recap, body.mob #screen-round-summary { padding-left: .4rem; padding-right: .4rem; }
+/* ----- Cinématophile : l'affiche ne pousse plus le champ de réponse hors de l'écran ----- */
+body.mob #screen-cine { padding-left: .6rem !important; padding-right: .6rem !important; gap: .5rem !important; }
+body.mob #cine-canvas { height: 40dvh; width: auto; max-width: 100%; }
+body.mob #cine-story-panel { padding: .7rem !important; max-height: 22dvh; font-size: .8rem; }
+body.mob #cine-input-area { position: sticky; bottom: 0; z-index: 5; padding: .4rem 0; background: linear-gradient(180deg, rgba(4,9,19,0), #040913 35%); }
+body.mob #cine-input-area button { padding: .8rem 1rem; }
+body.mob #cine-players-status-bar { gap: .3rem !important; font-size: .68rem; }
+/* ----- Codenames : en-tête sur deux lignes, cartes plus hautes, saisie de l'indice sur toute la largeur ----- */
+body.mob #screen-codenames { padding-left: .45rem !important; padding-right: .45rem !important; gap: .5rem !important; }
+body.mob #screen-codenames > div:first-child { flex-wrap: wrap; padding: .5rem .7rem; gap: .3rem .6rem; }
+body.mob #codenames-turn-indicator { white-space: nowrap; font-size: .9rem; }
+body.mob #codenames-role-badge { order: 3; flex-basis: 100%; text-align: left; font-size: .75rem; }
+body.mob #codenames-role-badge br { display: none; }
+body.mob #codenames-clue-box { padding: .6rem; line-height: 1.7; }
+body.mob #codenames-clue-box > .flex { gap: .4rem; }
+body.mob #cn-clue-word { flex: 1; min-width: 0; padding: .6rem .7rem; border-radius: 10px; }
+body.mob #cn-clue-count { width: 3.2rem; padding: .6rem .2rem; border-radius: 10px; }
+body.mob #codenames-clue-box button { padding: .65rem .9rem; border-radius: 10px; font-size: .8rem; }
+body.mob #codenames-clue-box button[onclick="passCodenamesTurn()"] { display: block; margin: .5rem auto 0; }
+body.mob #codenames-grid { gap: .32rem !important; }
+body.mob #codenames-grid > div { height: 4.5rem; padding: .15rem; font-size: .68rem; border-radius: 10px; overflow-wrap: anywhere; line-height: 1.15; }
+/* composition des équipes dans le salon : étiquettes assez grandes pour le doigt */
+body.mob #host-settings-codenames [draggable] { padding: .55rem .6rem; font-size: .85rem; border-radius: 10px; }
+body.mob #host-settings-codenames button { padding: .45rem .7rem; font-size: .75rem; border-radius: 10px; }
+body.mob #team-unassigned-container { gap: .4rem; }
+/* ----- Petit Bac ----- */
+body.mob #screen-petitsbac { padding: .5rem !important; }
+body.mob #screen-petitsbac button { min-height: 2.3rem; }
+body.mob #screen-petitsbac table { font-size: .72rem; }
+/* ----- Imposteur ----- */
+body.mob #screen-impostor { padding: .6rem !important; }
+/* ----- GeoGuessr : vue plein écran, carte repliée qui s'agrandit d'un toucher ----- */
+body.mob #screen-game-geoguessr { padding: .4rem .4rem 0 !important; }
+body.mob #screen-game-geoguessr > * + * { margin-top: .4rem !important; }
+body.mob #pano-container { height: calc(100dvh - 5.4rem); min-height: 0; }
+body.mob #minimap-box, body.mob #minimap-box:hover { width: 46vw; height: 9.5rem; right: .5rem; bottom: .5rem; transition: width .2s, height .2s; }
+body.mob #minimap-box.geo-grand, body.mob #minimap-box.geo-grand:hover { width: calc(100% - 1rem); height: 62%; }
+body.mob #minimap-box button { padding: .55rem 0; font-size: .8rem; }
+#geo-carte-btn { display: none; }
+body.mob #geo-carte-btn { display: flex; align-items: center; gap: .35rem; position: absolute; top: .75rem; right: .75rem; z-index: 21; padding: .5rem .75rem; border-radius: 12px; border: 1px solid rgba(34,211,238,.5); background: rgba(15,23,42,.92); color: #a5f3fc; font-weight: 700; font-size: .75rem; font-family: inherit; }
+body.mob #screen-game-geoguessr button[onclick="returnToGeoSpawn()"] { padding: .5rem .7rem; }
+body.mob #round-summary-map { height: 38dvh; }
+/* ----- fenêtre « placer un joueur » (Codenames), utilisable aussi à la souris ----- */
 `;
 
 function mobEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -242,3 +294,67 @@ if (typeof window !== 'undefined' && window.matchMedia) {
         if (MOB.q.addEventListener) MOB.q.addEventListener('change', mobApply); else if (MOB.q.addListener) MOB.q.addListener(mobApply);
     });
 }
+
+
+// ===================== CODENAMES : COMPOSER LES ÉQUIPES AU DOIGT =====================
+// Toucher (ou cliquer) un joueur ouvre une petite fenêtre pour le placer, en plus du glisser-déposer
+// d'origine, qui ne fonctionne pas sur un écran tactile.
+function cnFermer() { const el = document.getElementById('cn-choix'); if (el) el.remove(); }
+function cnChoisir(nom) {
+    cnFermer();
+    if (!window.isHost || typeof state === 'undefined' || !state.players || !state.players[nom]) return;
+    const p = state.players[nom], ici = (p.team || 'unassigned') + ':' + (p.team && p.team !== 'unassigned' ? (p.role || 'agent') : 'agent');
+    const choix = [
+        ['blue', 'spymaster', '👑 Maître-Espion bleu', '#1d4ed8', '#bfdbfe'], ['red', 'spymaster', '👑 Maître-Espion rouge', '#be123c', '#fecdd3'],
+        ['blue', 'agent', '🕵️ Espion bleu', '#1e3a8a', '#bfdbfe'], ['red', 'agent', '🕵️ Espion rouge', '#881337', '#fecdd3']
+    ];
+    const ov = document.createElement('div');
+    ov.id = 'cn-choix';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10040;background:rgba(2,6,23,.72);display:flex;align-items:flex-end;justify-content:center;padding:12px';
+    ov.onclick = e => { if (e.target === ov) cnFermer(); };
+    const box = document.createElement('div');
+    box.style.cssText = 'width:min(440px,100%);background:#091424;border:1px solid #22d3ee;border-radius:18px;padding:16px;margin-bottom:max(0px,env(safe-area-inset-bottom))';
+    const titre = document.createElement('div');
+    titre.style.cssText = 'color:#e2e8f0;font-weight:800;font-size:15px;margin-bottom:12px;text-align:center';
+    titre.textContent = 'Où placer ' + nom + ' ?';
+    box.appendChild(titre);
+    const grille = document.createElement('div');
+    grille.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+    const bouton = (texte, fond, couleur, team, role) => {
+        const b = document.createElement('button');
+        const actif = ici === team + ':' + role;
+        b.textContent = texte + (actif ? ' ✓' : '');
+        b.style.cssText = 'padding:14px 8px;border-radius:12px;border:2px solid ' + (actif ? '#fbbf24' : 'transparent') + ';background:' + fond + ';color:' + couleur + ';font-weight:800;font-size:13px;cursor:pointer;font-family:inherit';
+        b.onclick = () => {
+            cnFermer();
+            // même traitement que le glisser-déposer d'origine
+            dropOperator({ preventDefault() {}, dataTransfer: { getData: () => nom } }, team, role);
+        };
+        return b;
+    };
+    choix.forEach(c => grille.appendChild(bouton(c[2], c[3], c[4], c[0], c[1])));
+    box.appendChild(grille);
+    const reserve = bouton('↩️ Remettre dans la réserve', '#1e293b', '#cbd5e1', 'unassigned', 'agent');
+    reserve.style.width = '100%'; reserve.style.marginTop = '8px';
+    box.appendChild(reserve);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+}
+
+// ===================== GEOGUESSR : BOUTON POUR AGRANDIR LA CARTE (téléphone) =====================
+function geoBasculerCarte() {
+    const box = document.getElementById('minimap-box'), btn = document.getElementById('geo-carte-btn');
+    if (!box) return;
+    const grand = box.classList.toggle('geo-grand');
+    if (btn) btn.textContent = grand ? '✕ Réduire la carte' : '🗺️ Agrandir la carte';
+    // la carte doit recalculer sa taille une fois l'animation terminée
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 260);
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const pano = document.getElementById('pano-container');
+    if (!pano || document.getElementById('geo-carte-btn')) return;
+    const b = document.createElement('button');
+    b.id = 'geo-carte-btn'; b.type = 'button'; b.textContent = '🗺️ Agrandir la carte';
+    b.onclick = geoBasculerCarte;
+    pano.appendChild(b);
+});
