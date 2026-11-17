@@ -1641,7 +1641,7 @@ window.startAnomalyMode = function(cfg) {
     cfg = cfg || {};
     state.anomalyData = state.anomalyData || {};
     showScreen('screen-generic-game');
-    document.getElementById('generic-game-title').innerText = "Couloir des Anomalies 3D";
+    document.getElementById('generic-game-title').innerText = "Surveillance de la station · Anomalies";
 
     if (state.anomalyGame) clearInterval(state.anomalyGame.timerInterval);
 
@@ -1675,7 +1675,8 @@ window.startAnomalyMode = function(cfg) {
 
             <div id="anomaly-canvas-container" class="relative cursor-pointer rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-black" style="width:100%;height:clamp(380px,70vh,720px)">
                 <div id="anomaly-loading" class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-950 px-6 text-center transition-opacity duration-500">
-                    <div class="text-lg font-black text-indigo-300 tracking-wide"><i class="fa-solid fa-door-open mr-2"></i>Chargement du couloir...</div>
+                    <div class="text-lg font-black text-indigo-300 tracking-wide"><i class="fa-solid fa-video mr-2"></i>Connexion au flux CAM-01…</div>
+                    <div class="text-xs text-slate-300 max-w-sm leading-relaxed font-mono">Agent de sécurité de la station : un couloir se répète sur les caméras. Repérez ce qui cloche avant de quitter le secteur.</div>
                     <div class="w-64 max-w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div id="anomaly-loading-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width:0%"></div></div>
                     <div id="anomaly-loading-text" class="text-[11px] text-slate-400 font-mono">Chargement du décor...</div>
                     <div id="anomaly-loading-tip" class="text-xs text-slate-300 max-w-sm leading-relaxed"></div>
@@ -1693,6 +1694,14 @@ window.startAnomalyMode = function(cfg) {
                 <div style="position:absolute;top:50%;left:50%;width:6px;height:6px;background:rgba(255,255,255,0.6);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5"></div>
                 <div style="position:absolute;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)"></div>
                 <div style="position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0.10;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22 stitchTiles=%22stitch%22/></filter><rect width=%22200%22 height=%22200%22 filter=%22url(%23n)%22/></svg>')"></div>
+                <!-- Habillage « flux de caméra de surveillance » : lignes de balayage, REC, numéro de caméra et horodatage -->
+                <div style="position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.16;background:repeating-linear-gradient(0deg,rgba(0,0,0,.9) 0 1px,transparent 1px 3px)"></div>
+                <div class="anomaly-cctv-roll" style="position:absolute;left:0;right:0;height:18%;pointer-events:none;z-index:4;background:linear-gradient(transparent,rgba(255,255,255,.035),transparent)"></div>
+                <div style="position:absolute;left:10px;bottom:10px;z-index:6;pointer-events:none;font-family:ui-monospace,monospace;font-size:11px;line-height:1.35;color:#e2e8f0;text-shadow:0 0 4px #000,0 0 1px #000">
+                    <div><span class="anomaly-cctv-rec" style="color:#ef4444">●</span> REC · <b id="anomaly-cctv-cam">CAM-01</b></div>
+                    <div style="opacity:.75">STATION · SECTEUR ${({ metro: 'TRANSIT', hopital: 'MÉDICAL', hotel: 'HABITATION' })[state.anomalyGame.theme] || 'INCONNU'}</div>
+                </div>
+                <div id="anomaly-cctv-clock" style="position:absolute;right:10px;bottom:10px;z-index:6;pointer-events:none;font-family:ui-monospace,monospace;font-size:11px;color:#e2e8f0;text-shadow:0 0 4px #000;text-align:right"></div>
                 <div id="anomaly-hint-banner" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 px-5 py-2.5 rounded-full border border-indigo-500/30 text-xs text-indigo-300 pointer-events-none text-center shadow-lg transition-opacity duration-500">
                     <b class="text-emerald-400"><i class="fa-solid fa-shield-halved"></i> Sortie 0 : Observez bien la référence (0 anomalie)</b>
                     <div class="text-[10px] text-slate-400 mt-1">Avancez si tout est normal, faites demi-tour s'il y a une anomalie.</div>
@@ -1718,6 +1727,7 @@ window.startAnomalyMode = function(cfg) {
         }
         const hudT = document.getElementById('anomaly-hud-time');
         if (hudT) { const mm = Math.floor(Math.max(0, g.timeLeft) / 60), ss = Math.max(0, g.timeLeft) % 60; hudT.innerText = `${mm}:${ss < 10 ? '0' : ''}${ss}`; }
+        anomalyCctvClock();
         if (g.timeLeft <= 0) finishAnomalyGame();
     };
     // Le chrono et la partie ne démarrent qu'une fois tout chargé (le temps de chargement n'est pas décompté)
@@ -1769,6 +1779,21 @@ window.startAnomalyMode = function(cfg) {
     }, go);
 }
 
+// Horodatage du flux de surveillance (date du jour, heure qui défile)
+function anomalyCctvClock() {
+    const el = document.getElementById('anomaly-cctv-clock');
+    if (!el) return;
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    el.innerHTML = `${z(d.getDate())}/${z(d.getMonth() + 1)}/${d.getFullYear() + 200}<br>${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
+}
+if (typeof document !== 'undefined' && !document.getElementById('anomaly-cctv-style')) {
+    const st = document.createElement('style');
+    st.id = 'anomaly-cctv-style';
+    st.textContent = '@keyframes anomalyRec{0%,49%{opacity:1}50%,100%{opacity:0}}.anomaly-cctv-rec{animation:anomalyRec 1.2s steps(1) infinite}' +
+        '@keyframes anomalyRoll{from{top:-20%}to{top:100%}}.anomaly-cctv-roll{animation:anomalyRoll 7s linear infinite}';
+    document.head.appendChild(st);
+}
+
 window.triggerBlinkTransition = function(callback) {
             let overlay = document.getElementById('anomaly-blink-overlay');
             if (!overlay) {
@@ -1804,6 +1829,9 @@ window.setupAnomalyStage = function(spawnZ) {
             if (stageDisplay) stageDisplay.innerText = `Sortie ${state.anomalyGame.stage}`;
             const hudStage = document.getElementById('anomaly-hud-stage');
             if (hudStage) hudStage.innerText = state.anomalyGame.stage;
+            const cam = document.getElementById('anomaly-cctv-cam');
+            if (cam) cam.innerText = 'CAM-' + String(state.anomalyGame.stage + 1).padStart(2, '0');
+            anomalyCctvClock();
 
             const hintBanner = document.getElementById('anomaly-hint-banner');
             if (hintBanner) {
