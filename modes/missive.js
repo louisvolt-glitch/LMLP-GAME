@@ -294,6 +294,36 @@ function msHostTick() {
 
 // ============================ 3) AFFICHAGE ============================
 const MS_CSS = `
+.ms-hand .ms-card{transition:transform .18s ease,box-shadow .18s ease}
+.ms-hand .ms-card.ms-pick:hover{transform:translateY(-.5em)}
+.ms-hand .ms-card.ms-sel{transform:translateY(-1em) scale(1.04)}
+.ms-hand .ms-card.ms-leve{animation:msLeve .28s cubic-bezier(.3,1.5,.5,1)}
+.ms-card.ms-pioche{animation:msPioche .62s cubic-bezier(.25,.8,.3,1) backwards}
+.ms-card.ms-pose{animation:msPose .32s ease-out}
+.ms-card.ms-tombe{animation:msTombe .45s cubic-bezier(.3,1.4,.5,1) .35s backwards}
+.ms-card.ms-retourne{animation:msRetourne .6s ease-out}
+@keyframes msLeve{0%{transform:translateY(0)}60%{transform:translateY(-12%)}100%{transform:translateY(-7%)}}
+@keyframes msPioche{0%{transform:translate(var(--dx),var(--dy)) scale(.45) rotateY(180deg);filter:brightness(.25)}55%{filter:brightness(.25)}60%{transform:translate(calc(var(--dx)*.15),calc(var(--dy)*.15)) scale(1.08) rotateY(90deg)}100%{transform:none;filter:none}}
+@keyframes msPose{0%{transform:scale(1.7)}60%{transform:scale(.9)}100%{transform:scale(1)}}
+@keyframes msTombe{0%{transform:translateY(-1.4em) scale(1.6);opacity:0}100%{transform:none;opacity:1}}
+@keyframes msRetourne{0%{transform:rotateY(180deg) scale(.8);filter:brightness(.2)}50%{transform:rotateY(90deg) scale(1.05);filter:brightness(.2)}100%{transform:none;filter:none}}
+#ms-duel{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2em;background:rgba(2,6,23,.9);cursor:pointer;animation:msDuelFond 4.2s ease forwards}
+#ms-duel .titre{font-weight:900;letter-spacing:.2em;font-size:1.5em;color:#fcd34d;text-align:center}#ms-duel .titre span{display:block;font-size:.42em;letter-spacing:.06em;color:#cbd5e1;font-weight:400;margin-top:.3em}
+#ms-duel .arene{display:flex;align-items:center;gap:1.6em}
+#ms-duel .cote{display:flex;flex-direction:column;align-items:center;gap:.5em}#ms-duel .nom{font-weight:800;color:#f8fafc}
+#ms-duel .moi{animation:msDuelG .55s cubic-bezier(.2,.9,.3,1.2) backwards}#ms-duel .lui{animation:msDuelD .55s cubic-bezier(.2,.9,.3,1.2) backwards}
+#ms-duel .vs{font-weight:900;font-size:2.2em;color:#f87171;animation:msDuelVs .5s ease-out .45s backwards}
+#ms-duel .verdict{font-weight:800;font-size:1.05em;text-align:center;padding:0 1em;animation:msDuelVerdict .5s ease 1.5s backwards}
+#ms-duel.gagne .verdict{color:#6ee7b7}#ms-duel.perd .verdict{color:#fca5a5}#ms-duel.egal .verdict{color:#fde68a}
+#ms-duel.gagne .lui .ms-card,#ms-duel.perd .moi .ms-card{animation:msDuelPerdu .7s ease 1.5s forwards}
+#ms-duel.gagne .moi .ms-card,#ms-duel.perd .lui .ms-card{animation:msDuelGagne .7s ease 1.5s forwards}
+@keyframes msDuelG{0%{transform:translateX(-60vw) rotate(-25deg)}100%{transform:none}}
+@keyframes msDuelD{0%{transform:translateX(60vw) rotate(25deg)}100%{transform:none}}
+@keyframes msDuelVs{0%{transform:scale(4);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes msDuelVerdict{0%{opacity:0;transform:translateY(.6em)}100%{opacity:1;transform:none}}
+@keyframes msDuelPerdu{0%{transform:none;filter:none}30%{transform:translateX(-.4em) rotate(-4deg)}60%{transform:translateX(.4em) rotate(4deg)}100%{transform:translateY(.8em) rotate(8deg) scale(.9);filter:grayscale(1) brightness(.5)}}
+@keyframes msDuelGagne{0%{transform:none}100%{transform:scale(1.08);box-shadow:0 0 2em .3em rgba(110,231,183,.8)}}
+@keyframes msDuelFond{0%{opacity:0}6%,90%{opacity:1}100%{opacity:0}}
 #ms-root{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;gap:.6vw;padding:.7vw;box-sizing:border-box;background:radial-gradient(circle at 50% 35%,#1b1035 0%,#0a0a1c 55%,#040913 100%);color:#e2e8f0;font-size:clamp(12px,1vw,22px);font-family:inherit}
 #ms-top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:.5em 1em;border:1px solid rgba(196,181,253,.4);border-radius:12px;background:rgba(15,12,35,.9);flex-shrink:0}
 #ms-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,24vw,520px);gap:.8vw}
@@ -376,7 +406,7 @@ function msRender(s, force) {
     document.getElementById('ms-foes').innerHTML = s.order.map(n => {
         const out = r.out[n], on = n === actor, pick = needT && targets.indexOf(n) >= 0;
         const cards = r.phase === 'END' ? r.hands[n].map(msMiniHtml).join('') : (n === me ? '' : r.hands[n].map(() => msMiniHtml(0)).join(''));
-        return `<div class="ms-foe ${on ? 'ms-foe-on' : ''} ${out ? 'ms-foe-out' : ''} ${pick ? 'ms-foe-pick' : ''} ${pick && msUI.target === n ? 'ms-foe-sel' : ''}" ${pick ? `data-act="target" data-n="${msEsc(n)}"` : ''}>
+        return `<div data-foe="${msEsc(n)}" class="ms-foe ${on ? 'ms-foe-on' : ''} ${out ? 'ms-foe-out' : ''} ${pick ? 'ms-foe-pick' : ''} ${pick && msUI.target === n ? 'ms-foe-sel' : ''}" ${pick ? `data-act="target" data-n="${msEsc(n)}"` : ''}>
             ${msAvatarHtml(n)}
             <div style="min-width:0;flex:1">
                 <div style="font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${msEsc(n)}${n === me ? ' <span style="font-size:.6em;color:#94a3b8">VOUS</span>' : ''} ${r.prot[n] ? '<span title="Protégé par un Champ de force">🛡️</span>' : ''}${out ? ' <span style="color:#f87171;font-size:.7em">éliminé</span>' : ''}</div>
@@ -398,12 +428,12 @@ function msRender(s, force) {
     }
     document.getElementById('ms-center').innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;gap:1.2em;flex-wrap:wrap">
-            <div style="text-align:center"><div style="position:relative;display:inline-block">${msCardHtml(0, '', '', '4.6em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
+            <div style="text-align:center"><div id="ms-deck" style="position:relative;display:inline-block">${msCardHtml(0, '', '', '4.6em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
             <div style="text-align:center;opacity:${r.aside ? 1 : .25}">${r.phase === 'END' && r.aside ? msCardHtml(r.aside, '', '', '4.6em') : msCardHtml(0, '', '', '4.6em')}<div style="font-size:.62em;color:#94a3b8;margin-top:.4em">CARTE ÉCARTÉE</div></div>
             ${r.shown.length ? `<div style="text-align:center"><div style="display:flex;gap:.3em">${r.shown.map(msMiniHtml).join('')}</div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">HORS JEU (2 JOUEURS)</div></div>` : ''}
             <div class="ms-box" style="flex:1;min-width:14em;max-width:34em">
                 <div class="ms-box-h">Dernier coup</div>
-                ${last ? `<div style="display:flex;align-items:center;gap:.7em">${msMiniHtml(last.c)}<div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
+                ${last ? `<div style="display:flex;align-items:center;gap:.7em"><span id="ms-last-card">${msMiniHtml(last.c)}</span><div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
             </div>
         </div>${secret}`;
 
@@ -457,6 +487,8 @@ function msRender(s, force) {
         return `<div class="ms-ref" style="${left <= 0 ? 'opacity:.4' : ''}"><span class="ms-num" style="--c:${C.c}">${v}</span><div><b>${C.i} ${C.n}</b> <span style="color:#fbbf24">${left} / ${C.q * mult} en jeu</span><br><span style="color:#cbd5e1">${C.t}</span></div></div>`; }).join('');
     document.getElementById('ms-log').innerHTML = s.log.slice().reverse().map((l, i) => `<div style="${i ? 'color:#94a3b8' : 'color:#f8fafc;font-weight:700'}">• ${msEsc(l)}</div>`).join('');
 
+    msAnimer(s, me);
+
     // ----- fin de manche / fin de partie -----
     const end = document.getElementById('ms-end');
     if (r.phase === 'END') {
@@ -478,6 +510,87 @@ function msRender(s, force) {
     msTick();
 }
 // Sons : carte jouée, élimination, début de mon tour, fin de manche (rien au premier affichage)
+// ============================ ANIMATIONS DES CARTES ============================
+// Après chaque affichage, on compare avec l'affichage précédent pour animer ce qui vient de se passer :
+// carte piochée (elle vole de la pioche à la main en se retournant), carte choisie (elle se soulève),
+// carte jouée ou défaussée (elle vole jusqu'au « dernier coup »), et duel montré face à face aux deux duellistes.
+function msRect(el) { return el ? el.getBoundingClientRect() : null; }
+function msVol(html, de, vers, ms, fin) {
+    if (!de || !vers || !de.width || !vers.width) { if (fin) fin(); return; }
+    const root = document.getElementById('ms-root') || document.body;
+    const el = document.createElement('div');
+    el.className = 'ms-vol';
+    el.style.cssText = `position:fixed;z-index:10015;left:${de.left + de.width / 2}px;top:${de.top + de.height / 2}px;font-size:${getComputedStyle(root).fontSize};pointer-events:none;transform:translate(-50%,-50%) scale(1);transition:transform ${ms}ms cubic-bezier(.3,.7,.3,1),opacity ${ms}ms ease-in`;
+    el.innerHTML = html;
+    root.appendChild(el);
+    void el.getBoundingClientRect();
+    const dx = vers.left + vers.width / 2 - (de.left + de.width / 2), dy = vers.top + vers.height / 2 - (de.top + de.height / 2);
+    el.style.transform = `translate(calc(-50% + ${dx.toFixed(0)}px), calc(-50% + ${dy.toFixed(0)}px)) scale(${Math.max(0.3, Math.min(1.4, vers.width / Math.max(1, el.firstElementChild ? el.firstElementChild.getBoundingClientRect().width : de.width))).toFixed(2)}) rotate(${dx > 0 ? 8 : -8}deg)`;
+    setTimeout(() => { el.remove(); if (fin) fin(); }, ms + 30);
+}
+function msFoeEl(name) { return [...document.querySelectorAll('#ms-foes .ms-foe')].find(e => e.dataset.foe === name) || null; }
+function msAnimer(s, me) {
+    const r = s.r, avant = msUI.vu;
+    const tot = {}; s.order.forEach(n => { tot[n] = r.disc[n].length; });
+    const maintenant = { cle: s.startedAt + ':' + s.round, main: (r.hands[me] || []).slice(), disc: tot, last: r.last ? r.last.by + ':' + r.last.c + ':' + tot[r.last.by] : '', acteur: msActor(s), sel: msUI.sel, duel: r.duel ? r.duel.k : 0, peek: r.peek ? r.peek.k : 0 };
+    msUI.vu = maintenant;
+    if (!avant || avant.cle !== maintenant.cle) return;      // premier affichage ou nouvelle manche : rien à animer
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const deck = msRect(document.getElementById('ms-deck'));
+    // 1) carte choisie dans ma main : elle se soulève
+    if (maintenant.sel >= 0 && maintenant.sel !== avant.sel) { const c = document.querySelectorAll('#ms-hand .ms-card')[maintenant.sel]; if (c) c.classList.add('ms-leve'); }
+    // 2) carte jouée : elle vole de son joueur jusqu'au « dernier coup »
+    if (maintenant.last && maintenant.last !== avant.last && r.last) {
+        const cible = document.getElementById('ms-last-card'), origine = r.last.by === me ? document.getElementById('ms-hand') : msFoeEl(r.last.by);
+        if (cible) { cible.style.visibility = 'hidden'; msVol(msCardHtml(r.last.c, '', '', '6em'), msRect(origine), msRect(cible), 520, () => { cible.style.visibility = ''; cible.firstElementChild && cible.firstElementChild.classList.add('ms-pose'); }); }
+    }
+    // 3) cartes défaussées (jouées, ou perdues sur un Téléporteur / une élimination) : la dernière « tombe » dans la rangée du joueur
+    s.order.forEach(n => {
+        if (tot[n] > (avant.disc[n] || 0)) { const f = msFoeEl(n); if (f) { const minis = f.querySelectorAll('.ms-mini:not(.ms-back)'); for (let k = 0; k < tot[n] - (avant.disc[n] || 0); k++) { const m = minis[tot[n] - 1 - k]; if (m) m.classList.add('ms-tombe'); } } }
+    });
+    // 4) pioche : ma nouvelle carte arrive de la pioche en se retournant ; chez les autres, un dos de carte vole vers le joueur
+    const cartes = document.querySelectorAll('#ms-hand .ms-card');
+    if (maintenant.main.length > avant.main.length && deck && cartes.length) {
+        const c = cartes[cartes.length - 1], cr = msRect(c);
+        c.style.setProperty('--dx', (deck.left + deck.width / 2 - (cr.left + cr.width / 2)).toFixed(0) + 'px');
+        c.style.setProperty('--dy', (deck.top + deck.height / 2 - (cr.top + cr.height / 2)).toFixed(0) + 'px');
+        c.classList.add('ms-pioche');
+        if (typeof window.sfx === 'function') window.sfx('carte');
+    } else if (maintenant.acteur && maintenant.acteur !== avant.acteur && maintenant.acteur !== me && r.phase === 'PLAY') {
+        const f = msFoeEl(maintenant.acteur);
+        msVol(msCardHtml(0, '', '', '4.6em'), deck, msRect(f && (f.querySelector('.ms-back') || f)), 480);
+    } else if (maintenant.main.length === avant.main.length && maintenant.main.join() !== avant.main.join() && maintenant.acteur !== me && cartes.length && deck) {
+        // ma carte a été remplacée (Téléporteur, Diplomate) : la nouvelle arrive
+        const c = cartes[0], cr = msRect(c);
+        c.style.setProperty('--dx', (deck.left + deck.width / 2 - (cr.left + cr.width / 2)).toFixed(0) + 'px');
+        c.style.setProperty('--dy', (deck.top + deck.height / 2 - (cr.top + cr.height / 2)).toFixed(0) + 'px');
+        c.classList.add('ms-pioche');
+    }
+    // 5) duel : les deux cartes face à face, pour les deux duellistes seulement
+    if (maintenant.duel && maintenant.duel !== avant.duel && r.duel && (r.duel.a === me || r.duel.b === me)) msDuel(r.duel, me);
+    if (maintenant.peek && maintenant.peek !== avant.peek && r.peek && r.peek.by === me) { const c = document.querySelector('#ms-center .ms-box .ms-card:not(.ms-mini)'); if (c) c.classList.add('ms-retourne'); }
+}
+function msDuel(d, me) {
+    const old = document.getElementById('ms-duel'); if (old) old.remove();
+    const root = document.getElementById('ms-root');
+    if (!root) return;
+    const mine = d.a === me ? d.ca : d.cb, theirs = d.a === me ? d.cb : d.ca, foe = d.a === me ? d.b : d.a;
+    const issue = mine === theirs ? 0 : (mine > theirs ? 1 : -1);
+    const ov = document.createElement('div');
+    ov.id = 'ms-duel';
+    ov.className = issue > 0 ? 'gagne' : (issue < 0 ? 'perd' : 'egal');
+    ov.innerHTML = `<div class="titre">⚔️ DUEL <span>— vous êtes les deux seuls à voir ces cartes</span></div>
+        <div class="arene">
+            <div class="cote moi"><div class="nom">Vous</div>${msCardHtml(mine, '', '', '9em')}</div>
+            <div class="vs">VS</div>
+            <div class="cote lui"><div class="nom">${msEsc(foe)}</div>${msCardHtml(theirs, '', '', '9em')}</div>
+        </div>
+        <div class="verdict">${issue > 0 ? 'Votre carte est la plus forte : ' + msEsc(foe) + ' est éliminé !' : (issue < 0 ? 'Votre carte est la plus faible : vous êtes éliminé...' : 'Égalité : personne n\'est éliminé.')}</div>`;
+    ov.onclick = () => ov.remove();
+    root.appendChild(ov);
+    setTimeout(() => { if (ov.isConnected) ov.remove(); }, 4200);
+}
+
 function msSounds(s, me) {
     const r = s.r, prev = msUI.snd;
     const now = { sess: s.startedAt, k: r.last ? r.last.k : -1, round: s.round, mine: s.status === 'PLAYING' && msActor(s) === me, out: !!r.out[me], end: r.phase === 'END' };
