@@ -193,7 +193,22 @@ const SYS_SONS = {
     coule: c => { sysBruit(c, 0, 0.8, 900, 0.55, 70); sysNote(c, 240, 0, 0.7, 'sawtooth', 0.2, 35); sysNote(c, 520, 0.05, 0.5, 'square', 0.06, 90); },
     elimine: c => { sysNote(c, 392, 0, 0.18, 'sawtooth', 0.14, 300); sysNote(c, 262, 0.17, 0.4, 'sawtooth', 0.14, 120); },
     erreur: c => { sysNote(c, 160, 0, 0.2, 'square', 0.1); },
-    clic: c => { sysNote(c, 1200, 0, 0.04, 'square', 0.05); }
+    clic: c => { sysNote(c, 1200, 0, 0.04, 'square', 0.05); },
+    // --- sons thématiques (habillage spatial) ---
+    // saut hyperespace : montée en régime puis souffle qui s'éloigne
+    warp: c => { sysNote(c, 90, 0, 0.6, 'sawtooth', 0.12, 1400); sysBruit(c, 0.35, 0.7, 400, 0.4, 3800); sysNote(c, 1400, 0.55, 0.4, 'sine', 0.08, 300); },
+    // ping de sonar : note pure avec un écho plus faible
+    sonar: c => { sysNote(c, 1046, 0, 0.5, 'sine', 0.2); sysNote(c, 1046, 0.32, 0.45, 'sine', 0.06); },
+    // ouverture de sas : chuintement de dépressurisation et verrou mécanique
+    sas: c => { sysNote(c, 140, 0, 0.12, 'square', 0.12); sysNote(c, 110, 0.1, 0.12, 'square', 0.12); sysBruit(c, 0.18, 1.1, 2600, 0.45, 300); },
+    // alarme : deux tons alternés
+    alarme: c => { [0, 0.22, 0.44, 0.66].forEach((t, i) => sysNote(c, i % 2 ? 620 : 880, t, 0.2, 'square', 0.08)); }
+};
+// Note de clavier façon « Simon » (Séquence Mémoire) : une hauteur par case, sur une gamme pentatonique
+const SYS_GAMME = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093];
+window.sfxNote = function(i, duree) {
+    if (!sysSon.on) return;
+    try { const c = sysCtx(); if (c) sysNote(c, SYS_GAMME[Math.abs(i | 0) % SYS_GAMME.length], 0, duree || 0.28, 'triangle', 0.16); } catch (e) {}
 };
 const sysSfx = function(nom) {
     if (!sysSon.on || !SYS_SONS[nom]) return;
