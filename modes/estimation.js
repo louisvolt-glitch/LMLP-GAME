@@ -92,8 +92,56 @@ window.estimationPoints = function(q, guess) {
     return { pts: pts, diff: diff, exact: exact };
 };
 
+// ---- Révélation illustrée : la ligne de visée ----
+// La bonne valeur est une planète au centre ; chaque estimation est un vaisseau (avatar du joueur)
+// placé à sa distance réelle. Au-delà du champ de vision, le vaisseau reste au bord avec une flèche.
+function estLigneDeVisee(q, names, res, me) {
+    const tirs = names.map(n => ({ n: n, r: res[n] })).filter(x => x.r && !x.r.none && isFinite(x.r.guess));
+    if (!tirs.length) return '';
+    const ecartMax = Math.max(...tirs.map(x => Math.abs(x.r.guess - q.v)));
+    const champ = Math.max(ecartMax * 1.15, q.tol * 0.15, 1e-9);   // demi-largeur visible
+    const borne = Math.min(champ, q.tol * 1.5);
+    // position en % (5 % à 95 %), centre = bonne valeur
+    const pos = g => {
+        const d = Math.max(-1, Math.min(1, (g - q.v) / borne));
+        return { x: 50 + d * 45, hors: Math.abs(g - q.v) > borne, sens: g < q.v ? -1 : 1 };
+    };
+    // répartit les vaisseaux trop proches sur plusieurs rangées
+    const places = tirs.map(t => Object.assign({}, t, pos(t.r.guess))).sort((a, b) => a.x - b.x);
+    const rangees = [];
+    places.forEach(p => {
+        let k = 0;
+        while (rangees[k] !== undefined && p.x - rangees[k] < 9) k++;
+        rangees[k] = p.x; p.row = k;
+    });
+    const nbRangs = Math.max(1, rangees.length);
+    const h = 90 + nbRangs * 46;
+    const vaisseaux = places.map(p => {
+        const arrime = p.r.closest || p.r.exact;
+        const haut = p.row % 2 === 0;               // alternance au-dessus / en dessous de la ligne
+        const etage = Math.floor(p.row / 2);
+        const y = haut ? (h / 2 - 40 - etage * 46) : (h / 2 + 40 + etage * 46);
+        const anneau = arrime ? '0 0 0 3px #34d399, 0 0 14px #34d399' : (p.n === me ? '0 0 0 2px #818cf8' : '0 0 0 2px #334155');
+        return `<div style="position:absolute;left:${p.x}%;top:${y}px;transform:translate(-50%,-50%);display:flex;flex-direction:${haut ? 'column-reverse' : 'column'};align-items:center;gap:2px;z-index:${arrime ? 3 : 2}">
+                ${mchPastille(p.n, 30, 'box-shadow:' + anneau)}
+                <span style="font-size:10px;line-height:1;white-space:nowrap;color:${arrime ? '#6ee7b7' : (p.n === me ? '#a5b4fc' : '#94a3b8')}">${p.hors ? (p.sens < 0 ? '◀ ' : '') : ''}${mchEsc(p.n)}${p.hors ? (p.sens > 0 ? ' ▶' : '') : ''}${arrime ? ' · arrimé' : ''}</span>
+            </div>
+            <div style="position:absolute;left:${p.x}%;top:${haut ? y + 15 : h / 2}px;height:${Math.max(0, Math.abs(y - h / 2) - 15)}px;border-left:1px dashed ${arrime ? '#34d39988' : '#47556988'};z-index:1"></div>`;
+    }).join('');
+    return `
+        <div style="position:relative;height:${h}px;margin:4px 0;border-radius:16px;overflow:hidden;border:1px solid #1e293b;
+                    background:radial-gradient(ellipse at 50% 50%, #12203a 0%, #060b16 70%);">
+            <div style="position:absolute;inset:0;opacity:.55;background-image:radial-gradient(1px 1px at 12% 22%,#fff,transparent),radial-gradient(1px 1px at 33% 78%,#cbd5e1,transparent),radial-gradient(1px 1px at 58% 15%,#fff,transparent),radial-gradient(1px 1px at 81% 64%,#e2e8f0,transparent),radial-gradient(1px 1px at 92% 30%,#fff,transparent),radial-gradient(1px 1px at 5% 85%,#cbd5e1,transparent)"></div>
+            <div style="position:absolute;left:5%;right:5%;top:${h / 2}px;border-top:1px solid #22d3ee66"></div>
+            <div style="position:absolute;left:50%;top:${h / 2}px;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;
+                        background:radial-gradient(circle at 35% 35%,#fde68a,#f59e0b 55%,#78350f);box-shadow:0 0 18px #f59e0b99;z-index:2" title="Valeur exacte"></div>
+            ${vaisseaux}
+            <div style="position:absolute;left:8px;bottom:6px;font-size:9px;letter-spacing:.15em;color:#22d3ee99;font-family:monospace">LIGNE DE VISÉE</div>
+        </div>`;
+}
+
 window.MANCHES_MODES.estimation = {
-    title: 'Au Plus Proche',
+    title: 'Calcul de trajectoire',
     minPlayers: 1, minRounds: 3, maxRounds: 12, defaultRounds: 6, revealSeconds: 10,
 
     prepare(count) {
@@ -104,16 +152,16 @@ window.MANCHES_MODES.estimation = {
         const q = estGet(ctx.rd.q);
         ctx.el.innerHTML = `
             <div class="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-4">
-                <div class="text-[11px] uppercase tracking-widest text-cyan-300">🎯 Estimez au plus proche</div>
+                <div class="text-[11px] uppercase tracking-widest text-cyan-300 font-mono">🛰️ Ordinateur de bord · donnée manquante</div>
                 <div class="text-lg font-black text-white">${mchEsc(q.q)}</div>
                 <div class="flex items-center justify-center gap-2 max-w-sm mx-auto">
-                    <input type="text" inputmode="decimal" id="est-input" autocomplete="off" placeholder="Votre estimation"
+                    <input type="text" inputmode="decimal" id="est-input" autocomplete="off" placeholder="Entrez la valeur"
                         class="flex-1 min-w-0 bg-slate-950 border border-cyan-500/50 rounded-xl px-4 py-3 text-white text-center font-mono text-xl focus:outline-none focus:border-cyan-300">
                     ${q.unit ? `<span class="text-slate-300 font-bold text-sm shrink-0">${mchEsc(q.unit)}</span>` : ''}
                 </div>
                 <div id="est-error" class="text-xs text-red-400 h-4"></div>
-                <button id="est-submit" class="w-full max-w-sm mx-auto block px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase tracking-wider text-sm cursor-pointer">Valider mon estimation</button>
-                <div class="text-[11px] text-slate-400">Plus vous êtes proche, plus vous marquez. Sans réponse : 0 point.</div>
+                <button id="est-submit" class="w-full max-w-sm mx-auto block px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase tracking-wider text-sm cursor-pointer">Transmettre la valeur</button>
+                <div class="text-[11px] text-slate-400">Plus votre trajectoire est juste, plus vous marquez. Sans réponse : 0 point.</div>
             </div>`;
         const input = document.getElementById('est-input');
         const send = () => {
@@ -180,6 +228,7 @@ window.MANCHES_MODES.estimation = {
                 <div class="text-3xl font-black text-emerald-400 font-mono">${mchEsc(estVal(q, q.v))}</div>
                 <div class="text-xs text-slate-400">${mchEsc(q.info)}</div>
             </div>
+            ${estLigneDeVisee(q, names, res, me)}
             <div class="space-y-1.5">${rows}</div>`;
     }
 };
