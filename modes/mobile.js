@@ -141,6 +141,7 @@ body.mob #minimap-box, body.mob #minimap-box:hover { width: 46vw; height: 9.5rem
 body.mob #minimap-box.geo-grand, body.mob #minimap-box.geo-grand:hover { width: calc(100% - 1rem); height: 62%; }
 body.mob #minimap-box button { padding: .55rem 0; font-size: .8rem; }
 #geo-carte-btn { display: none; }
+body.mob #geo-capsule { top: 3.6rem !important; max-width: 92% !important; width: max-content; font-size: 10px !important; }
 body.mob #geo-carte-btn { display: flex; align-items: center; gap: .35rem; position: absolute; top: .75rem; right: .75rem; z-index: 21; padding: .5rem .75rem; border-radius: 12px; border: 1px solid rgba(34,211,238,.5); background: rgba(15,23,42,.92); color: #a5f3fc; font-weight: 700; font-size: .75rem; font-family: inherit; }
 body.mob #screen-game-geoguessr button[onclick="returnToGeoSpawn()"] { padding: .5rem .7rem; }
 body.mob #round-summary-map { height: 38dvh; }
@@ -308,8 +309,8 @@ function cnChoisir(nom) {
     if (!window.isHost || typeof state === 'undefined' || !state.players || !state.players[nom]) return;
     const p = state.players[nom], ici = (p.team || 'unassigned') + ':' + (p.team && p.team !== 'unassigned' ? (p.role || 'agent') : 'agent');
     const choix = [
-        ['blue', 'spymaster', '👑 Maître-Espion bleu', '#1d4ed8', '#bfdbfe'], ['red', 'spymaster', '👑 Maître-Espion rouge', '#be123c', '#fecdd3'],
-        ['blue', 'agent', '🕵️ Espion bleu', '#1e3a8a', '#bfdbfe'], ['red', 'agent', '🕵️ Espion rouge', '#881337', '#fecdd3']
+        ['blue', 'spymaster', '🎖️ Amiral Azur', '#1d4ed8', '#bfdbfe'], ['red', 'spymaster', '🎖️ Amiral Écarlate', '#be123c', '#fecdd3'],
+        ['blue', 'agent', '🛰️ Éclaireur Azur', '#1e3a8a', '#bfdbfe'], ['red', 'agent', '🛰️ Éclaireur Écarlate', '#881337', '#fecdd3']
     ];
     const ov = document.createElement('div');
     ov.id = 'cn-choix';
