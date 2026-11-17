@@ -9,6 +9,8 @@
 //  Rien n'est recréé : les blocs existants du salon sont simplement montrés ou
 //  masqués selon l'onglet. Sur ordinateur, ce fichier ne change rien.
 // =====================================================================
+// Jeux qui ne fonctionnent pas sur téléphone : ils n'apparaissent pas dans les tuiles
+const MOB_EXCLUS = { anomaly: true };
 const MOB = { q: null, tab: 'jeux', built: false, deployHome: null, filter: '', unread: false };
 
 const MOB_CSS = `
@@ -56,7 +58,7 @@ body.mob #chat-messages { font-size: .9rem; border-radius: 12px; padding: .7rem;
 body.mob #chat-input { font-size: 16px; padding: .65rem .8rem; border-radius: 12px 0 0 12px; }
 body.mob [data-mob="chat"] button[onclick="sendChatMessage()"] { border-radius: 0 12px 12px 0; padding: 0 1rem; }
 /* ----- tuiles des jeux ----- */
-#mob-games { padding: 0 .6rem; }
+#mob-games { display: none; padding: 0 .6rem; }      /* jamais affiché sur ordinateur */
 .mob-h { font-family: 'Orbitron', sans-serif; font-weight: 800; letter-spacing: .12em; font-size: .78rem; color: #7dd3fc; text-transform: uppercase; margin: 1rem .2rem .5rem; display: flex; align-items: center; gap: .5rem; }
 .mob-h::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(0,210,255,.5), transparent); }
 .mob-hero { border-radius: 18px; padding: 1rem; background: linear-gradient(135deg, rgba(0,210,255,.18), rgba(99,102,241,.2) 60%, rgba(4,10,22,.6)); border: 1px solid rgba(0,210,255,.45); color: #e2e8f0; }
@@ -155,6 +157,7 @@ function mobGames() {
         const title = head ? head.innerText.replace(/\[|\]|\(\d+\)/g, '').trim() : '';
         const items = [];
         cat.querySelectorAll('[id^="protocol-btn-"]').forEach(btn => {
+            if (MOB_EXCLUS[btn.id.replace('protocol-btn-', '')]) return;      // jeu non proposé sur téléphone
             const m = (btn.getAttribute('onclick') || '').match(/selectProtocol\('((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'([^']*)'\)/);
             if (m) items.push({ key: m[4], name: m[1], icon: m[2], desc: m[3], el: btn, label: (btn.querySelector('span') || btn).innerText.trim() });
         });
