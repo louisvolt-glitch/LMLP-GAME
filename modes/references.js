@@ -167,7 +167,7 @@ window.renderReferencesScreen = function(data) {
                     const pr = progress[p.name] || {};
                     return `
                     <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
-                        <span class="font-bold">#${i + 1} - ${refEsc(p.name)} <span class="text-slate-400 font-normal">(${pr.found || 0}/${set.refs.length} références)</span></span>
+                        <span class="font-bold">#${i + 1} - ${refEsc(p.name)} <span class="text-slate-400 font-normal">(${pr.found || 0}/${set.refs.length} reliques)</span></span>
                         <span class="font-mono text-emerald-400 font-bold text-sm">${p.score || 0} pts</span>
                     </div>`;
                 }).join('');
@@ -265,7 +265,7 @@ function referencesHostAdvance(data) {
 window.startReferencesMode = function(cfg) {
     cfg = cfg || {};
     showScreen('screen-generic-game');
-    document.getElementById('generic-game-title').innerText = 'Références Gaming';
+    document.getElementById('generic-game-title').innerText = 'Reliques terrestres';
 
     if (window.referencesState) clearInterval(window.referencesState.timerInterval);
     document.querySelectorAll('body > #ref-prompt').forEach(el => el.remove());      // fenêtre de saisie d'une partie précédente
@@ -290,6 +290,10 @@ window.startReferencesMode = function(cfg) {
     if (!content) return;
     content.innerHTML = `
         <div id="ref-fs" class="w-full max-w-6xl mx-auto space-y-2">
+            <div class="text-center rounded-2xl border border-amber-500/30 px-3 py-2" style="background:linear-gradient(90deg,rgba(120,53,15,.25),rgba(15,23,42,.6),rgba(120,53,15,.25))">
+                <div class="text-[10px] font-mono tracking-[.3em] text-amber-300/80">ÉPAVE TERRESTRE · SOUTE DE STOCKAGE · FOUILLE EN COURS</div>
+                <div class="text-[11px] text-slate-300">Des artefacts ludiques de l'ancienne Terre ont été retrouvés dans l'épave : identifiez chaque relique avant que l'air ne vienne à manquer.</div>
+            </div>
             <div id="ref-hud" class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-2xl px-3 py-2 text-xs sm:text-sm">
                 <div id="ref-lives" class="text-lg tracking-widest"></div>
                 <div class="text-slate-300">Trouvées : <b id="ref-found" class="text-emerald-400">0</b> / ${set.refs.length}</div>
@@ -301,7 +305,7 @@ window.startReferencesMode = function(cfg) {
                     <button id="ref-zoom-in" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600" title="Zoomer">🔍+</button>
                 </div>
             </div>
-            <div class="text-[11px] text-slate-400 text-center">Cliquez sur une référence à un jeu vidéo, puis tapez le nom du jeu. Chaque erreur vous coûte une vie.</div>
+            <div class="text-[11px] text-slate-400 text-center">Touchez une relique (une référence à un jeu vidéo), puis nommez le jeu d'origine. Chaque erreur vous coûte une vie.</div>
             <div id="ref-scroll" class="relative w-full overflow-auto rounded-2xl border border-slate-700 bg-black" style="max-height:72vh">
                 <div id="ref-stage" class="relative select-none" style="width:100%;cursor:crosshair">
                     <img id="ref-img" src="${refEsc(set.src)}" alt="Références" draggable="false" class="block w-full h-auto" style="user-select:none;-webkit-user-drag:none">
@@ -575,7 +579,7 @@ function referencesFinish(reason) {
     if (reason === 'all') rs.score += Math.max(0, rs.timeLeft) * REFERENCES_FINISH_BONUS;
     referencesPushProgress(true);
 
-    const why = reason === 'all' ? '🎉 Toutes les références trouvées !' : reason === 'lives' ? '💀 Plus de vies' : "⏰ Temps écoulé";
+    const why = reason === 'all' ? '🏺 Toutes les reliques sont identifiées !' : reason === 'lives' ? '💀 Plus de vies : la fouille est terminée' : "⏰ Réserve d'air épuisée";
     rs.watch = null;
     const content = document.getElementById('generic-game-content');
     if (content) {
@@ -583,7 +587,7 @@ function referencesFinish(reason) {
             <div id="ref-spec" class="w-full max-w-6xl mx-auto space-y-2">
                 <div class="p-3 bg-slate-900 border border-slate-700 rounded-2xl text-center space-y-1">
                     <div class="text-xl font-black text-emerald-400">${why}</div>
-                    <div class="text-sm text-slate-300">Vos références : <b class="text-amber-400">${rs.order.length} / ${rs.set.refs.length}</b> · Score : <b class="text-amber-400">${rs.score}</b></div>
+                    <div class="text-sm text-slate-300">Vos reliques : <b class="text-amber-400">${rs.order.length} / ${rs.set.refs.length}</b> · Score : <b class="text-amber-400">${rs.score}</b></div>
                     <div class="text-amber-400 animate-pulse text-xs"><i class="fa-solid fa-hourglass-half"></i> En attente des autres joueurs : regardez leur partie en direct</div>
                 </div>
                 <div id="ref-spec-tabs" class="flex flex-wrap gap-2 justify-center text-xs font-mono"></div>
