@@ -1,3 +1,27 @@
+// --- NOMS DE CODE : FLOTTES RIVALES (habillage spatial du jeu d'équipes) ---
+// Deux flottes (Écarlate = « red », Azur = « blue ») : l'Amiral transmet un indice, les Éclaireurs sondent les secteurs.
+// Le secteur piégé est un trou noir qui engloutit la flotte qui le sonde.
+window.cnFlotte = function(team, maj) { const n = team === 'red' ? 'Écarlate' : 'Azur'; return maj ? n.toUpperCase() : n; };
+(function() {
+    if (typeof document === 'undefined' || document.getElementById('cn-style')) return;
+    const st = document.createElement('style'); st.id = 'cn-style';
+    st.textContent = `
+#codenames-grid > div{position:relative;overflow:hidden}
+.cn-scan{animation:cnFlip .7s ease-out}
+.cn-scan::after{content:"";position:absolute;left:0;right:0;top:-30%;height:30%;background:linear-gradient(180deg,rgba(34,211,238,0),rgba(34,211,238,.85),rgba(34,211,238,0));animation:cnScan .7s linear}
+@keyframes cnScan{0%{top:-30%}100%{top:110%}}
+@keyframes cnFlip{0%{transform:rotateY(90deg) scale(1.15);filter:brightness(2.2)}60%{transform:rotateY(0) scale(1.06);filter:brightness(1.5)}100%{transform:none;filter:none}}
+#cn-trou{position:fixed;inset:0;z-index:10020;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(0,0,0,.96) 0%,rgba(2,6,23,.9) 45%,rgba(2,6,23,0) 75%);animation:cnTrouFond 3.4s ease-in-out forwards}
+#cn-trou .disque{width:170px;height:170px;border-radius:50%;background:#000;box-shadow:0 0 0 6px #000,0 0 40px 18px rgba(168,85,247,.85),0 0 110px 50px rgba(249,115,22,.45);animation:cnTrou 3.4s ease-in-out forwards}
+#cn-trou .txt{margin-top:26px;font-weight:900;letter-spacing:.14em;color:#e9d5ff;font-size:20px;text-align:center;text-shadow:0 0 14px #a855f7;padding:0 16px}
+@keyframes cnTrou{0%{transform:scale(0) rotate(0)}30%{transform:scale(1.25) rotate(160deg)}80%{transform:scale(1) rotate(420deg)}100%{transform:scale(1.6) rotate(540deg)}}
+@keyframes cnTrouFond{0%{opacity:0}15%{opacity:1}82%{opacity:1}100%{opacity:0}}
+.cn-aspire{animation:cnAspire 1.4s ease-in forwards}
+@keyframes cnAspire{0%{transform:none;opacity:1}100%{transform:scale(.2) rotate(40deg);opacity:.25;filter:blur(2px)}}`;
+    document.head.appendChild(st);
+})();
+window.cnVu = { t: 0, sess: '' };
+
 // --- ASSISTANTS ÉQUIPES ---
 window.cnOtherTeam = function(team) { return team === 'red' ? 'blue' : 'red'; };
 
@@ -22,7 +46,7 @@ window.startCodenamesGame = function() {
     playersArr = playersArr.filter(p => p && !p.isBot && p.name);
 
     if (playersArr.length < 2) {
-        showToast("⚠️ Il faut au moins 2 joueurs pour jouer à Codenames.");
+        showToast("⚠️ Il faut au moins 2 joueurs pour jouer à Noms de Code.");
         return;
     }
 
@@ -55,7 +79,7 @@ window.startCodenamesGame = function() {
         const names = Object.keys(roles).filter(n => roles[n].team === team);
         if (names.length === 0) continue;
         if (names.length < 2) {
-            showToast(`⚠️ L'équipe ${team === 'red' ? 'Rouge' : 'Bleue'} doit avoir au moins 2 joueurs (1 Maître-Espion + 1 Agent).`);
+            showToast(`⚠️ La Flotte ${cnFlotte(team)} doit avoir au moins 2 joueurs (1 Amiral + 1 Éclaireur).`);
             return;
         }
         const spies = names.filter(n => roles[n].isSpymaster);
@@ -64,7 +88,7 @@ window.startCodenamesGame = function() {
         teamsPresent.push(team);
     }
     if (teamsPresent.length === 0) {
-        showToast("⚠️ Aucun joueur n'est assigné à une équipe.");
+        showToast("⚠️ Aucun joueur n'est assigné à une flotte.");
         return;
     }
 
@@ -78,7 +102,9 @@ window.startCodenamesGame = function() {
         "MIEL", "OR", "TEMPLE", "MARS", "SCIE", "TOUR", "POISSON", "GHOST", "CHEF", "PAIX",
         "TABLE", "POMME", "CHAPEAU", "SALON", "BLANC", "PLAGE", "NINJA", "ROUGE", "MAGIE", "BOIS",
         "BATEAU", "CHAT", "VERRE", "PIED", "COEUR", "GLACE", "MUR", "TISSU", "LION", "POCHE",
-        "ARC", "SABLE", "PAPIER", "VENT", "PORTE", "ETOILE", "LUNETTES", "VOITURE", "CLE", "FER"
+        "ARC", "SABLE", "PAPIER", "VENT", "PORTE", "ETOILE", "LUNETTES", "VOITURE", "CLE", "FER",
+        "COMETE", "FUSEE", "ORBITE", "GALAXIE", "SATELLITE", "ROBOT", "LASER", "PLANETE", "RADAR", "CAPSULE",
+        "SOLEIL", "COSMOS", "CRATERE", "ANNEAU", "ECLIPSE", "SONDE", "METEORE", "BOUCLIER", "RADIO", "PILOTE"
     ];
     const selectedWords = [...dictionary].sort(() => 0.5 - Math.random()).slice(0, 25);
 
@@ -143,20 +169,20 @@ window.renderCodenamesScreen = function(data) {
     // Badge : rôle du joueur local
     const roleBadge = document.getElementById('codenames-role-badge');
     if (roleBadge) {
-        const teamLabel = myRole.team === 'red' ? 'Équipe Rouge' : (myRole.team === 'blue' ? 'Équipe Bleue' : 'Spectateur');
+        const teamLabel = myRole.team === 'red' ? 'Flotte Écarlate' : (myRole.team === 'blue' ? 'Flotte Azur' : 'Spectateur');
         const teamColor = myRole.team === 'red' ? 'text-red-400' : (myRole.team === 'blue' ? 'text-blue-400' : 'text-slate-400');
-        roleBadge.innerHTML = `<span class="${teamColor} font-bold">${teamLabel}</span>${myRole.team !== 'spectator' ? ' — ' + (myRole.isSpymaster ? '🕵️ Maître-Espion' : 'Agent') : ''}`;
+        roleBadge.innerHTML = `<span class="${teamColor} font-bold">${teamLabel}</span>${myRole.team !== 'spectator' ? ' — ' + (myRole.isSpymaster ? '🎖️ Amiral' : '🛰️ Éclaireur') : ''}`;
     }
     
     // UI Scores et Tour
     const turnIndicator = document.getElementById('codenames-turn-indicator');
     if (gameData.status !== "PLAYING") {
         const isRedWin = gameData.status === 'RED_WIN';
-        turnIndicator.innerHTML = `<i class="fa-solid fa-trophy"></i> Victoire de l'équipe ${isRedWin ? 'ROUGE' : 'BLEUE'} !`;
+        turnIndicator.innerHTML = `<i class="fa-solid fa-trophy"></i> Victoire de la Flotte ${isRedWin ? 'ÉCARLATE' : 'AZUR'} !`;
         turnIndicator.className = `font-bold text-sm ${isRedWin ? 'text-red-400' : 'text-blue-400'}`;
     } else {
         const isRedTurn = gameData.currentTurn === 'red';
-        turnIndicator.innerHTML = `<i class="fa-solid fa-user-secret"></i> Tour de l'Équipe ${isRedTurn ? 'Rouge' : 'Bleue'}`;
+        turnIndicator.innerHTML = `<i class="fa-solid fa-shuttle-space"></i> Tour de la Flotte ${isRedTurn ? 'Écarlate' : 'Azur'}`;
         turnIndicator.className = `font-bold text-sm ${isRedTurn ? 'text-red-400' : 'text-blue-400'}`;
     }
 
@@ -174,7 +200,7 @@ const hasVoted = !!(data.lobbyReturn && data.lobbyReturn[myName]);
 
         clueBox.innerHTML = `
             <div class="text-xl font-black ${isRedWin ? 'text-red-400' : 'text-blue-400'} mb-4">
-                🏆 L'équipe ${isRedWin ? 'Rouge' : 'Bleue'} remporte la victoire et +${pts} points !
+                ${gameData.trou ? '🕳️ La Flotte ' + cnFlotte(gameData.trou) + ' a sondé le trou noir et a été engloutie !<br>' : ''}🏆 La Flotte ${isRedWin ? 'Écarlate' : 'Azur'} remporte la victoire et +${pts} points !
             </div>
             ${hasVoted 
                 ? '<button disabled class="w-full max-w-sm mx-auto py-3 bg-slate-800 text-slate-400 rounded-xl font-bold uppercase transition cursor-not-allowed text-base"><i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs...</button>'
@@ -184,7 +210,7 @@ const hasVoted = !!(data.lobbyReturn && data.lobbyReturn[myName]);
     } else if (isMyTurn && myRole.isSpymaster && !gameData.currentClue) {
         clueBox.innerHTML = `
             <div class="flex items-center justify-center gap-2">
-                <input type="text" id="cn-clue-word" placeholder="Indice (1 mot)..." class="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white text-sm">
+                <input type="text" id="cn-clue-word" placeholder="Indice de l'Amiral (1 mot)..." class="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white text-sm">
                 <input type="number" id="cn-clue-count" min="0" max="9" value="1" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white text-sm w-16 text-center">
                 <button onclick="submitCodenamesClue()" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-bold hover:bg-emerald-500 transition shadow">Transmettre</button>
             </div>
@@ -192,21 +218,26 @@ const hasVoted = !!(data.lobbyReturn && data.lobbyReturn[myName]);
     } else if (isMyTurn && !myRole.isSpymaster && gameData.currentClue) {
         let maxGuesses = gameData.currentCount + 1;
         let guessesLeft = maxGuesses - (gameData.guessesMade || 0);
-        let bonusText = (gameData.guessesMade === gameData.currentCount) ? " (Essai bonus !)" : "";
+        let bonusText = (gameData.guessesMade === gameData.currentCount) ? " (Sonde bonus !)" : "";
 
         clueBox.innerHTML = `
-            Indice actuel : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${esc(gameData.currentClue)} (${gameData.currentCount})</strong>
-            <span class="text-xs text-slate-300 ml-2">Coups restants : <b class="text-white">${guessesLeft}</b>${bonusText}</span>
+            Indice de l'Amiral : <strong class="text-amber-400 text-lg uppercase mx-2 tracking-wider">${esc(gameData.currentClue)} (${gameData.currentCount})</strong>
+            <span class="text-xs text-slate-300 ml-2">Sondes restantes : <b class="text-white">${guessesLeft}</b>${bonusText}</span>
             <button onclick="passCodenamesTurn()" class="ml-4 bg-slate-700 hover:bg-slate-600 text-white px-4 py-1.5 rounded text-xs font-bold transition shadow">Fin de tour</button>
         `;
     } else {
-        const clueText = gameData.currentClue ? `${esc(gameData.currentClue)} (${gameData.currentCount})` : "En attente du Maître-Espion...";
-        clueBox.innerHTML = `Indice en cours : <strong class="text-amber-400 text-sm uppercase tracking-wider">${clueText}</strong>`;
+        const clueText = gameData.currentClue ? `${esc(gameData.currentClue)} (${gameData.currentCount})` : "En attente de l'Amiral...";
+        clueBox.innerHTML = `Transmission : <strong class="text-amber-400 text-sm uppercase tracking-wider">${clueText}</strong>`;
     }
 
     // Génération de la Grille
     const grid = document.getElementById('codenames-grid');
     const wordsArray = Array.isArray(gameData.words) ? gameData.words : Object.values(gameData.words || {});
+    const der = gameData.last || null;
+    const sessCn = wordsArray.map(w => w.word).join('|');
+    if (cnVu.sess !== sessCn) { cnVu.sess = sessCn; cnVu.t = der ? der.t : 0; }      // nouvelle grille (ou arrivée en cours) : pas d'animation
+    const neuf = der && der.t !== cnVu.t ? der.i : -1;
+    if (der) cnVu.t = der.t;
     grid.innerHTML = wordsArray.map((w, idx) => {
         let bgClass = "bg-slate-900 border-slate-700 text-white"; 
         let cursorClass = "";
@@ -231,11 +262,23 @@ const hasVoted = !!(data.lobbyReturn && data.lobbyReturn[myName]);
         }
 
         return `
-            <div ${clickAttr} class="p-2 sm:p-4 ${bgClass} border rounded-xl text-center font-bold text-xs sm:text-sm transition select-none flex items-center justify-center h-16 sm:h-20 ${cursorClass} ${w.revealed ? '' : 'shadow-md'}">
-                ${w.word}
+            <div ${clickAttr} class="p-2 sm:p-4 ${bgClass} border rounded-xl text-center font-bold text-xs sm:text-sm transition select-none flex items-center justify-center h-16 sm:h-20 ${cursorClass} ${w.revealed ? '' : 'shadow-md'} ${idx === neuf ? 'cn-scan' : ''}">
+                ${w.type === 'assassin' && (w.revealed || myRole.isSpymaster || gameData.status !== "PLAYING") ? '🕳️ ' : ''}${w.word}
             </div>
         `;
     }).join('');
+    if (neuf >= 0) {
+        if (typeof window.sfx === 'function') window.sfx(wordsArray[neuf].type === 'assassin' ? 'coule' : 'carte');
+        if (wordsArray[neuf].type === 'assassin') {
+            // le trou noir engloutit la flotte qui l'a sondé
+            const old = document.getElementById('cn-trou'); if (old) old.remove();
+            const ov = document.createElement('div'); ov.id = 'cn-trou';
+            ov.innerHTML = `<div class="disque"></div><div class="txt">TROU NOIR !<br><span style="font-size:14px;font-weight:700">La Flotte ${cnFlotte(gameData.trou || 'red')} est engloutie</span></div>`;
+            document.body.appendChild(ov);
+            grid.classList.add('cn-aspire');
+            setTimeout(() => { ov.remove(); grid.classList.remove('cn-aspire'); }, 3400);
+        }
+    }
 };
 
 window.submitCodenamesClue = function() {
@@ -264,6 +307,8 @@ window.clickCodenamesWord = function(idx) {
         
         wordObj.revealed = true;
         let currentTeam = gameData.currentTurn;
+        gameData.last = { i: idx, t: Date.now() };      // secteur sondé à l'instant : animation de scan chez tout le monde
+        if (wordObj.type === 'assassin') gameData.trou = currentTeam;
         let nextTurn = currentTeam;
         let status = "PLAYING";
 
