@@ -483,13 +483,32 @@ window.showQuizFinalRecap = function() {
     const journal = state.quizGame.answersLog || [];
     const bonnes = journal.filter(l => l.isCorrect).length, taux = journal.length ? bonnes / journal.length : 0;
     const grade = taux >= 0.8 ? ['🎖️', 'COMMANDANT', '#fbbf24', 'Examen réussi avec les honneurs'] : (taux >= 0.5 ? ['⭐', 'OFFICIER', '#67e8f9', 'Examen réussi'] : ['🎓', 'CADET', '#94a3b8', 'Encore un peu d\'entraînement à l\'Académie']);
+    // Diplôme de fin d'examen : nom du candidat, grade obtenu, rang dans la promotion, sceau et signature
+    const qEsc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const moi = window.myPlayerKey || state.username || '';
+    const rang = Math.max(1, sorted.findIndex(p => (p.name || p.pseudo) === moi) + 1);
+    const d = new Date();
+    const dateStellaire = `${d.getFullYear() + 200}.${String(Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5)).padStart(3, '0')}`;
     const insigne = journal.length ? `
-            <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:2px solid ${grade[2]};background:rgba(2,6,23,.6);box-shadow:0 0 22px ${grade[2]}55;margin-bottom:8px">
-                <div style="font-size:44px;line-height:1">${grade[0]}</div>
-                <div style="text-align:left">
-                    <div style="font-size:10px;letter-spacing:.14em;color:#94a3b8">VOTRE INSIGNE DE GRADE</div>
-                    <div class="sci-font" style="font-weight:900;font-size:20px;letter-spacing:.1em;color:${grade[2]}">${grade[1]}</div>
-                    <div style="font-size:12px;color:#cbd5e1">${grade[3]} — ${bonnes} bonne${bonnes > 1 ? 's' : ''} réponse${bonnes > 1 ? 's' : ''} sur ${journal.length}</div>
+            <div style="position:relative;padding:22px 20px 18px;border-radius:14px;margin-bottom:10px;text-align:center;overflow:hidden;
+                        border:2px solid ${grade[2]};box-shadow:0 0 26px ${grade[2]}44, inset 0 0 0 6px rgba(2,6,23,.9), inset 0 0 0 7px ${grade[2]}66;
+                        background:radial-gradient(ellipse at 50% 0%, ${grade[2]}22, transparent 60%), linear-gradient(#0b1224,#050914)">
+                <div style="position:absolute;inset:0;opacity:.07;background-image:repeating-linear-gradient(45deg,${grade[2]} 0 1px,transparent 1px 10px);pointer-events:none"></div>
+                <div style="font-size:10px;letter-spacing:.35em;color:#94a3b8">ACADÉMIE DE LA FLOTTE STELLAIRE</div>
+                <div class="sci-font" style="font-size:22px;font-weight:900;letter-spacing:.18em;color:#f8fafc;margin:4px 0 2px">DIPLÔME</div>
+                <div style="font-size:11px;color:#94a3b8;font-style:italic">est décerné à</div>
+                <div style="font-size:24px;font-weight:900;color:${grade[2]};margin:2px 0 4px;font-family:Georgia,'Times New Roman',serif;font-style:italic">${qEsc(moi || 'Candidat')}</div>
+                <div style="font-size:12px;color:#cbd5e1">au grade de</div>
+                <div style="display:inline-flex;align-items:center;gap:10px;margin:6px 0">
+                    <span style="font-size:34px;line-height:1">${grade[0]}</span>
+                    <span class="sci-font" style="font-weight:900;font-size:22px;letter-spacing:.14em;color:${grade[2]}">${grade[1]}</span>
+                </div>
+                <div style="font-size:12px;color:#cbd5e1">${grade[3]} — ${bonnes} bonne${bonnes > 1 ? 's' : ''} réponse${bonnes > 1 ? 's' : ''} sur ${journal.length} · ${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup> de la promotion</div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px;font-size:10px;color:#64748b">
+                    <div style="text-align:left">DATE STELLAIRE<br><span style="color:#cbd5e1;font-family:monospace;font-size:12px">${dateStellaire}</span></div>
+                    <div style="width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;
+                                background:radial-gradient(circle,${grade[2]}55,${grade[2]}11 70%);border:2px dashed ${grade[2]};transform:rotate(-12deg)">🚀</div>
+                    <div style="text-align:right">LE COMMANDANT DE L'ACADÉMIE<br><span style="color:#cbd5e1;font-family:Georgia,serif;font-style:italic;font-size:14px">A. Vostrel</span></div>
                 </div>
             </div>` : '';
     const lbContainer = document.getElementById('quiz-final-leaderboard');
