@@ -13,17 +13,21 @@
 
 // ============================ 1) DONNÉES ET RÈGLES ============================
 const MS = { END_SECONDS: 15, LOG: 30 };
-// v = valeur, q = exemplaires dans le paquet de 16 cartes (doublé à partir de 5 joueurs)
+// v = valeur, q = exemplaires dans le paquet de 18 cartes (doublé à partir de 5 joueurs)
+// Ordre et effets repris de l'édition 2019 du jeu original (Garde, Prêtre, Baron, Servante, Prince, Chancelier, Roi, Comtesse, Princesse).
 const MS_CARDS = {
     1: { n: 'Sentinelle', i: '🤖', q: 5, c: '#64748b', t: "Désignez un joueur et nommez une carte (sauf Sentinelle). S'il la tient, il est éliminé de la manche." },
     2: { n: 'Analyste', i: '🔭', q: 2, c: '#0891b2', t: "Regardez en secret la carte d'un autre joueur." },
     3: { n: 'Duelliste', i: '⚔️', q: 2, c: '#b45309', t: "Comparez en secret votre carte avec celle d'un autre joueur : la plus faible est éliminée." },
     4: { n: 'Champ de force', i: '🛡️', q: 2, c: '#059669', t: "Jusqu'à votre prochain tour, aucune carte ne peut vous viser." },
     5: { n: 'Téléporteur', i: '🌀', q: 2, c: '#7c3aed', t: "Un joueur de votre choix (vous compris) défausse sa carte et en pioche une nouvelle." },
-    6: { n: 'Diplomate', i: '🤝', q: 1, c: '#be185d', t: "Échangez votre carte avec celle d'un autre joueur." },
-    7: { n: 'Stratège', i: '🧠', q: 1, c: '#4338ca', t: "Aucun effet, mais vous DEVEZ la jouer si vous tenez aussi le Téléporteur ou le Diplomate." },
-    8: { n: 'Souveraine', i: '👑', q: 1, c: '#b91c1c', t: "Si vous la jouez ou la défaussez, vous êtes éliminé de la manche." }
+    6: { n: 'Quartier-maître', i: '📦', q: 2, c: '#0d9488', t: "Piochez 2 cartes de la soute. Gardez-en une parmi vos 3 et remettez les 2 autres sous la pioche, dans l'ordre de votre choix." },
+    7: { n: 'Diplomate', i: '🤝', q: 1, c: '#be185d', t: "Échangez votre carte avec celle d'un autre joueur." },
+    8: { n: 'Stratège', i: '🧠', q: 1, c: '#4338ca', t: "Aucun effet, mais vous DEVEZ la jouer si vous tenez aussi le Téléporteur ou le Diplomate." },
+    9: { n: 'Souveraine', i: '👑', q: 1, c: '#b91c1c', t: "Si vous la jouez ou la défaussez, vous êtes éliminé de la manche." }
 };
+const MS_MAX = 9;               // valeur de la carte la plus forte (la Souveraine)
+const MS_RANGS = Object.keys(MS_CARDS).map(Number).sort((a, b) => b - a);   // 9, 8, ..., 1
 
 function msShuffle(arr, rnd) {
     const a = arr.slice();
@@ -32,22 +36,22 @@ function msShuffle(arr, rnd) {
 }
 function msLog(s, txt) { s.log.push(txt); if (s.log.length > MS.LOG) s.log = s.log.slice(-MS.LOG); }
 function msAlive(s) { return s.order.filter(n => !s.r.out[n]); }
-function msActor(s) { return s.r.phase === 'PLAY' ? s.order[s.r.turn] : ''; }
+function msActor(s) { return s.r.phase === 'PLAY' ? s.order[s.r.turn] : (s.r.phase === 'QM' && s.r.qm ? s.r.qm.by : ''); }
 // Joueurs qu'une carte peut viser : en lice, non protégés (et pas soi-même, sauf pour le Téléporteur)
 function msTargets(s, by, card) {
     const others = msAlive(s).filter(n => n !== by && !s.r.prot[n]);
     return card === 5 ? others.concat([by]) : others;
 }
-function msNeedsTarget(card) { return card === 1 || card === 2 || card === 3 || card === 5 || card === 6; }
-// La Stratège doit être jouée si l'autre carte est le Téléporteur ou le Diplomate
-function msForced(hand) { return hand.indexOf(7) >= 0 && (hand.indexOf(5) >= 0 || hand.indexOf(6) >= 0); }
+function msNeedsTarget(card) { return card === 1 || card === 2 || card === 3 || card === 5 || card === 7; }
+// La Stratège (8) doit être jouée si l'autre carte est le Téléporteur (5) ou le Diplomate (7)
+function msForced(hand) { return hand.length === 2 && hand.indexOf(8) >= 0 && (hand.indexOf(5) >= 0 || hand.indexOf(7) >= 0); }
 function msSum(arr) { return arr.reduce((a, b) => a + b, 0); }
 
 function msNewRound(s, starter, rnd) {
     let deck = [];
     Object.keys(MS_CARDS).forEach(v => { for (let i = 0; i < MS_CARDS[v].q * (s.order.length > 4 ? 2 : 1); i++) deck.push(Number(v)); });
     deck = msShuffle(deck, rnd);
-    const r = { deck: deck, aside: 0, shown: [], hands: {}, out: {}, prot: {}, disc: {}, turn: 0, phase: 'PLAY', winners: [], reason: '', last: null, peek: null, duel: null };
+    const r = { deck: deck, aside: 0, shown: [], hands: {}, out: {}, prot: {}, disc: {}, turn: 0, phase: 'PLAY', winners: [], reason: '', last: null, peek: null, duel: null, qm: null };
     r.aside = r.deck.pop();
     if (s.order.length === 2) r.shown = [r.deck.pop(), r.deck.pop(), r.deck.pop()];
     s.order.forEach(n => { r.hands[n] = [r.deck.pop()]; r.out[n] = false; r.prot[n] = false; r.disc[n] = []; });
@@ -81,7 +85,7 @@ function msNorm(raw) {
     r.hands = r.hands || {}; r.out = r.out || {}; r.prot = r.prot || {}; r.disc = r.disc || {};
     s.order.forEach(n => { s.tokens[n] = s.tokens[n] || 0; r.hands[n] = arr(r.hands[n]).map(Number); r.disc[n] = arr(r.disc[n]).map(Number); r.out[n] = !!r.out[n]; r.prot[n] = !!r.prot[n]; });
     r.aside = r.aside || 0; r.turn = r.turn || 0; r.phase = r.phase || 'PLAY'; r.reason = r.reason || '';
-    r.last = r.last || null; r.peek = r.peek || null; r.duel = r.duel || null;
+    r.last = r.last || null; r.peek = r.peek || null; r.duel = r.duel || null; r.qm = r.qm || null;
     ['seq', 'round', 'goal', 'timer', 'dl', 'dlAt'].forEach(k => { s[k] = s[k] || 0; });
     s.dlKey = s.dlKey || '';
     return s;
@@ -150,7 +154,7 @@ function msApply(s0, a, now, rnd) {
         const hand = r.hands[by], i = Number(a.i);
         if (hand.length !== 2 || (i !== 0 && i !== 1)) return null;
         const card = hand[i], keep = hand[1 - i];
-        if (msForced(hand) && card !== 7) return null;
+        if (msForced(hand) && card !== 8) return null;
         const targets = msTargets(s, by, card);
         let target = '';
         if (msNeedsTarget(card) && targets.length) {
@@ -158,7 +162,7 @@ function msApply(s0, a, now, rnd) {
             if (targets.indexOf(target) < 0) return null;
         }
         const guess = Number(a.guess);
-        if (card === 1 && target && !(Number.isInteger(guess) && guess >= 2 && guess <= 8)) return null;
+        if (card === 1 && target && !(Number.isInteger(guess) && guess >= 2 && guess <= MS_MAX)) return null;
 
         r.hands[by] = [keep]; r.disc[by].push(card);
         r.peek = null; r.duel = null;
@@ -184,7 +188,7 @@ function msApply(s0, a, now, rnd) {
             const d = r.hands[target][0];
             r.hands[target] = []; r.disc[target].push(d);
             msLog(s, `${target} défausse ${MS_CARDS[d].n} (${d}).`);
-            if (d === 8) { r.last.res = `${target} défausse la Souveraine !`; msEliminate(s, target, 'a défaussé la Souveraine'); }
+            if (d === 9) { r.last.res = `${target} défausse la Souveraine !`; msEliminate(s, target, 'a défaussé la Souveraine'); }
             else {
                 let drawn = 0;
                 if (r.deck.length) drawn = r.deck.pop();
@@ -193,13 +197,40 @@ function msApply(s0, a, now, rnd) {
                 r.last.res = `${target} défausse ${MS_CARDS[d].n} et pioche une nouvelle carte.`;
             }
         } else if (card === 6) {
+            // Quartier-maître : pioche jusqu'à 2 cartes, le joueur choisira ensuite laquelle garder (phase « QM »)
+            const n = Math.min(2, r.deck.length);
+            for (let k = 0; k < n; k++) r.hands[by].push(r.deck.pop());
+            if (n) {
+                r.phase = 'QM'; r.qm = { by: by, n: n };
+                r.last.res = `${by} fouille la soute : ${n} carte${n > 1 ? 's' : ''} piochée${n > 1 ? 's' : ''}, il en gardera une seule.`;
+                msLog(s, r.last.res);
+                msDeadline(s, now);
+                s.seq++;
+                return s;                       // le tour se termine quand il a choisi (action « keep »)
+            }
+            r.last.res = 'La soute est vide : le Quartier-maître est sans effet.'; msLog(s, r.last.res);
+        } else if (card === 7) {
             const mine = r.hands[by]; r.hands[by] = r.hands[target]; r.hands[target] = mine;
             r.last.res = `${by} et ${target} échangent leurs cartes.`; msLog(s, r.last.res);
-        } else if (card === 7) {
-            r.last.res = 'La Stratège est jouée : aucun effet.';
         } else if (card === 8) {
+            r.last.res = 'La Stratège est jouée : aucun effet.';
+        } else if (card === 9) {
             r.last.res = `${by} a joué la Souveraine !`; msEliminate(s, by, 'a joué la Souveraine');
         }
+        msAfterPlay(s, by);
+    } else if (a.t === 'keep') {
+        // Quartier-maître : garder une carte, remettre les autres sous la pioche
+        if (r.phase !== 'QM' || !r.qm || r.qm.by !== by) return null;
+        const hand = r.hands[by], i = Number(a.i);
+        if (hand.length < 2 || !Number.isInteger(i) || i < 0 || i >= hand.length) return null;
+        const keep = hand[i], rest = hand.filter((c, k) => k !== i);
+        // fond = index (dans les cartes rendues) de celle qui va tout au fond de la pioche
+        const fond = rest.length === 2 && Number(a.fond) === 1 ? 1 : 0;
+        const ordre = rest.length === 2 ? [rest[fond], rest[1 - fond]] : rest;   // du fond vers le haut
+        r.deck = ordre.concat(r.deck);          // on pioche par la fin du tableau : le début est le fond
+        r.hands[by] = [keep];
+        r.phase = 'PLAY'; r.qm = null;
+        msLog(s, `${by} remet ${rest.length} carte${rest.length > 1 ? 's' : ''} sous la pioche.`);
         msAfterPlay(s, by);
     } else return null;
 
@@ -212,24 +243,28 @@ function msAuto(s, now, rnd) {
     if (s.status !== 'PLAYING') return null;
     rnd = rnd || Math.random;
     if (s.r.phase === 'END') return msApply(s, { by: s.order[0], t: 'next' }, now, rnd);
+    if (s.r.phase === 'QM' && s.r.qm) {        // Quartier-maître : garde la carte la plus forte
+        const h = s.r.hands[s.r.qm.by];
+        return msApply(s, { by: s.r.qm.by, t: 'keep', i: h.indexOf(Math.max.apply(null, h)), fond: 0 }, now, rnd);
+    }
     const by = s.order[s.r.turn], hand = s.r.hands[by];
     if (hand.length !== 2) return null;
-    let i = msForced(hand) ? hand.indexOf(7) : (hand[0] <= hand[1] ? 0 : 1);
-    if (hand[i] === 8) i = 1 - i;
+    let i = msForced(hand) ? hand.indexOf(8) : (hand[0] <= hand[1] ? 0 : 1);
+    if (hand[i] === 9) i = 1 - i;
     const targets = msTargets(s, by, hand[i]);
     const others = targets.filter(n => n !== by);
     const pool = others.length ? others : targets;
-    return msApply(s, { by: by, t: 'play', i: i, target: pool.length ? pool[Math.floor(rnd() * pool.length)] : '', guess: 2 + Math.floor(rnd() * 7) }, now, rnd);
+    return msApply(s, { by: by, t: 'play', i: i, target: pool.length ? pool[Math.floor(rnd() * pool.length)] : '', guess: 2 + Math.floor(rnd() * (MS_MAX - 1)) }, now, rnd);
 }
 function msScore(s, name) { return (s.tokens[name] || 0) * 100; }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { MS, MS_CARDS, msNewGame, msNorm, msApply, msAuto, msAlive, msTargets, msNeedsTarget, msForced, msActor, msSum };
+    module.exports = { MS, MS_CARDS, MS_MAX, msNewGame, msNorm, msApply, msAuto, msAlive, msTargets, msNeedsTarget, msForced, msActor, msSum };
 }
 
 // ============================ 2) BOUCLE DE L'HÔTE ============================
 const msHost = { startedAt: 0, state: null, done: {} };
-const msUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', sel: -1, target: '', guess: 0, shown: '' };
+const msUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', sel: -1, target: '', guess: 0, shown: '', fond: 0, qmSeq: -1 };
 
 function msEsc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -386,13 +421,15 @@ function msRender(s, force) {
     const me = msMe(), r = s.r, playing = s.order.indexOf(me) >= 0;
     const actor = msActor(s), myTurn = actor === me;
     if (!myTurn) { msUI.sel = -1; msUI.target = ''; msUI.guess = 0; }
-    const sig = JSON.stringify([s.seq, msUI.sel, msUI.target, msUI.guess, me]);
+    const qmMoi = myTurn && r.phase === 'QM';
+    if (qmMoi && msUI.qmSeq !== s.seq) { msUI.qmSeq = s.seq; msUI.sel = -1; msUI.fond = 0; }      // nouvelle fouille : rien de choisi
+    const sig = JSON.stringify([s.seq, msUI.sel, msUI.target, msUI.guess, msUI.fond, me]);
     if (!force && sig === msUI.sig) return;
     msUI.sig = sig;
     msSounds(s, me);
 
     const hand = playing ? r.hands[me] : [];
-    const selCard = myTurn && msUI.sel >= 0 ? hand[msUI.sel] : 0;
+    const selCard = myTurn && r.phase === 'PLAY' && msUI.sel >= 0 ? hand[msUI.sel] : 0;
     const targets = selCard ? msTargets(s, me, selCard) : [];
     const needT = selCard && msNeedsTarget(selCard) && targets.length > 0;
     if (needT && targets.indexOf(msUI.target) < 0) msUI.target = targets.length === 1 ? targets[0] : '';
@@ -438,12 +475,12 @@ function msRender(s, force) {
         </div>${secret}`;
 
     // ----- ma main et mes actions -----
-    const forced = myTurn && msForced(hand);
+    const forced = myTurn && r.phase === 'PLAY' && msForced(hand);
     let handHtml = '';
     if (!playing) handHtml = '<div style="color:#94a3b8">Vous assistez à la partie en spectateur.</div>';
     else if (r.out[me]) handHtml = '<div style="color:#f87171;font-weight:800">Vous êtes éliminé de cette manche. Patientez jusqu\'à la suivante.</div>';
     else handHtml = hand.map((c, i) => {
-        const blocked = forced && c !== 7;
+        const blocked = forced && c !== 8;
         return msCardHtml(c, (myTurn ? (blocked ? 'ms-no' : 'ms-pick') : '') + (msUI.sel === i ? ' ms-sel' : ''), myTurn && !blocked ? `data-act="card" data-i="${i}"` : '');
     }).join('');
     document.getElementById('ms-hand').innerHTML = handHtml;
@@ -452,6 +489,18 @@ function msRender(s, force) {
     if (r.phase === 'END') act = '';
     else if (!playing || r.out[me]) act = `<div style="color:#94a3b8">Au tour de <b>${msEsc(actor)}</b>.</div>`;
     else if (!myTurn) act = `<div>Votre carte est secrète. Au tour de <b style="color:#fbbf24">${msEsc(actor)}</b>...</div>`;
+    else if (qmMoi) {
+        // Quartier-maître : garder une carte, ranger les autres sous la pioche
+        const steps = [`<div style="font-weight:900;color:#5eead4;font-size:1.1em">📦 Quartier-maître : inventaire de la soute</div>`];
+        steps.push(`<div style="font-size:.85em;color:#cbd5e1">1. Touchez la carte que vous <b>gardez</b>. Les autres retournent sous la pioche.</div>`);
+        const rest = msUI.sel >= 0 ? hand.map((c, k) => ({ c: c, k: k })).filter(x => x.k !== msUI.sel) : [];
+        if (msUI.sel >= 0) {
+            steps.push(`<div style="font-size:.85em">Vous gardez : <b>${MS_CARDS[hand[msUI.sel]].n} (${hand[msUI.sel]})</b></div>`);
+            if (rest.length === 2) steps.push(`<div style="font-size:.85em;color:#cbd5e1">2. Laquelle va <b>tout au fond</b> de la pioche ? ${rest.map((x, j) => `<button class="ms-btn ${msUI.fond === j ? 'ms-btn-on' : ''}" data-act="fond" data-v="${j}">${MS_CARDS[x.c].i} ${MS_CARDS[x.c].n} (${x.c})</button>`).join(' ')}</div>`);
+            steps.push(`<div><button class="ms-btn ms-btn-go" data-act="keep" style="font-size:1em;padding:.7em 1.6em">Valider l'inventaire</button></div>`);
+        }
+        act = steps.join('');
+    }
     else {
         const steps = [];
         steps.push(`<div style="font-weight:900;color:#6ee7b7;font-size:1.1em">À vous de jouer !</div>`);
@@ -461,7 +510,7 @@ function msRender(s, force) {
             steps.push(`<div style="font-size:.85em">Carte choisie : <b>${MS_CARDS[selCard].n} (${selCard})</b></div>`);
             if (msNeedsTarget(selCard) && !targets.length) steps.push(`<div style="font-size:.8em;color:#fde68a">Tous les autres joueurs sont protégés : la carte sera jouée sans effet.</div>`);
             if (needT) steps.push(`<div style="font-size:.85em;color:#cbd5e1">2. Choisissez un joueur${selCard === 5 ? ' (vous pouvez vous viser)' : ''} : ${targets.map(n => `<button class="ms-btn ${msUI.target === n ? 'ms-btn-on' : ''}" data-act="target" data-n="${msEsc(n)}">${msEsc(n)}${n === me ? ' (vous)' : ''}</button>`).join(' ')}</div>`);
-            if (needG) steps.push(`<div style="font-size:.85em;color:#cbd5e1">3. Quelle carte tient-il ? ${[2, 3, 4, 5, 6, 7, 8].map(v => `<button class="ms-btn ${msUI.guess === v ? 'ms-btn-on' : ''}" data-act="guess" data-v="${v}" title="${MS_CARDS[v].n}">${v} ${MS_CARDS[v].i}</button>`).join(' ')}</div>`);
+            if (needG) steps.push(`<div style="font-size:.85em;color:#cbd5e1">3. Quelle carte tient-il ? ${MS_RANGS.filter(v => v >= 2).reverse().map(v => `<button class="ms-btn ${msUI.guess === v ? 'ms-btn-on' : ''}" data-act="guess" data-v="${v}" title="${MS_CARDS[v].n}">${v} ${MS_CARDS[v].i}</button>`).join(' ')}</div>`);
             const ok = (!needT || msUI.target) && (!needG || msUI.guess);
             steps.push(`<div><button class="ms-btn ms-btn-go" data-act="play" ${ok ? '' : 'disabled'} style="font-size:1em;padding:.7em 1.6em">Jouer ${MS_CARDS[selCard].n}</button></div>`);
         }
@@ -477,13 +526,13 @@ function msRender(s, force) {
     // compteur des cartes jouées, rang par rang : ✕ = déjà vue de tous, ◆ = dans ma main, ● = encore cachée
     const maMain = {};
     (r.hands[me] || []).forEach(c => { maMain[c] = (maMain[c] || 0) + 1; });
-    const compteur = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.3em;margin-bottom:.45em">` + [8, 7, 6, 5, 4, 3, 2, 1].map(v => {
+    const compteur = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.3em;margin-bottom:.45em">` + MS_RANGS.map(v => {
         const C = MS_CARDS[v], total = C.q * mult, vues = Math.min(total, seen[v] || 0), main = Math.min(total - vues, maMain[v] || 0), cachees = total - vues - main;
         return `<div title="${C.n} : ${vues} jouée${vues > 1 ? 's' : ''} sur ${total}" style="display:flex;align-items:center;gap:.25em;padding:.2em .3em;border-radius:.5em;background:rgba(15,23,42,.7);border:1px solid ${cachees ? 'rgba(148,163,184,.3)' : 'rgba(148,163,184,.12)'};opacity:${cachees ? 1 : .5}">
             <span class="ms-num" style="--c:${C.c}">${v}</span>
             <span style="font-size:.62em;letter-spacing:.05em;line-height:1;word-break:break-all"><span style="color:#f87171">${'✕'.repeat(vues)}</span><span style="color:#67e8f9">${'◆'.repeat(main)}</span><span style="color:#fbbf24">${'●'.repeat(cachees)}</span></span>
         </div>`; }).join('') + `</div><div style="font-size:.6em;color:#94a3b8;margin-bottom:.4em"><span style="color:#f87171">✕</span> déjà jouée · <span style="color:#67e8f9">◆</span> dans votre main · <span style="color:#fbbf24">●</span> encore cachée</div>`;
-    document.getElementById('ms-ref').innerHTML = compteur + [8, 7, 6, 5, 4, 3, 2, 1].map(v => { const C = MS_CARDS[v], left = C.q * mult - (seen[v] || 0);
+    document.getElementById('ms-ref').innerHTML = compteur + MS_RANGS.map(v => { const C = MS_CARDS[v], left = C.q * mult - (seen[v] || 0);
         return `<div class="ms-ref" style="${left <= 0 ? 'opacity:.4' : ''}"><span class="ms-num" style="--c:${C.c}">${v}</span><div><b>${C.i} ${C.n}</b> <span style="color:#fbbf24">${left} / ${C.q * mult} en jeu</span><br><span style="color:#cbd5e1">${C.t}</span></div></div>`; }).join('');
     document.getElementById('ms-log').innerHTML = s.log.slice().reverse().map((l, i) => `<div style="${i ? 'color:#94a3b8' : 'color:#f8fafc;font-weight:700'}">• ${msEsc(l)}</div>`).join('');
 
@@ -619,9 +668,15 @@ function msOnAct(d) {
     const me = msMe();
     if (d.act === 'next') { msSend({ t: 'next' }); return; }
     if (msActor(s) !== me) return;
-    if (d.act === 'card') { const i = Number(d.i); msUI.sel = msUI.sel === i ? -1 : i; msUI.target = ''; msUI.guess = 0; }
+    if (d.act === 'card') { const i = Number(d.i); msUI.sel = msUI.sel === i ? -1 : i; msUI.target = ''; msUI.guess = 0; msUI.fond = 0; }
     else if (d.act === 'target') msUI.target = d.n || '';
     else if (d.act === 'guess') msUI.guess = Number(d.v) || 0;
+    else if (d.act === 'fond') msUI.fond = Number(d.v) === 1 ? 1 : 0;
+    else if (d.act === 'keep') {
+        if (msUI.sel < 0) return;
+        msSend({ t: 'keep', i: msUI.sel, fond: msUI.fond });
+        return;
+    }
     else if (d.act === 'play') {
         if (msUI.sel < 0) return;
         msSend({ t: 'play', i: msUI.sel, target: msUI.target, guess: msUI.guess });
