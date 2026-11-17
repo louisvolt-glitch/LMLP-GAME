@@ -14,6 +14,10 @@ const MEM_ON = 480;              // ms pendant lesquelles une case reste allumé
 const MEM_OFF = 220;             // ms entre deux cases
 const MEM_PERFECT_BONUS = 20;
 const MEM_FASTEST_BONUS = 15;    // séquence parfaite la plus rapide, à partir de 2 joueurs
+// Habillage « Code d'accès du sas » : un glyphe et une note par touche du clavier de console
+const MEM_GLYPHES = ['◇', '△', '○', '☐', '✶', '⬡', '▽', '◎', '✕'];
+const MEM_NOTES = [0, 2, 4, 5, 7, 9, 10, 12, 14];   // rang dans la gamme de window.sfxNote (une hauteur par touche)
+function memSon(i, d) { if (typeof window.sfxNote === 'function') window.sfxNote(MEM_NOTES[i] || 0, d); }
 
 function memGrid(cellHtml) {
     let html = '';
@@ -29,7 +33,7 @@ window.memoirePoints = function(correct, length) {
 };
 
 window.MANCHES_MODES.memoire = {
-    title: 'Séquence Mémoire',
+    title: 'Code d’accès du sas',
     minPlayers: 1, minRounds: 3, maxRounds: 12, defaultRounds: 6, revealSeconds: 8,
     fixedTimer: 30,         // remplacé manche par manche par rd.t (dépend de la longueur)
 
@@ -53,31 +57,45 @@ window.MANCHES_MODES.memoire = {
         const seq = mchArr(ctx.rd.s).map(Number);
         const mem = ctx.mem = { c: 0, phase: 'show' };
         ctx.el.innerHTML = `
-            <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-1">
-                <div class="text-[11px] uppercase tracking-widest text-sky-300">🧩 Séquence de ${seq.length} cases</div>
-                <div id="mem-status" class="text-lg font-black text-white">Mémorisez...</div>
+            <div class="p-4 rounded-2xl text-center space-y-1 border border-slate-700" style="background:linear-gradient(#0f172a,#020617)">
+                <div class="text-[11px] uppercase tracking-widest text-sky-300 font-mono">🔐 Sas verrouillé · code de ${seq.length} touches</div>
+                <div id="mem-status" class="text-lg font-black text-white font-mono tracking-wider">Mémorisez le code…</div>
             </div>
-            <div id="mem-grid" class="grid grid-cols-3 gap-2 max-w-xs mx-auto select-none">
-                ${memGrid(i => `<button data-i="${i}" class="mem-cell h-24 rounded-2xl border-2 border-slate-600 bg-slate-800 cursor-pointer" style="touch-action:manipulation;transition:background .08s"></button>`)}
+            <div id="mem-console" class="max-w-xs mx-auto rounded-3xl border-2 border-slate-600 p-3 space-y-2" style="background:linear-gradient(#334155,#1e293b);box-shadow:inset 0 2px 0 #475569,0 10px 30px rgba(0,0,0,.5)">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-[9px] font-mono text-slate-400 tracking-[.25em]">SAS · PONT 2</span>
+                    <span id="mem-led" style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>
+                </div>
+                <div id="mem-grid" class="grid grid-cols-3 gap-2 select-none">
+                    ${memGrid(i => `<button data-i="${i}" class="mem-cell h-24 rounded-xl border-2 border-slate-900 cursor-pointer font-mono text-3xl text-slate-500"
+                        style="touch-action:manipulation;transition:background .08s,color .08s,box-shadow .08s;background:linear-gradient(#1e293b,#0f172a);box-shadow:inset 0 -4px 0 #020617">${MEM_GLYPHES[i]}</button>`)}
+                </div>
             </div>`;
-        const status = document.getElementById('mem-status');
+        const status = document.getElementById('mem-status'), led = document.getElementById('mem-led'), consoleEl = document.getElementById('mem-console');
         const cells = Array.from(ctx.el.querySelectorAll('.mem-cell'));
         const timeouts = [];
         const later = (fn, ms) => { timeouts.push(setTimeout(fn, ms)); };
         ctx.onCleanup(() => timeouts.forEach(clearTimeout));
-        const paint = (i, color) => { if (cells[i]) { cells[i].style.background = color || ''; cells[i].style.borderColor = color ? '#fff' : ''; } };
+        const paint = (i, color) => {
+            const c = cells[i]; if (!c) return;
+            c.style.background = color || 'linear-gradient(#1e293b,#0f172a)';
+            c.style.color = color ? '#020617' : '';
+            c.style.boxShadow = color ? `0 0 18px ${color}, inset 0 -4px 0 rgba(0,0,0,.25)` : 'inset 0 -4px 0 #020617';
+        };
+        const setLed = c => { led.style.background = c; led.style.boxShadow = '0 0 8px ' + c; };
 
         // 1) Affichage de la séquence
         seq.forEach((cell, step) => {
             const at = MEM_START_DELAY + step * (MEM_ON + MEM_OFF);
-            later(() => paint(cell, '#38bdf8'), at);
+            later(() => { paint(cell, '#38bdf8'); memSon(cell, MEM_ON / 1000); }, at);
             later(() => paint(cell, ''), at + MEM_ON);
         });
         // 2) Au joueur de la reproduire
         later(() => {
             mem.phase = 'input';
-            status.textContent = `À vous ! (0 / ${seq.length})`;
+            status.textContent = `Saisissez le code (0 / ${seq.length})`;
             status.style.color = '#34d399';
+            setLed('#22d3ee');
         }, MEM_START_DELAY + seq.length * (MEM_ON + MEM_OFF));
 
         cells.forEach((b, i) => {
@@ -87,12 +105,28 @@ window.MANCHES_MODES.memoire = {
                 if (i === seq[mem.c]) {
                     mem.c++;
                     paint(i, '#34d399');
+                    memSon(i, 0.18);
                     later(() => paint(i, ''), 160);
-                    status.textContent = `À vous ! (${mem.c} / ${seq.length})`;
-                    if (mem.c >= seq.length) { mem.phase = 'done'; ctx.submit(mem.c); }
+                    status.textContent = `Saisissez le code (${mem.c} / ${seq.length})`;
+                    if (mem.c >= seq.length) {
+                        mem.phase = 'done';
+                        status.textContent = '✔ ACCÈS AUTORISÉ · SAS OUVERT';
+                        setLed('#22c55e');
+                        if (typeof window.sfx === 'function') window.sfx('sas');
+                        ctx.submit(mem.c);
+                    }
                 } else {
                     mem.phase = 'done';
                     paint(i, '#ef4444');
+                    // alarme rouge : la console clignote et le sas reste verrouillé
+                    status.textContent = '✖ CODE ERRONÉ · SAS VERROUILLÉ';
+                    status.style.color = '#f87171';
+                    setLed('#ef4444');
+                    if (typeof window.sfx === 'function') window.sfx('alarme');
+                    [0, 260, 520].forEach(t => {
+                        later(() => { consoleEl.style.boxShadow = '0 0 0 3px #ef4444, 0 0 30px #ef4444'; }, t);
+                        later(() => { consoleEl.style.boxShadow = ''; }, t + 130);
+                    });
                     ctx.submit(mem.c);
                 }
             };
@@ -105,8 +139,8 @@ window.MANCHES_MODES.memoire = {
         const len = mchArr(ctx.rd.s).length;
         const c = Math.max(0, Math.min(len, Math.floor(Number(answer) || 0)));
         return c === len
-            ? `<b class="text-emerald-300">Séquence parfaite !</b> (${c} / ${len})`
-            : `Cases correctes : <b class="text-white font-mono">${c} / ${len}</b>`;
+            ? `<b class="text-emerald-300">Accès autorisé, code parfait !</b> (${c} / ${len})`
+            : `Touches correctes : <b class="text-white font-mono">${c} / ${len}</b>`;
     },
 
     score({ rd, answers, names }) {
@@ -135,7 +169,7 @@ window.MANCHES_MODES.memoire = {
         const grid = memGrid(i => {
             const steps = [];
             seq.forEach((c, k) => { if (c === i) steps.push(k + 1); });
-            return `<div class="h-14 rounded-xl border ${steps.length ? 'border-sky-400/60 bg-sky-950/40 text-sky-200' : 'border-slate-800 bg-slate-900 text-slate-700'} flex items-center justify-center text-xs font-mono font-bold">${steps.join(' · ')}</div>`;
+            return `<div class="h-14 rounded-xl border ${steps.length ? 'border-sky-400/60 bg-sky-950/40 text-sky-200' : 'border-slate-800 bg-slate-900 text-slate-700'} flex flex-col items-center justify-center text-xs font-mono font-bold"><span class="text-base leading-none opacity-70">${MEM_GLYPHES[i]}</span>${steps.join(' · ')}</div>`;
         });
         const rows = names.map(n => Object.assign({ n: n, c: 0 }, res[n] || {}))
             .sort((a, b) => b.c - a.c)
@@ -144,7 +178,7 @@ window.MANCHES_MODES.memoire = {
                 <span class="font-mono text-slate-200">${r.c} / ${seq.length}</span></div>`).join('');
         return `
             <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-2">
-                <div class="text-[11px] uppercase tracking-widest text-sky-300">La séquence de ${seq.length} cases (ordre d'allumage)</div>
+                <div class="text-[11px] uppercase tracking-widest text-sky-300">Le code de ${seq.length} touches (ordre de saisie)</div>
                 <div class="grid grid-cols-3 gap-1.5 max-w-[14rem] mx-auto">${grid}</div>
             </div>
             <div class="space-y-1.5">${rows}</div>`;
