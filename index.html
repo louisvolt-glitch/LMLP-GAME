@@ -1099,6 +1099,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 <!-- Options Magnat Galactique -->
                 <div id="host-settings-magnat" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS MAGNAT GALACTIQUE</div>
+                    <button type="button" onclick="if (typeof magOuvrirPions === 'function') magOuvrirPions()" style="display:block;padding:6px 12px;border-radius:8px;border:1px solid #22d3ee;background:rgba(8,51,68,.7);color:#a5f3fc;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">🎭 Choisir mon pion</button>
                     <div>
                         <span class="text-slate-300 text-[11px]">Durée de la partie :</span>
                         <select id="setting-magnat-minutes" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
@@ -1823,6 +1824,7 @@ if (mode === 'codenames') {
             } else if (mode === 'magnat') {
                 const mm = parseInt(s.magnatMinutes, 10);
                 displayEl.innerText = `${timer}s/action | ${mm > 0 ? mm + ' min' : (s.magnatMinutes === undefined ? '30 min' : 'sans limite')}`;
+                if (typeof magBoutonPion === 'function') displayEl.appendChild(magBoutonPion());      // chaque joueur choisit son pion
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (protocolData[mode] && protocolData[mode].settingsId === 'host-settings-manches') {
                 displayEl.innerText = (protocolData[mode].noTimer ? '' : `${timer}s/manche | `) + `${s.manchesRounds || 6} manches`;
