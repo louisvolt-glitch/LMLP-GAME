@@ -390,13 +390,13 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'codenames': { name: 'Noms de Code', icon: '🌌', desc: 'Deux flottes rivales : l’Amiral transmet un indice, les Éclaireurs sondent les secteurs.' },
                         'petitsbac': { name: 'Transmission codée', icon: '📡', desc: 'Décryptez la lettre du signal et trouvez un mot par catégorie.' },
                         'impostor': { name: 'L’Infiltré', icon: '🥷', desc: 'Un infiltré se cache dans l’équipage : démasquez-le ou bluffez pour rester à bord.' },
-                        'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Surveillez le couloir infini et détectez les anomalies visuelles.' },
-			'references': { name: 'Références Gaming', icon: '🎮', desc: 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.' },
-                        'estimation': { name: 'Au Plus Proche', icon: '🎯', desc: 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.' },
-                        'telepathie': { name: 'Esprit Commun', icon: '🧠', desc: 'Une consigne, un mot : écrivez la même réponse que les autres joueurs.' },
+                        'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Agent de sécurité de la station : surveillez le couloir sur les caméras et repérez les anomalies.' },
+			'references': { name: 'Reliques terrestres', icon: '🏺', desc: 'Fouillez une épave terrestre : identifiez les reliques de jeux vidéo cachées dans l’image.' },
+                        'estimation': { name: 'Calcul de trajectoire', icon: '🛰️', desc: 'L’ordinateur de bord demande une valeur : plus votre estimation est juste, plus vous marquez.' },
+                        'telepathie': { name: 'Liaison psychique', icon: '🧠', desc: 'Une consigne, un mot : synchronisez vos pensées avec celles de l’équipage.' },
                         'encheres': { name: 'Mise Secrète', icon: '💰', desc: 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.' },
-                        'reflexes': { name: 'Réflexes Éclair', icon: '⚡', desc: 'Enchaînez des mini-épreuves de rapidité et réalisez le meilleur temps.' },
-                        'memoire': { name: 'Séquence Mémoire', icon: '🧩', desc: 'Mémorisez la séquence de cases lumineuses et reproduisez-la sans erreur.' },
+                        'reflexes': { name: 'Simulateur de pilotage', icon: '🕹️', desc: 'Saut hyperespace, astéroïdes, alertes, réacteur : réussissez chaque manœuvre au plus vite.' },
+                        'memoire': { name: 'Code d’accès du sas', icon: '🔐', desc: 'Mémorisez le code qui s’allume sur le clavier du sas et retapez-le sans erreur.' },
                         'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' },
                         'bataille': { name: 'Bataille Stellaire', icon: '🛸', desc: 'Duel à 2 joueurs : cachez votre flotte de vaisseaux et détruisez celle de l adversaire.' },
                         'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' }
@@ -866,8 +866,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Archives terrestres</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Au Plus Proche', '🎯', 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Au Plus Proche</span>
+                    <div onclick="selectProtocol('Calcul de trajectoire', '🛰️', 'L’ordinateur de bord demande une valeur : plus votre estimation est juste, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Calcul de trajectoire</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                 </div>
@@ -887,8 +887,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Transmission codée</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Esprit Commun', '🧠', 'Une consigne, un mot : écrivez la même réponse que les autres joueurs.', 'telepathie')" id="protocol-btn-telepathie" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Esprit Commun</span>
+                    <div onclick="selectProtocol('Liaison psychique', '🧠', 'Une consigne, un mot : synchronisez vos pensées avec celles de l’équipage.', 'telepathie')" id="protocol-btn-telepathie" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Liaison psychique</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Mise Secrète', '💰', 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.', 'encheres')" id="protocol-btn-encheres" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -920,12 +920,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">L’Infiltré</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Anomalies', '👁️', 'Surveillez le couloir infini et détectez les anomalies visuelles.', 'anomaly')" id="protocol-btn-anomaly" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                    <div onclick="selectProtocol('Anomalies', '👁️', 'Agent de sécurité de la station : surveillez le couloir sur les caméras et repérez les anomalies.', 'anomaly')" id="protocol-btn-anomaly" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Anomalies</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-		    <div onclick="selectProtocol('Références Gaming', '🎮', 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.', 'references')" id="protocol-btn-references" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-    <span class="text-slate-200">Références Gaming</span>
+		    <div onclick="selectProtocol('Reliques terrestres', '🏺', 'Fouillez une épave terrestre : identifiez les reliques de jeux vidéo cachées dans l’image.', 'references')" id="protocol-btn-references" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+    <span class="text-slate-200">Reliques terrestres</span>
     <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
 </div>
                 </div>
@@ -937,12 +937,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <i class="fa-solid fa-folder"></i> [RÉFLEXES & MÉMOIRE] (2)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-sky-500/20">
-                    <div onclick="selectProtocol('Réflexes Éclair', '⚡', 'Enchaînez des mini-épreuves de rapidité et réalisez le meilleur temps.', 'reflexes')" id="protocol-btn-reflexes" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Réflexes Éclair</span>
+                    <div onclick="selectProtocol('Simulateur de pilotage', '🕹️', 'Saut hyperespace, astéroïdes, alertes, réacteur : réussissez chaque manœuvre au plus vite.', 'reflexes')" id="protocol-btn-reflexes" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Simulateur de pilotage</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Séquence Mémoire', '🧩', 'Mémorisez la séquence de cases lumineuses et reproduisez-la sans erreur.', 'memoire')" id="protocol-btn-memoire" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Séquence Mémoire</span>
+                    <div onclick="selectProtocol('Code d’accès du sas', '🔐', 'Mémorisez le code qui s’allume sur le clavier du sas et retapez-le sans erreur.', 'memoire')" id="protocol-btn-memoire" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Code d’accès du sas</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                 </div>
@@ -1098,7 +1098,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		    </div>
                 </div>
 
-                <!-- Options des modes à manches (Au Plus Proche, Esprit Commun, Mise Secrète, Réflexes Éclair, Séquence Mémoire) -->
+                <!-- Options des modes à manches (Calcul de trajectoire, Liaison psychique, Mise Secrète, Simulateur de pilotage, Code d’accès du sas) -->
                 <div id="host-settings-manches" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS DE LA PARTIE</div>
                     <div>
@@ -1165,7 +1165,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-300 text-[11px]">Sceaux pour gagner la partie (1-7) :</span>
                         <input type="number" id="setting-missive-goal" min="1" max="7" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
-                    <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 16 cartes est doublé.</div>
+                    <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 18 cartes est doublé.</div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -2337,7 +2337,7 @@ const protocolData = {
     },
     'anomaly': {
         rules: [
-            "Mémorisez l'architecture standard du couloir d'observation.",
+            "Vous êtes l'agent de sécurité de la station : mémorisez le couloir standard sur la caméra.",
             "Signalez immédiatement toute altération de la matrice (anomalies).",
             "Atteignez l'Étape Finale sans faux positif pour remporter la mission."
         ],
@@ -2350,8 +2350,8 @@ const protocolData = {
     },
 'references': {
     rules: [
-        "Une image cache 35 références à des jeux vidéo.",
-        "Cliquez sur une référence et nommez le jeu. Chaque erreur coûte une vie (3 vies).",
+        "L'épave d'un vaisseau terrestre cache 35 reliques : des références à des jeux vidéo.",
+        "Touchez une relique et nommez son jeu d'origine. Chaque erreur coûte une vie (3 vies).",
         "Plus vous en trouvez dans le temps imparti, plus vous marquez de points."
     ],
     players: "1 - 8 JOUEURS",
@@ -2361,9 +2361,9 @@ const protocolData = {
 },
     'estimation': {
         rules: [
-            "Une question dont la réponse est un nombre : hauteur, année, quantité...",
+            "L'ordinateur de bord demande une valeur : hauteur, année, quantité...",
             "Saisissez votre estimation avant la fin du temps. Plus l'écart est faible, plus vous marquez.",
-            "Bonus pour l'estimation la plus proche du salon, et jackpot pour la valeur exacte."
+            "À la révélation, chaque vaisseau se place sur la ligne de visée : le plus proche s'arrime (bonus), la valeur exacte rapporte le jackpot."
         ],
         players: "1 - 8 JOUEURS",
         duration: "5-10 MIN",
@@ -2375,8 +2375,8 @@ const protocolData = {
     'telepathie': {
         rules: [
             "Une consigne s'affiche (ex. : « Un fruit rouge »). Écrivez un seul mot.",
-            "Le but n'est pas d'être original : pensez comme les autres !",
-            "Vous marquez pour chaque joueur ayant écrit la même réponse. Une réponse unique ne rapporte rien."
+            "Le but n'est pas d'être original : synchronisez-vous avec l'équipage !",
+            "Les réponses identiques forment une constellation : vous marquez pour chaque joueur qui vous rejoint. Le plus gros groupe est la fréquence dominante (bonus)."
         ],
         players: "2 - 8 JOUEURS",
         duration: "5-10 MIN",
@@ -2400,9 +2400,9 @@ const protocolData = {
     },
     'reflexes': {
         rules: [
-            "Chaque manche tire une mini-épreuve : Feu vert, Tir de précision, Couleur piège ou Suite logique.",
-            "Lisez la consigne, appuyez sur « Je suis prêt », puis soyez le plus rapide possible.",
-            "Votre temps donne vos points. Bonus pour le joueur le plus rapide de la manche."
+            "Chaque manche tire une manœuvre : Saut hyperespace, Défense anti-astéroïdes, Alerte de quart ou Allumage du réacteur.",
+            "Lisez la consigne, appuyez sur « Prêt au décollage », puis soyez le plus rapide possible.",
+            "Votre temps donne vos points. Bonus pour le meilleur pilote de la manche."
         ],
         players: "1 - 8 JOUEURS",
         duration: "3-8 MIN",
@@ -2410,13 +2410,13 @@ const protocolData = {
         sync: "75%",
         settingsId: "host-settings-manches",
         noTimer: true,
-        hint: "Chaque épreuve dure 30 secondes au maximum."
+        hint: "Chaque manœuvre dure 30 secondes au maximum."
     },
     'memoire': {
         rules: [
-            "Des cases s'allument l'une après l'autre sur une grille : mémorisez l'ordre.",
-            "Reproduisez la séquence. Une seule erreur met fin à votre manche.",
-            "La séquence s'allonge d'une case à chaque manche. Bonus pour une séquence parfaite."
+            "Les touches du clavier du sas s'allument l'une après l'autre, chacune avec sa note : mémorisez le code.",
+            "Retapez le code. Une seule erreur déclenche l'alarme et le sas reste verrouillé.",
+            "Le code s'allonge d'une touche à chaque manche. Bonus pour un code parfait."
         ],
         players: "1 - 8 JOUEURS",
         duration: "5-10 MIN",
@@ -2424,7 +2424,7 @@ const protocolData = {
         sync: "70%",
         settingsId: "host-settings-manches",
         noTimer: true,
-        hint: "La séquence commence à 4 cases et gagne une case par manche."
+        hint: "Le code commence à 4 touches et gagne une touche par manche."
     },
     'magnat': {
         rules: [
@@ -2453,7 +2453,7 @@ const protocolData = {
     'missive': {
         rules: [
             "Chacun tient une carte secrète. À votre tour, piochez-en une seconde puis jouez l'une des deux et appliquez son effet.",
-            "Huit personnages : démasquer, espionner, provoquer en duel, se protéger, échanger... Un joueur éliminé attend la manche suivante.",
+            "Neuf personnages : démasquer, espionner, provoquer en duel, se protéger, fouiller la soute, échanger... Un joueur éliminé attend la manche suivante.",
             "La manche revient au dernier en lice, ou à la carte la plus forte quand la pioche est vide. Le premier à réunir les sceaux gagne."
         ],
         players: "2 - 8 JOUEURS",
