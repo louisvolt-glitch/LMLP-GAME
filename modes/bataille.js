@@ -80,9 +80,10 @@ function bsNewGame(duel, opts, now, rnd) {
         status: 'PLAYING', startedAt: now, seq: 1, phase: 'PLACE', duel: duel.slice(0, 2), turn: 0,
         fleet: {}, ready: {}, shots: {}, n: 0, last: null, winner: '', log: [],
         timer: Math.max(10, Math.min(120, Number(opts.timer) || 30)), again: opts.again !== false,
-        dl: 0, dlAt: now, dlKey: ''
+        dl: 0, dlAt: now, dlKey: '', arme: {}, radar: {}
     };
-    s.duel.forEach(n => { s.shots[n] = BS_EMPTY; });
+    // armes spéciales : chaque amiral dispose d'un scanner et d'une salve par partie
+    s.duel.forEach(n => { s.shots[n] = BS_EMPTY; s.arme[n] = { scan: 1, salve: 1 }; s.radar[n] = BS_EMPTY; });
     s.turn = (rnd || Math.random)() < 0.5 ? 0 : 1;
     bsLog(s, `Duel : ${s.duel[0]} contre ${s.duel[1]}. Placez vos flottes !`);
     bsDeadline(s, now);
@@ -95,6 +96,8 @@ function bsNorm(raw) {
     s.duel = arr(s.duel);
     s.fleet = s.fleet || {}; s.ready = s.ready || {}; s.shots = s.shots || {};
     s.duel.forEach(n => { s.fleet[n] = bsCleanFleet(s.fleet[n]); s.ready[n] = !!s.ready[n]; s.shots[n] = (String(s.shots[n] || '') + BS_EMPTY).slice(0, BS.N * BS.N); });
+    s.arme = s.arme || {}; s.radar = s.radar || {};
+    s.duel.forEach(n => { const a = s.arme[n] || {}; s.arme[n] = { scan: a.scan || 0, salve: a.salve || 0 }; s.radar[n] = (String(s.radar[n] || '') + BS_EMPTY).slice(0, BS.N * BS.N); });
     s.log = arr(s.log);
     s.last = s.last || null;
     if (s.last) { s.last.x = s.last.x || 0; s.last.y = s.last.y || 0; if (typeof s.last.k !== 'number') s.last.k = -1; }
@@ -150,6 +153,42 @@ function bsApply(s0, a, now, rnd) {
         } else if (!(target && s.again)) {
             s.turn = 1 - s.turn;
         }
+    } else if (a.t === 'scan') {
+        // Scanner : révèle au tireur, sur une zone 3 × 3, les cases occupées par un vaisseau. Utilise le tour.
+        const x = Math.max(1, Math.min(BS.N - 2, Number(a.x))), y = Math.max(1, Math.min(BS.N - 2, Number(a.y)));
+        if (s.phase !== 'BATTLE' || s.duel[s.turn] !== by || !(s.arme[by] && s.arme[by].scan > 0)) return null;
+        if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
+        const foe = bsOther(s, by), occ = {};
+        s.fleet[foe].forEach(f => bsCells(f).forEach(c => { occ[c] = true; }));
+        let r = s.radar[by].split(''), vus = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = (y + dy) * BS.N + x + dx; r[c] = occ[c] ? 's' : 'v'; if (occ[c] && s.shots[by][c] === '.') vus++; }
+        s.radar[by] = r.join('');
+        s.arme[by].scan--; s.n++;
+        s.last = { by: by, x: x, y: y, r: 'm', k: -1, arme: 'scan' };
+        bsLog(s, `${by} scanne la zone autour de ${bsCoord(x, y)} : ${vus ? vus + ' écho' + (vus > 1 ? 's' : '') + ' détecté' + (vus > 1 ? 's' : '') : 'rien à signaler'}.`);
+        s.turn = 1 - s.turn;
+    } else if (a.t === 'salve') {
+        // Salve : trois tirs alignés (horizontaux ou verticaux) centrés sur la case visée
+        const x = Number(a.x), y = Number(a.y), v = !!a.v;
+        if (s.phase !== 'BATTLE' || s.duel[s.turn] !== by || !(s.arme[by] && s.arme[by].salve > 0)) return null;
+        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= BS.N || y >= BS.N) return null;
+        const cx = v ? x : Math.max(1, Math.min(BS.N - 2, x)), cy = v ? Math.max(1, Math.min(BS.N - 2, y)) : y;
+        const cells = [-1, 0, 1].map(d => (cy + (v ? d : 0)) * BS.N + cx + (v ? 0 : d)).filter(c => s.shots[by][c] === '.');
+        if (!cells.length) return null;
+        const foe = bsOther(s, by), fleet = s.fleet[foe];
+        let touches = 0, coules = [], sh = s.shots[by].split('');
+        cells.forEach(c => { const t = fleet.find(f => bsCells(f).indexOf(c) >= 0); sh[c] = t ? 'x' : 'o'; if (t) touches++; });
+        s.shots[by] = sh.join('');
+        cells.forEach(c => { const t = fleet.find(f => bsCells(f).indexOf(c) >= 0); if (t && coules.indexOf(t.k) < 0 && bsCells(t).every(q => s.shots[by][q] === 'x')) coules.push(t.k); });
+        s.arme[by].salve--; s.n++;
+        s.last = { by: by, x: cx, y: cy, r: coules.length ? 's' : (touches ? 'h' : 'm'), k: coules.length ? coules[0] : -1, arme: 'salve' };
+        bsLog(s, `${by} lance une salve ${v ? 'verticale' : 'horizontale'} sur ${bsCoord(cx, cy)} : ${touches ? touches + ' touche' + (touches > 1 ? 's' : '') + ' !' : 'tout manqué'}${coules.length ? ' ' + coules.map(k => BS_SHIPS[k].n).join(', ') + ' détruit !' : ''}`);
+        if (bsSunk(fleet, s.shots[by]).every((ok, i) => ok || !fleet.some(f => f.k === i))) {
+            s.status = 'FINISHED'; s.winner = by;
+            bsLog(s, `Toute la flotte de ${foe} est détruite : ${by} remporte la bataille !`);
+        } else if (!(touches && s.again)) {
+            s.turn = 1 - s.turn;
+        }
     } else return null;
 
     bsDeadline(s, now);
@@ -179,7 +218,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // ============================ 2) BOUCLE DE L'HÔTE ============================
 const bsHost = { startedAt: 0, state: null, done: {} };
-const bsUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', fleet: [], sel: 0, v: false, hover: null, shown: '' };
+const bsUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', fleet: [], sel: 0, v: false, hover: null, shown: '', arme: 'tir', sv: false };
 
 function bsEsc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -331,11 +370,18 @@ function bsMarkSvg(x, y, ch) {
     return `<polygon points="${pts}" fill="#f97316" stroke="#7c2d12" stroke-width="3"/><circle cx="${cx}" cy="${cy}" r="13" fill="#fde047"/>`;
 }
 // Remplit une grille : vaisseaux visibles, tirs reçus, dernier tir
-function bsFillBoard(id, ships, shots, last) {
+function bsFillBoard(id, ships, shots, last, radar) {
     const gs = document.getElementById(id + '-ships'), gm = document.getElementById(id + '-marks');
     if (!gs || !gm) return;
     gs.innerHTML = ships.map(sh => bsShipSvg(sh.ship, sh.mode)).join('');
     let marks = '';
+    // échos du scanner (visibles seulement par celui qui a scanné) sur les cases pas encore visées
+    if (radar) for (let i = 0; i < BS.N * BS.N; i++) if (radar[i] !== '.' && shots[i] === '.') {
+        const cx = BS_M + (i % BS.N) * BS_C + BS_C / 2, cy = BS_M + Math.floor(i / BS.N) * BS_C + BS_C / 2;
+        marks += radar[i] === 's'
+            ? `<rect x="${cx - 24}" y="${cy - 24}" width="48" height="48" rx="6" transform="rotate(45 ${cx} ${cy})" fill="rgba(251,191,36,.3)" stroke="#fbbf24" stroke-width="5"/><text x="${cx}" y="${cy + 11}" text-anchor="middle" font-size="32" font-weight="bold" fill="#fde68a" font-family="Arial, sans-serif">?</text>`
+            : `<rect x="${cx - 44}" y="${cy - 44}" width="88" height="88" rx="8" fill="rgba(34,211,238,.08)" stroke="rgba(34,211,238,.45)" stroke-width="2" stroke-dasharray="8 6"/>`;
+    }
     for (let i = 0; i < BS.N * BS.N; i++) if (shots[i] !== '.') marks += bsMarkSvg(i % BS.N, Math.floor(i / BS.N), shots[i]);
     if (last) {
         const cx = BS_M + last.x * BS_C + BS_C / 2, cy = BS_M + last.y * BS_C + BS_C / 2;
@@ -372,7 +418,8 @@ function bsNextUnplaced() {
 
 function bsRender(s, force) {
     const me = bsMe(), my = s.duel.indexOf(me), duelist = my >= 0;
-    const sig = JSON.stringify([s.seq, bsUI.fleet, bsUI.sel, bsUI.v, me]);
+    if (!(s.status === 'PLAYING' && s.phase === 'BATTLE' && bsActor(s) === me)) bsUI.arme = 'tir';      // l'arme choisie ne vaut que pour mon tour
+    const sig = JSON.stringify([s.seq, bsUI.fleet, bsUI.sel, bsUI.v, me, bsUI.arme, bsUI.sv]);
     if (!force && sig === bsUI.sig) return;
     bsUI.sig = sig;
     const over = s.status === 'FINISHED';
@@ -393,8 +440,8 @@ function bsRender(s, force) {
         else txt = `Les amiraux déploient leurs flottes (${s.duel.filter(n => s.ready[n]).length} / 2 prêts)...`;
     } else {
         const l = s.last;
-        const res = l ? `${bsEsc(l.by)} → ${bsCoord(l.x, l.y)} : ${l.r === 'm' ? 'manqué' : (l.r === 'h' ? '<span style="color:#fb923c">touché !</span>' : '<span style="color:#f87171">' + BS_SHIPS[l.k].n + ' détruit !</span>')} · ` : '';
-        txt = res + (actor === me ? '<span style="color:#6ee7b7">À vous de tirer : visez une case du secteur ennemi.</span>' : `Au tour de ${bsEsc(actor)}.`);
+        const res = l ? `${bsEsc(l.by)} ${l.arme === 'scan' ? '📡 scanne' : (l.arme === 'salve' ? '💥 salve' : '→')} ${bsCoord(l.x, l.y)}${l.arme === 'scan' ? '' : ' : ' + (l.r === 'm' ? 'manqué' : (l.r === 'h' ? '<span style="color:#fb923c">touché !</span>' : '<span style="color:#f87171">' + BS_SHIPS[l.k].n + ' détruit !</span>'))} · ` : '';
+        txt = res + (actor === me ? '<span style="color:#6ee7b7">' + (bsUI.arme === 'scan' ? 'Scanner armé : touchez le centre de la zone 3 × 3 à sonder.' : (bsUI.arme === 'salve' ? 'Salve armée : touchez la case centrale des trois tirs.' : 'À vous de tirer : visez une case du secteur ennemi.')) + '</span>' : `Au tour de ${bsEsc(actor)}.`);
     }
     banner.innerHTML = txt; banner.style.color = bcol;
 
@@ -443,9 +490,19 @@ function bsRender(s, force) {
             <button class="bs-btn" data-act="edit">✏️ Modifier mon placement</button>`;
     } else {
         svgB.classList.toggle('bs-fire', !over && duelist && s.phase === 'BATTLE' && actor === me);
-        bsFillBoard('bs-b', show(right, sunkRight, over), shotsOnRight, s.last && s.last.by === left ? s.last : null);
+        bsFillBoard('bs-b', show(right, sunkRight, over), shotsOnRight, s.last && s.last.by === left ? s.last : null, duelist ? s.radar[me] : null);
     }
-    document.getElementById('bs-fleet-b').innerHTML = showPanel ? '' : bsChips(null, sunkRight);
+    // armes spéciales : visibles pour un duelliste pendant le combat, utilisables à son tour
+    let armes = '';
+    if (!showPanel && duelist && s.phase === 'BATTLE' && !over) {
+        const a = s.arme[me] || { scan: 0, salve: 0 }, mon = actor === me;
+        const btn = (k, txt, reste) => `<button class="bs-btn" data-act="arme" data-k="${k}" ${mon && (k === 'tir' || reste > 0) ? '' : 'disabled'} style="${bsUI.arme === k && mon ? 'background:#0e7490;border-color:#22d3ee' : ''}">${txt}</button>`;
+        armes = `<div style="display:flex;flex-wrap:wrap;gap:.4em;align-items:center;margin-bottom:.45em;font-size:.9em">
+            ${btn('tir', '🎯 Tir simple', 1)}${btn('scan', '📡 Scanner 3×3 (' + a.scan + ')', a.scan)}${btn('salve', '💥 Salve ×3 (' + a.salve + ')', a.salve)}
+            ${bsUI.arme === 'salve' && mon ? `<button class="bs-btn" data-act="armesens">${bsUI.sv ? '↕ verticale' : '↔ horizontale'}</button>` : ''}
+        </div>`;
+    }
+    document.getElementById('bs-fleet-b').innerHTML = showPanel ? '' : armes + bsChips(null, sunkRight);
 
     // ----- pied : journal + fin de partie -----
     document.getElementById('bs-log').innerHTML = s.log.slice(-3).reverse().map((l, i) => `<span style="${i ? 'opacity:.55' : 'color:#f8fafc;font-weight:700'}">${bsEsc(l)}</span>`).join(' &nbsp;·&nbsp; ');
@@ -459,7 +516,7 @@ function bsSounds(s, me) {
     const now = { sess: s.startedAt, n: s.n, mine: s.status === 'PLAYING' && bsActor(s) === me, over: s.status === 'FINISHED' };
     bsUI.snd = now;
     if (!prev || prev.sess !== now.sess || typeof window.sfx !== 'function') return;
-    if (now.n !== prev.n && s.last) window.sfx(s.last.r === 'm' ? 'rate' : (s.last.r === 's' ? 'coule' : 'touche'));
+    if (now.n !== prev.n && s.last) window.sfx(s.last.arme === 'scan' ? 'carte' : (s.last.r === 'm' ? 'rate' : (s.last.r === 's' ? 'coule' : 'touche')));
     if (now.over && !prev.over) setTimeout(() => window.sfx('victoire'), 700);
     else if (now.mine && !prev.mine) {
         setTimeout(() => window.sfx('tour'), 450);
@@ -488,8 +545,11 @@ function bsOnCell(b, x, y) {
             if (hit) { bsUI.fleet = bsUI.fleet.filter(f => f !== hit); bsUI.sel = hit.k; bsUI.v = hit.v; }
         }
         bsRender(s);
-    } else if (s.phase === 'BATTLE' && b === 'bs-b' && s.duel[s.turn] === me && s.shots[me][y * BS.N + x] === '.') {
-        bsSend({ t: 'fire', x: x, y: y });
+    } else if (s.phase === 'BATTLE' && b === 'bs-b' && s.duel[s.turn] === me) {
+        const a = s.arme[me] || {};
+        if (bsUI.arme === 'scan' && a.scan > 0) { bsUI.arme = 'tir'; bsSend({ t: 'scan', x: x, y: y }); }
+        else if (bsUI.arme === 'salve' && a.salve > 0) { bsUI.arme = 'tir'; bsSend({ t: 'salve', x: x, y: y, v: bsUI.sv }); }
+        else if (s.shots[me][y * BS.N + x] === '.') bsSend({ t: 'fire', x: x, y: y });
     }
 }
 function bsOnAct(d) {
@@ -501,6 +561,8 @@ function bsOnAct(d) {
     else if (d.act === 'clear') { bsUI.fleet = []; bsUI.sel = 0; }
     else if (d.act === 'ready') { if (bsValidFleet(bsUI.fleet)) bsSend({ t: 'place', fleet: bsUI.fleet }); return; }
     else if (d.act === 'edit') { bsSend({ t: 'edit' }); return; }
+    else if (d.act === 'arme') bsUI.arme = d.k;
+    else if (d.act === 'armesens') bsUI.sv = !bsUI.sv;
     bsRender(s);
 }
 function bsBuildLayout() {
