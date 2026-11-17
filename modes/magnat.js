@@ -151,7 +151,65 @@ function magRentTable(sp) {
     const b = Math.round(MAG_SPACES[sp].p / 10 - 4);
     return [b, b * 5, b * 14 + 10, b * 36 + 40, b * 48 + 80, b * 60 + 130];
 }
+// ---------- Événements de secteur ----------
+// Tous les deux tours de table environ, un événement touche tout le plateau pendant un tour de table :
+// loyers d'une famille (ou des Portails, des Réseaux) suspendus ou doublés, ou subvention pour tous.
+const MAG_EVENTS = {
+    tempete: { i: '⚡', n: 'Tempête solaire', m: 0, cible: 'famille', col: '#f97316' },
+    ruee: { i: '⛏️', n: 'Ruée minière', m: 2, cible: 'famille', col: '#facc15' },
+    panne: { i: '🌀', n: 'Panne des Portails', m: 0, cible: 'portal', col: '#a78bfa' },
+    trafic: { i: '📡', n: 'Pic de trafic', m: 2, cible: 'net', col: '#22d3ee' },
+    subvention: { i: '🎁', n: 'Subvention de la Station Mère', m: 1, cible: '', col: '#34d399' }
+};
+const MAG_EV_SUBVENTION = 50;
+function magEvTouche(ev, sp) {
+    if (!ev) return false;
+    const c = MAG_SPACES[sp], d = MAG_EVENTS[ev.k];
+    if (!c || !d) return false;
+    return d.cible === 'famille' ? (c.t === 'prop' && c.f === ev.f) : (d.cible !== '' && c.t === d.cible);
+}
+function magEvTexte(ev) {
+    const d = MAG_EVENTS[ev.k];
+    if (!d) return '';
+    if (ev.k === 'subvention') return `chaque joueur reçoit ${MAG_EV_SUBVENTION} cr`;
+    const quoi = d.cible === 'famille' ? 'de la famille ' + MAG_FAMILIES[ev.f].name : (d.cible === 'portal' ? 'des Portails' : 'des Réseaux');
+    return `loyers ${quoi} ${d.m === 0 ? 'suspendus' : 'doublés'}`;
+}
+// Appelé à chaque changement de tour : termine l'événement en cours, ou en déclenche un nouveau
+function magEvTour(s) {
+    if (s.status !== 'PLAYING') return;
+    const vivants = Math.max(2, magAlive(s).length);
+    if (s.ev && s.turnCount >= s.ev.until) {
+        magLog(s, `${MAG_EVENTS[s.ev.k].i} Fin de l'événement « ${MAG_EVENTS[s.ev.k].n} ».`);
+        s.ev = null; s.evNext = s.turnCount + vivants * 2;
+    }
+    if (!s.evNext) s.evNext = vivants * 2 + 1;
+    if (s.ev || s.turnCount < s.evNext) return;
+    // tirage reproductible à partir de l'état (pas de hasard supplémentaire à synchroniser)
+    const h = s.turnCount * 7 + s.rollSeq * 13 + s.dice[0] * 3 + s.dice[1] * 5 + (s.evSeq || 0) * 3;
+    const keys = Object.keys(MAG_EVENTS);
+    let k = keys[h % keys.length];
+    const fams = Object.keys(MAG_FAMILIES);
+    const possedees = fams.filter(f => magFamilySpaces(f).some(sp => magOwnerOf(s, sp)));
+    const choix = possedees.length ? possedees : fams;
+    const ev = { k: k, f: choix[(h >> 1) % choix.length], until: s.turnCount + vivants };
+    s.evSeq = (s.evSeq || 0) + 1;
+    if (k === 'subvention') {
+        magAlive(s).forEach(n => { s.players[n].cash += MAG_EV_SUBVENTION; });
+        ev.until = s.turnCount;      // effet immédiat : rien ne dure
+        s.evNext = s.turnCount + vivants * 2;
+        s.evShow = { k: k, f: ev.f, id: s.evSeq };
+        magLog(s, `🎁 Événement — Subvention de la Station Mère : chaque joueur reçoit ${MAG_EV_SUBVENTION} cr.`);
+        return;
+    }
+    s.ev = ev; s.evShow = { k: k, f: ev.f, id: s.evSeq };
+    magLog(s, `${MAG_EVENTS[k].i} Événement — ${MAG_EVENTS[k].n} : ${magEvTexte(ev)} pendant un tour de table.`);
+}
 function magRent(s, sp, diceSum) {
+    const r = magRentBase(s, sp, diceSum);
+    return s.ev && magEvTouche(s.ev, sp) ? r * MAG_EVENTS[s.ev.k].m : r;
+}
+function magRentBase(s, sp, diceSum) {
     const c = MAG_SPACES[sp], o = magOwn(s, sp);
     if (!o || o.m) return 0;
     if (c.t === 'portal') return 25 * Math.pow(2, magCount(s, o.o, 'portal') - 1);
@@ -296,7 +354,8 @@ function magNorm(raw) {
     s.card = s.card || null;
     if (s.card) s.card.p = !!s.card.p;
     s.rank = arr(s.rank);
-    ['turn', 'rollSeq', 'dbl', 'dl', 'dlAt', 'endAt', 'outCount', 'seq', 'turnCount'].forEach(k => { s[k] = s[k] || 0; });
+    ['turn', 'rollSeq', 'dbl', 'dl', 'dlAt', 'endAt', 'outCount', 'seq', 'turnCount', 'evNext', 'evSeq'].forEach(k => { s[k] = s[k] || 0; });
+    s.ev = s.ev && MAG_EVENTS[s.ev.k] ? s.ev : null; s.evShow = s.evShow && MAG_EVENTS[s.evShow.k] ? s.evShow : null;
     if (typeof s.buy !== 'number') s.buy = -1;
     s.again = !!s.again; s.dlKey = s.dlKey || '';
     return s;
@@ -385,7 +444,8 @@ function magLand(s, name, depth) {
         if (!owner) { s.phase = 'BUY'; s.buy = sp; magLog(s, `${name} arrive sur ${c.n}, libre (${c.p} cr).`); }
         else if (owner === name) magLog(s, `${name} arrive chez lui : ${c.n}.`);
         else if (magOwn(s, sp).m) magLog(s, `${name} arrive sur ${c.n} (hypothéquée) : pas de loyer.`);
-        else magCharge(s, name, magRent(s, sp, s.dice[0] + s.dice[1]), owner, 'loyer ' + c.n);
+        else if (s.ev && magEvTouche(s.ev, sp) && MAG_EVENTS[s.ev.k].m === 0) magLog(s, `${name} arrive sur ${c.n} : loyer suspendu (${MAG_EVENTS[s.ev.k].n}).`);
+        else magCharge(s, name, magRent(s, sp, s.dice[0] + s.dice[1]), owner, 'loyer ' + c.n + (s.ev && magEvTouche(s.ev, sp) ? ' ×2, ' + MAG_EVENTS[s.ev.k].n : ''));
     } else if (c.t === 'tax') magCharge(s, name, c.a, '', c.n);
     else if (c.t === 'card') magDrawCard(s, name, c.d);
     else if (c.t === 'gojail') magJail(s, name);
@@ -411,6 +471,7 @@ function magNextTurn(s, now) {
         break;
     }
     s.phase = 'ROLL'; s.turnCount++;
+    magEvTour(s);
 }
 function magCloseAuction(s) {
     const a = s.auction;
@@ -745,58 +806,147 @@ function magArc(r1, r2, a0, a1) {
 function magTextRot(deg) { return deg >= 180 ? deg + 90 : deg - 90; }
 function magColor(s, name) { const p = s.players[name]; return p ? MAG_TOKEN_COLORS[p.c % MAG_TOKEN_COLORS.length] : '#64748b'; }
 
-// Plateau fixe : l'anneau de 36 cases
+// ============================ CARTE SPATIALE ============================
+// Le plateau est une carte de l'espace : une galaxie tourne lentement en fond (image magnat-visuel/galaxie.webp,
+// tirée du nuage de points « Need some space? » de Loïc Norgeot, CC-BY-4.0) et les 36 cases sont des planètes
+// ou des lieux de l'espace (station, portails, relais, balises...) reliés par une route orbitale.
+// La géométrie reste celle de l'ancien anneau : la case i est à l'angle i × 10°, les pions circulent à l'intérieur.
+// (L'ancien plateau en anneau est conservé dans sauvegardes/magnat-plateau-anneau.js.)
+const MAG_RP = 268;                    // rayon de la route orbitale où sont posés planètes et lieux
+function magPlaneteR(sp) { const c = MAG_SPACES[sp]; return c.t === 'prop' ? 14 + (c.p - 60) / 290 * 5 : 16; }
+function magTeinte(hex, k) {           // éclaircit (k > 0) ou assombrit (k < 0) une couleur
+    const n = parseInt(hex.slice(1), 16), ch = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)));
+    return '#' + ch.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+}
+// Dessin d'une planète (colonie) : couleur de sa famille, relief propre à chaque case
+function magPlaneteSvg(sp, x, y) {
+    const c = MAG_SPACES[sp], col = MAG_FAMILIES[c.f].color, r = magPlaneteR(sp), v = sp * 7 % 5;
+    let d = '';
+    if (c.f === 'A') {
+        // astéroïdes : rocher irrégulier
+        let pts = '';
+        for (let k = 0; k < 9; k++) { const a = k * 40 * Math.PI / 180, rr = r * (0.78 + ((sp * 13 + k * 29) % 10) / 34); pts += `${(x + rr * Math.cos(a)).toFixed(1)},${(y + rr * Math.sin(a)).toFixed(1)} `; }
+        d += `<polygon points="${pts}" fill="url(#mag-pl-${c.f})" stroke="${magTeinte(col, -0.55)}" stroke-width="1"/>
+            <circle cx="${x - r * 0.25}" cy="${y + r * 0.1}" r="${r * 0.2}" fill="rgba(2,6,23,.35)"/><circle cx="${x + r * 0.3}" cy="${y - r * 0.25}" r="${r * 0.13}" fill="rgba(2,6,23,.3)"/>`;
+        return d;
+    }
+    if (v === 1 || v === 3) d += `<ellipse cx="${x}" cy="${y}" rx="${r * 1.75}" ry="${r * 0.42}" fill="none" stroke="${magTeinte(col, 0.45)}" stroke-width="2.2" opacity=".75" transform="rotate(${-24 + v * 9} ${x} ${y})"/>`;
+    d += `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#mag-pl-${c.f})"/>
+        <g clip-path="url(#mag-clip-${sp})" opacity=".42">
+            <ellipse cx="${x}" cy="${y - r * 0.35 + v * 1.5}" rx="${r * 1.2}" ry="${r * 0.16}" fill="${magTeinte(col, -0.5)}"/>
+            <ellipse cx="${x + 2}" cy="${y + r * 0.3 - v}" rx="${r * 1.2}" ry="${r * 0.11}" fill="${magTeinte(col, 0.55)}"/>
+            ${v % 2 ? `<circle cx="${x + r * 0.35}" cy="${y + r * 0.05}" r="${r * 0.2}" fill="${magTeinte(col, -0.6)}"/>` : `<ellipse cx="${x - r * 0.2}" cy="${y + r * 0.62}" rx="${r * 0.8}" ry="${r * 0.12}" fill="${magTeinte(col, -0.45)}"/>`}
+        </g>
+        <circle cx="${x}" cy="${y}" r="${r}" fill="url(#mag-ombre)"/>`;
+    if (v === 1 || v === 3) d += `<path d="M${(x - r * 1.75).toFixed(1)} ${y} A${(r * 1.75).toFixed(1)} ${(r * 0.42).toFixed(1)} 0 0 0 ${(x + r * 1.75).toFixed(1)} ${y}" fill="none" stroke="${magTeinte(col, 0.45)}" stroke-width="2.2" opacity=".9" transform="rotate(${-24 + v * 9} ${x} ${y})"/>`;
+    if (v === 2) d += `<circle cx="${x + r * 1.25}" cy="${y - r * 0.9}" r="${r * 0.2}" fill="#e2e8f0" opacity=".85"/>`;
+    return d;
+}
+// Dessin d'un lieu de l'espace (station, portail, relais, balise, zone...)
+const MAG_LIEUX = { start: '#22d3ee', portal: '#a78bfa', net: '#38bdf8', tax: '#fbbf24', card: '#f472b6', jail: '#f87171', free: '#818cf8', gojail: '#fb923c' };
+function magLieuSvg(sp, x, y) {
+    const c = MAG_SPACES[sp], col = MAG_LIEUX[c.t] || '#94a3b8', r = 16;
+    let d = '';
+    if (c.t === 'portal') {
+        d += `<circle cx="${x}" cy="${y}" r="${r}" fill="#0b0720" stroke="${col}" stroke-width="2"/>
+            <g class="mag-tourne" style="transform-origin:${x}px ${y}px"><circle cx="${x}" cy="${y}" r="${r - 4}" fill="none" stroke="#c4b5fd" stroke-width="3" stroke-dasharray="10 7" opacity=".9"/><circle cx="${x}" cy="${y}" r="${r - 9}" fill="none" stroke="#f0abfc" stroke-width="2" stroke-dasharray="5 6" opacity=".8"/></g>
+            <circle cx="${x}" cy="${y}" r="3" fill="#fdf4ff"/>`;
+        return d;
+    }
+    if (c.t === 'start') {
+        d += `<circle cx="${x}" cy="${y}" r="${r + 5}" fill="rgba(8,51,68,.75)" stroke="${col}" stroke-width="2.5"/><g class="mag-tourne lent" style="transform-origin:${x}px ${y}px"><circle cx="${x}" cy="${y}" r="${r + 1}" fill="none" stroke="#a5f3fc" stroke-width="2" stroke-dasharray="3 9"/></g>`;
+    } else if (c.t === 'free') {
+        d += `<circle cx="${x}" cy="${y}" r="${r + 6}" fill="url(#mag-nebuleuse)"/>`;
+    } else if (c.t === 'tax') {
+        d += `<rect x="${x - r * 0.82}" y="${y - r * 0.82}" width="${r * 1.64}" height="${r * 1.64}" rx="4" transform="rotate(45 ${x} ${y})" fill="rgba(69,26,3,.8)" stroke="${col}" stroke-width="2"/>`;
+    } else if (c.t === 'card') {
+        let pts = ''; for (let k = 0; k < 6; k++) { const a = (k * 60 + 30) * Math.PI / 180; pts += `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)} `; }
+        d += `<polygon points="${pts}" fill="rgba(80,7,36,.78)" stroke="${col}" stroke-width="2"/>`;
+    } else if (c.t === 'net') {
+        d += `<circle cx="${x}" cy="${y}" r="${r}" fill="rgba(8,47,73,.8)" stroke="${col}" stroke-width="2"/><g class="mag-tourne" style="transform-origin:${x}px ${y}px"><ellipse cx="${x}" cy="${y}" rx="${r + 6}" ry="${r * 0.45}" fill="none" stroke="#7dd3fc" stroke-width="1.5" stroke-dasharray="2 5"/></g>`;
+    } else {
+        d += `<circle cx="${x}" cy="${y}" r="${r + 1}" fill="rgba(69,10,10,.8)" stroke="${col}" stroke-width="2.5" ${c.t === 'jail' ? 'stroke-dasharray="6 4"' : ''}/>`;
+    }
+    d += `<text x="${x}" y="${y + 6}" text-anchor="middle" font-size="16" font-family="Arial, sans-serif">${magEsc(c.i || '')}</text>`;
+    return d;
+}
 function magBoardSvg() {
-    let cells = '', hits = '';
-    MAG_SPACES.forEach((c, i) => {
-        const th = i * 10, a0 = th - 5, a1 = th + 5;
-        const corner = c.t === 'start' || c.t === 'jail' || c.t === 'free' || c.t === 'gojail';
-        cells += `<path d="${magArc(MAG_RI, MAG_RO, a0, a1)}" fill="${corner ? '#12294a' : '#0b1a2e'}" stroke="#24476f" stroke-width="1"/>`;
-        if (c.t === 'prop') cells += `<path d="${magArc(MAG_RB, MAG_RO, a0, a1)}" fill="${MAG_FAMILIES[c.f].color}" stroke="#0b1a2e" stroke-width="1"/>`;
-        const words = c.n.split(' ');
-        const l1 = c.t === 'prop' ? words[0] : (c.i || '');
-        const l2 = c.t === 'prop' ? words.slice(1).join(' ') : (words.length > 2 ? words.slice(0, -1).join(' ') : words[0]);
-        const l3 = c.t === 'prop' ? c.p + ' cr' : (words.length > 1 ? words[words.length - 1] : (c.p ? c.p + ' cr' : ''));
-        const mid = c.t === 'prop' ? 281 : 290;
-        const pt = magPt(mid, th);
-        cells += `<g transform="translate(${pt[0].toFixed(1)} ${pt[1].toFixed(1)}) rotate(${magTextRot(th)})" text-anchor="middle" font-family="Arial, sans-serif" pointer-events="none">
-            <text y="-9" font-size="${c.t === 'prop' ? 10 : 15}" font-weight="bold" fill="#f1f5f9">${magEsc(l1)}</text>
-            <text y="3" font-size="9.5" fill="#e2e8f0">${magEsc(l2)}</text>
-            <text y="14" font-size="9" fill="${c.t === 'prop' ? '#fbbf24' : '#e2e8f0'}">${magEsc(l3)}</text></g>`;
-        hits += `<path data-sp="${i}" d="${magArc(MAG_RI, MAG_RO, a0, a1)}" fill="transparent" style="cursor:pointer"/>`;
+    let lieux = '', hits = '', defs = '', bords = '';
+    Object.keys(MAG_FAMILIES).forEach(f => {
+        const col = MAG_FAMILIES[f].color;
+        defs += `<radialGradient id="mag-pl-${f}" cx="34%" cy="30%" r="80%"><stop offset="0%" stop-color="${magTeinte(col, 0.6)}"/><stop offset="45%" stop-color="${col}"/><stop offset="100%" stop-color="${magTeinte(col, -0.62)}"/></radialGradient>`;
     });
-    return `<svg id="mag-svg" viewBox="0 0 720 720" style="width:100%;height:100%;display:block">
-        <defs><radialGradient id="mag-space" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#132a4d"/><stop offset="100%" stop-color="#050b16"/></radialGradient></defs>
-        <circle cx="360" cy="360" r="${MAG_RO + 4}" fill="#050b16" stroke="#00d2ff" stroke-width="2"/>
-        <circle cx="360" cy="360" r="${MAG_RI}" fill="url(#mag-space)"/>
-        ${cells}
+    MAG_SPACES.forEach((c, i) => {
+        const th = i * 10, pt = magPt(MAG_RP, th), x = +pt[0].toFixed(1), y = +pt[1].toFixed(1);
+        if (c.t === 'prop') {
+            defs += `<clipPath id="mag-clip-${i}"><circle cx="${x}" cy="${y}" r="${magPlaneteR(i).toFixed(1)}"/></clipPath>`;
+            bords += `<path d="${magArc(349, 353, th - 4.6, th + 4.6)}" fill="${MAG_FAMILIES[c.f].color}" opacity=".9"/>`;
+            lieux += magPlaneteSvg(i, x, y);
+        } else lieux += magLieuSvg(i, x, y);
+        // nom et prix, écrits le long du rayon, à l'extérieur de la route
+        const words = c.n.split(' ');
+        const l1 = c.t === 'prop' ? words[0] : (words.length > 2 ? words.slice(0, -1).join(' ') : words[0]);
+        const l2 = c.t === 'prop' ? words.slice(1).join(' ') : (words.length > 1 ? words[words.length - 1] : '');
+        const l3 = c.p ? c.p + ' cr' : (c.t === 'tax' ? '−' + c.a + ' cr' : '');
+        const lp = magPt(318, th);
+        lieux += `<g transform="translate(${lp[0].toFixed(1)} ${lp[1].toFixed(1)}) rotate(${magTextRot(th)})" text-anchor="middle" font-family="Arial, sans-serif" pointer-events="none" stroke="#020617" stroke-width="3" paint-order="stroke" stroke-linejoin="round">
+            <text y="-7" font-size="10" font-weight="bold" fill="#f8fafc">${magEsc(l1)}</text>
+            <text y="4" font-size="9.5" fill="#e2e8f0">${magEsc(l2)}</text>
+            <text y="15" font-size="9" font-weight="bold" fill="${c.p ? '#fbbf24' : '#fca5a5'}">${magEsc(l3)}</text></g>`;
+        hits += `<path data-sp="${i}" d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="transparent" style="cursor:pointer"/>`;
+    });
+    return `<svg id="mag-svg" viewBox="0 0 720 720" style="position:relative;width:100%;height:100%;display:block">
+        <defs>
+            <radialGradient id="mag-ombre" cx="34%" cy="30%" r="78%"><stop offset="55%" stop-color="rgba(2,6,23,0)"/><stop offset="100%" stop-color="rgba(2,6,23,.6)"/></radialGradient>
+            <radialGradient id="mag-nebuleuse" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(129,140,248,.85)"/><stop offset="55%" stop-color="rgba(192,132,252,.4)"/><stop offset="100%" stop-color="rgba(129,140,248,0)"/></radialGradient>
+            <radialGradient id="mag-voile" cx="50%" cy="50%" r="50%"><stop offset="60%" stop-color="rgba(2,6,23,0)"/><stop offset="80%" stop-color="rgba(2,6,23,.5)"/><stop offset="100%" stop-color="rgba(2,6,23,.72)"/></radialGradient>
+            ${defs}
+        </defs>
+        <circle cx="360" cy="360" r="358" fill="url(#mag-voile)"/>
+        <circle cx="360" cy="360" r="356" fill="none" stroke="rgba(34,211,238,.45)" stroke-width="1.5"/>
+        <circle class="mag-route" cx="360" cy="360" r="${MAG_RP}" fill="none" stroke="rgba(125,211,252,.4)" stroke-width="1.6" stroke-dasharray="3 7"/>
+        ${bords}
+        <g id="mag-dyn-dessous"></g>
+        ${lieux}
         <g id="mag-dyn"></g>
         <g id="mag-tokens"></g>
         <g id="mag-hits">${hits}</g>
     </svg>`;
 }
 
-// Éléments qui changent : propriétaires, constructions, hypothèques, sélection
+// Éléments qui changent : propriétaires (orbite de couleur), constructions (lunes), hypothèques, événement, sélection
 function magRenderDyn(s) {
-    const dyn = document.getElementById('mag-dyn');
+    const dyn = document.getElementById('mag-dyn'), dessous = document.getElementById('mag-dyn-dessous');
     if (!dyn) return;
-    let html = '';
+    let html = '', sous = '';
     for (let i = 0; i < MAG_N; i++) {
-        const th = i * 10, o = magOwn(s, i);
-        if (o) {
-            html += `<path d="${magArc(MAG_RI - 9, MAG_RI - 1, th - 4.4, th + 4.4)}" fill="${magColor(s, o.o)}" stroke="#020617" stroke-width="1"/>`;
-            if (o.m) {
-                const pt = magPt(250, th);
-                html += `<path d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="rgba(2,6,23,.72)"/>
-                    <text transform="translate(${pt[0].toFixed(1)} ${pt[1].toFixed(1)}) rotate(${magTextRot(th)})" text-anchor="middle" font-size="9" font-weight="bold" fill="#f87171" font-family="Arial, sans-serif">HYP.</text>`;
-            }
-            const h = o.h || 0;
-            if (h === 5) { const pt = magPt(341, th); html += `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="7" fill="#fbbf24" stroke="#78350f" stroke-width="2"/><circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="2.5" fill="#78350f"/>`; }
-            else for (let k = 0; k < h; k++) { const pt = magPt(341, th + (k - (h - 1) / 2) * 2.1); html += `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="4" fill="#f8fafc" stroke="#0f172a" stroke-width="1.5"/>`; }
+        const th = i * 10, o = magOwn(s, i), pt = magPt(MAG_RP, th), x = pt[0].toFixed(1), y = pt[1].toFixed(1), r = magPlaneteR(i);
+        if (s.ev && magEvTouche(s.ev, i)) {
+            const d = MAG_EVENTS[s.ev.k];
+            sous += `<circle class="mag-ev-case" cx="${x}" cy="${y}" r="${r + 15}" fill="${d.m === 0 ? 'rgba(2,6,23,.6)' : d.col + '33'}" stroke="${d.col}" stroke-width="3" ${d.m === 0 ? 'stroke-dasharray="8 6"' : ''} pointer-events="none"/>`;
         }
-        if (i === magUI.sel) html += `<path d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="rgba(255,255,255,.08)" stroke="#ffffff" stroke-width="2.5"/>`;
+        if (o) {
+            const col = magColor(s, o.o);
+            html += `<circle cx="${x}" cy="${y}" r="${(r + 5.5).toFixed(1)}" fill="none" stroke="${col}" stroke-width="3.2"/><circle cx="${x}" cy="${y}" r="${(r + 5.5).toFixed(1)}" fill="none" stroke="#020617" stroke-width="1" opacity=".5"/>`;
+            // fanion du propriétaire, côté intérieur de la route
+            const fp = magPt(MAG_RP - r - 11, th);
+            html += `<circle cx="${fp[0].toFixed(1)}" cy="${fp[1].toFixed(1)}" r="4.5" fill="${col}" stroke="#020617" stroke-width="1.5"/>`;
+            if (o.m) html += `<circle cx="${x}" cy="${y}" r="${(r + 3).toFixed(1)}" fill="rgba(2,6,23,.78)"/><text x="${x}" y="${(pt[1] + 3.5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="bold" fill="#f87171" font-family="Arial, sans-serif">HYP.</text>`;
+            const h = o.h || 0;
+            if (h === 5) {
+                // métropole : une grande lune dorée cerclée
+                const mp = [pt[0] + (r + 9) * 0.72, pt[1] - (r + 9) * 0.72];
+                html += `<circle cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" r="7" fill="#fbbf24" stroke="#78350f" stroke-width="2"/><ellipse cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" rx="11" ry="3.4" fill="none" stroke="#fde68a" stroke-width="1.6" transform="rotate(-25 ${mp[0].toFixed(1)} ${mp[1].toFixed(1)})"/>`;
+            } else for (let k = 0; k < h; k++) {
+                // avant-postes : de petites lunes en orbite autour de la planète
+                const a = (-70 + k * 38) * Math.PI / 180, mx = pt[0] + (r + 10) * Math.cos(a), my = pt[1] + (r + 10) * Math.sin(a);
+                html += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="4" fill="#f8fafc" stroke="#0f172a" stroke-width="1.5"/>`;
+            }
+        }
+        if (i === magUI.sel) html += `<path d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="${r + 9}" fill="none" stroke="#ffffff" stroke-width="2.5"/>`;
     }
     dyn.innerHTML = html;
+    if (dessous) dessous.innerHTML = sous;
 }
 // ============================ PIONS ET ANIMATIONS DE DÉPLACEMENT ============================
 // Les pions sont conservés d'un affichage à l'autre. Quand un joueur change de case, son pion est animé :
@@ -1189,7 +1339,7 @@ function magOuvrirPions() {
             <button onclick="magBasculer3d()" style="border:1px solid #475569;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">${mag3dVoulu() ? 'Passer aux images (plus léger)' : 'Activer la 3D'}</button>
         </div>
         <details style="margin-top:8px;font-size:10px;color:#94a3b8;line-height:1.5"><summary style="cursor:pointer">Crédits des modèles 3D</summary>
-            Modèles allégés pour le jeu à partir de : ${credits}. « Char araignée » : usage non commercial uniquement.</details>
+            Modèles allégés pour le jeu à partir de : ${credits}. « Char araignée » : usage non commercial uniquement. Galaxie du plateau : « <a href="https://sketchfab.com/3d-models/need-some-space-d6521362b37b48e3a82bce4911409303" target="_blank" rel="noopener" style="color:#7dd3fc">Need some space?</a> » par Loïc Norgeot (CC-BY-4.0).</details>
     </div>`;
     document.body.appendChild(ov);
 }
@@ -1200,6 +1350,33 @@ function magBoutonPion() {
     b.onclick = magOuvrirPions;
     b.style.cssText = 'display:block;margin-top:6px;padding:6px 12px;border-radius:8px;border:1px solid #22d3ee;background:rgba(8,51,68,.7);color:#a5f3fc;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit';
     return b;
+}
+
+// Bandeau de l'événement en cours + animation plein plateau quand un événement se déclenche
+function magRenderEvent(s) {
+    const board = document.getElementById('mag-board');
+    if (!board) return;
+    let chip = document.getElementById('mag-ev-chip');
+    if (s.ev && s.status === 'PLAYING') {
+        const d = MAG_EVENTS[s.ev.k], reste = Math.max(1, s.ev.until - s.turnCount);
+        if (!chip) { chip = document.createElement('div'); chip.id = 'mag-ev-chip'; board.appendChild(chip); }
+        chip.style.borderColor = d.col; chip.style.color = d.col;
+        chip.innerHTML = `${d.i} <b>${d.n}</b> <span style="color:#e2e8f0">— ${magEsc(magEvTexte(s.ev))} · encore ${reste} tour${reste > 1 ? 's' : ''}</span>`;
+    } else if (chip) chip.remove();
+    const sh = s.evShow;
+    if (magUI.evSess !== s.startedAt) { magUI.evSess = s.startedAt; magUI.evVu = sh ? sh.id : 0; return; }      // premier affichage (ou partie rejointe en cours) : pas d'animation rétroactive
+    if (!sh || magUI.evVu === sh.id) return;
+    magUI.evVu = sh.id;
+    const d = MAG_EVENTS[sh.k];
+    const old = document.getElementById('mag-ev-anim'); if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'mag-ev-anim'; ov.className = 'mag-ev-' + sh.k; ov.style.setProperty('--ev', d.col);
+    let part = '';
+    for (let i = 0; i < 18; i++) part += `<i style="left:${(i * 53) % 100}%;animation-delay:${(i % 6) * 0.14}s;font-size:${16 + (i % 4) * 7}px">${d.i}</i>`;
+    ov.innerHTML = `<div class="onde"></div><div class="onde o2"></div>${part}<div class="titre"><span>${d.i}</span><b>${d.n.toUpperCase()}</b><em>${magEsc(magEvTexte({ k: sh.k, f: sh.f }))}</em></div>`;
+    board.appendChild(ov);
+    if (typeof window.sfx === 'function') window.sfx(d.m === 0 ? 'coule' : 'victoire');
+    setTimeout(() => ov.remove(), 3600);
 }
 
 function magDie(n) {
@@ -1556,6 +1733,7 @@ function magRender(s, force) {
     magUI.sig = sig;
     magSounds(s);
     magRenderDyn(s);
+    magRenderEvent(s);
     magRenderTokens(s);
     magRenderCenter(s);
     magRenderCard(s);
@@ -1630,6 +1808,24 @@ const MAG_CSS = `
 @keyframes magOnde{0%{transform:scale(.4);opacity:.95}100%{transform:scale(3);opacity:0}}
 @keyframes magTrace{0%{transform:scale(1);opacity:.75}100%{transform:scale(.2);opacity:0}}
 @keyframes magTexte{0%{transform:translateY(0) scale(.6);opacity:0}15%{transform:translateY(-6px) scale(1.15);opacity:1}100%{transform:translateY(-38px) scale(1);opacity:0}}
+#mag-ev-chip{position:absolute;left:50%;top:27.5%;transform:translateX(-50%);z-index:6;max-width:44%;text-align:center;font-size:11px;line-height:1.3;padding:4px 10px;border-radius:999px;border:1.5px solid;background:rgba(2,6,23,.88);pointer-events:none;animation:magEvChip 2.2s ease-in-out infinite}
+@keyframes magEvChip{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 16px 2px currentColor}}
+.mag-ev-case{animation:magEvCase 1.6s ease-in-out infinite}
+@keyframes magEvCase{0%,100%{opacity:1}50%{opacity:.45}}
+#mag-ev-anim{position:absolute;inset:0;z-index:30;border-radius:50%;overflow:hidden;pointer-events:none;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,rgba(2,6,23,.82) 0%,rgba(2,6,23,.55) 55%,rgba(2,6,23,0) 72%);animation:magEvFond 3.6s ease forwards}
+#mag-ev-anim .onde{position:absolute;left:50%;top:50%;width:20%;height:20%;margin:-10% 0 0 -10%;border-radius:50%;border:6px solid var(--ev);box-shadow:0 0 40px var(--ev),inset 0 0 40px var(--ev);animation:magEvOnde 1.8s ease-out infinite}
+#mag-ev-anim .onde.o2{animation-delay:.6s}
+#mag-ev-anim i{position:absolute;top:-12%;font-style:normal;animation:magEvPluie 1.9s linear infinite;filter:drop-shadow(0 0 6px var(--ev))}
+#mag-ev-anim .titre{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0 12%;animation:magEvTitre 3.6s ease forwards}
+#mag-ev-anim .titre span{font-size:64px;line-height:1;filter:drop-shadow(0 0 18px var(--ev))}
+#mag-ev-anim .titre b{font-family:'Orbitron',sans-serif;font-size:24px;letter-spacing:.12em;color:var(--ev);text-shadow:0 0 16px var(--ev)}
+#mag-ev-anim .titre em{font-style:normal;font-size:14px;font-weight:700;color:#f8fafc}
+#mag-ev-anim.mag-ev-tempete,#mag-ev-anim.mag-ev-panne{animation:magEvFond 3.6s ease forwards,magEvSecousse .35s linear 5}
+@keyframes magEvFond{0%{opacity:0}10%,82%{opacity:1}100%{opacity:0}}
+@keyframes magEvOnde{0%{transform:scale(.3);opacity:1}100%{transform:scale(6);opacity:0}}
+@keyframes magEvPluie{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(900%) rotate(260deg);opacity:0}}
+@keyframes magEvTitre{0%{transform:scale(.3);opacity:0}14%{transform:scale(1.12);opacity:1}22%,82%{transform:scale(1);opacity:1}100%{transform:scale(1.25);opacity:0}}
+@keyframes magEvSecousse{0%,100%{translate:0 0}25%{translate:-5px 3px}75%{translate:5px -3px}}
 @keyframes magShake{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-18deg) scale(1.15)}50%{transform:rotate(14deg) scale(1.1)}75%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
 .mag-shake{animation:magShake .55s ease}
 #mag-root{--mag-side:350px;position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box;background:radial-gradient(circle at 50% 40%,#0b1a30 0%,#040913 70%)}
@@ -1638,6 +1834,16 @@ const MAG_CSS = `
 .mag-col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
 #mag-boardwrap{container-type:size;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}
 #mag-board{position:relative;width:min(100cqw,100cqh);height:min(100cqw,100cqh)}
+#mag-etoiles{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 50%,#0a1430 0%,#04070f 70%);}
+#mag-etoiles::before,#mag-etoiles::after{content:"";position:absolute;inset:0;background-image:radial-gradient(1.2px 1.2px at 12% 18%,#fff,transparent),radial-gradient(1px 1px at 78% 32%,#cbd5e1,transparent),radial-gradient(1.4px 1.4px at 44% 86%,#fff,transparent),radial-gradient(1px 1px at 90% 74%,#e2e8f0,transparent),radial-gradient(1.2px 1.2px at 28% 62%,#bae6fd,transparent),radial-gradient(1px 1px at 62% 9%,#fff,transparent),radial-gradient(1.3px 1.3px at 6% 84%,#fde68a,transparent);background-size:211px 197px;animation:magScintille 5s ease-in-out infinite alternate}
+#mag-etoiles::after{background-size:149px 163px;background-position:40px 70px;animation-duration:7.5s;animation-direction:alternate-reverse;opacity:.7}
+#mag-galaxie{position:absolute;inset:6%;background:url(./magnat-visuel/galaxie.webp) center/contain no-repeat;opacity:.92;animation:magGalaxie 360s linear infinite;will-change:transform;pointer-events:none}
+#mag-center{background:radial-gradient(circle,rgba(2,6,23,.66) 0%,rgba(2,6,23,.45) 50%,rgba(2,6,23,0) 72%)}
+.mag-tourne{animation:magGalaxie 9s linear infinite reverse}
+.mag-tourne.lent{animation-duration:26s}
+@keyframes magGalaxie{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
+@keyframes magScintille{from{opacity:.45}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){#mag-galaxie,.mag-tourne,#mag-etoiles::before,#mag-etoiles::after{animation:none}}
 .mag-sec{display:flex;flex-direction:column;min-height:0;border:1px solid var(--mag-acc,rgba(0,210,255,.4));border-radius:12px;background:rgba(9,20,36,.94);overflow:hidden;flex-shrink:0}
 .mag-sec.mag-grow{flex:1 1 0;flex-shrink:1}
 .mag-sec-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#04101f;background:var(--mag-acc,#22d3ee);flex-shrink:0}
@@ -1703,6 +1909,8 @@ function magBuildLayout() {
                     ${sec('👥 Joueurs', 'mag-players', '#22d3ee', true, '<button onclick="magOuvrirPions()" class="mag-mini" style="padding:1px 8px">🎭 Mon pion</button>')}
                 </div></div>
                 <div id="mag-boardwrap"><div id="mag-board">
+                    <div id="mag-etoiles"></div>
+                    <div id="mag-galaxie"></div>
                     ${magBoardSvg()}
                     <div id="mag-center" style="position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;pointer-events:none"></div>
                     <div id="mag-pile-b" class="mag-pile" style="left:.6%"><span class="mag-pile-label mag-cz">Cargaison</span><div class="mag-pile-cards"><div>${magCardBackHtml('b')}</div><div>${magCardBackHtml('b')}</div><div>${magCardBackHtml('b')}</div></div></div>
