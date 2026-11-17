@@ -798,32 +798,408 @@ function magRenderDyn(s) {
     }
     dyn.innerHTML = html;
 }
-// Pions : conservés d'un affichage à l'autre pour glisser d'une case à la suivante
+// ============================ PIONS ET ANIMATIONS DE DÉPLACEMENT ============================
+// Les pions sont conservés d'un affichage à l'autre. Quand un joueur change de case, son pion est animé :
+//   - lancer de dés ou petit trajet : il saute de case en case le long de l'anneau, en laissant une traînée ;
+//   - recul (carte) : il saute à reculons ;
+//   - long trajet (carte, portail) : saut hyperspatial, il disparaît en vrille et réapparaît à l'arrivée ;
+//   - Quarantaine : il tremble, est aspiré dans un éclair rouge et réapparaît en Quarantaine ;
+//   - passage par la Station Mère : « +200 cr » s'envole de la case.
+//
+// MODÈLES DE PIONS : chaque pion du dossier magnat-visuel/pions/ existe en deux fichiers portant le même nom :
+//   <key>.glb  le modèle 3D allégé (affiché en relief sur le plateau quand le moteur 3D est disponible)
+//   <key>.png  son image (vignette du choix de pion, et pion 2D de secours sans moteur 3D)
+// Chaque joueur choisit son pion (bouton « 🎭 Mon pion ») ; sans choix, il reçoit un pion selon son rang.
+// bb = boîte englobante du modèle [minX, minY, minZ, maxX, maxY, maxZ], qui sert à le mettre à l'échelle.
+// Pour ajouter un pion : déposer <key>.glb et <key>.png dans le dossier, puis ajouter une ligne ci-dessous.
+const MAG_PIONS_DIR = './magnat-visuel/pions/';
+const MAG_PIONS = [
+    { key: "pion", nom: "Pion danseur", titre: "Idle Pawn Animation Test", auteur: "tobywallace", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/idle-pawn-animation-test-ce8cad3a82fa4b90a0e9c4d435655c6c", bb: [-4.9586, 0.5239, -3.4381, 6.7811, 21.7454, 7.0601] },
+    { key: "steampunk", nom: "Lanterne steampunk", titre: "Steampunk Widget Chess Pawn Preliminary Sketch", auteur: "Dawnstar-Chronicles", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/steampunk-widget-chess-pawn-preliminary-sketch-ddd41eae4c064dbcb42a70fb80d9cb85", bb: [-3.6834, -0.0135, -2.7817, 3.5432, 13.167, 3.4674] },
+    { key: "astronaute", nom: "Petit astronaute", titre: "OutHere Space Buddy", auteur: "OutHereVR", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/outhere-space-buddy-4fb60251c9f446d0ad70b672bb0bf9c2", bb: [-0.4321, -0.0023, -0.4872, 0.1818, 1.184, 0.1357] },
+    { key: "cephalopode", nom: "Céphalopode spatial", titre: "Space cephalopod", auteur: "XennaDemonorph", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/space-cephalopod-ae8fefbd633c429998eb3c15ffeb8d4d", bb: [-2.1958, -3.4482, -3.6076, 2.1966, 1.7637, 1.163] },
+    { key: "maintenance", nom: "Robot de maintenance", titre: "space maintenance robot", auteur: "norbyscook (Andy An)", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/space-maintenance-robot-a612ed4feea14fc390beeb3a47943054", bb: [-0.8487, -0.7145, -0.9326, 0.8487, 0.9071, 1.238] },
+    { key: "combat", nom: "Robot de combat", titre: "Combat Steampunk Robot", auteur: "Milin Andrei", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/combat-steampunk-robot-81914abdc5b64b259d36ec7044118949", bb: [-3.079, -0.1635, -1.2198, 3.0889, 3.5228, 3.1277] },
+    { key: "chasseur", nom: "Chasseur Hammerhead", titre: "Hammerhead Space Fighter", auteur: "Pedro B. Goulart", licence: "CC-BY-4.0", source: "https://sketchfab.com/3d-models/hammerhead-space-fighter-19daeb543508430c8807edbcf27a9741", bb: [-9.6506, -3.2085, -21.9412, 9.6506, 9.2428, 9.6893] },
+    { key: "robot", nom: "Char araignée", titre: "robot_unity_test", auteur: "eelgod", licence: "CC-BY-NC-4.0", source: "https://sketchfab.com/3d-models/robot-unity-test-bd526b0b811a463f9b9fb8cf9f113d56", bb: [-17.2652, 3.6123, -19.4512, 17.2652, 33.6248, 18.8297] }
+];
+const MAG_PION_TAILLE = 54;            // taille d'un pion sur le plateau (le plateau fait 720 unités de large)
+function magPionInfo(key) { return MAG_PIONS.find(x => x.key === key) || null; }
+// Pion d'un joueur : son choix enregistré dans le salon, sinon un pion attribué selon son rang
+function magPionDe(s, name) {
+    const room = (window.currentRoom && window.currentRoom.players) || (window.magData && window.magData.players) || {};
+    const choix = room[name] && room[name].pion;
+    if (choix && magPionInfo(choix)) return choix;
+    const p = s && s.players ? s.players[name] : null;
+    return MAG_PIONS[(p ? p.c : 0) % MAG_PIONS.length].key;
+}
+const magPions = {};                   // clé -> 'ok' | 'non' | liste de fonctions en attente
+function magPionImage(key, cb) {
+    const st = magPions[key];
+    if (st === 'ok') { cb(); return; }
+    if (st === 'non') return;
+    if (Array.isArray(st)) { st.push(cb); return; }
+    magPions[key] = [cb];
+    const img = new Image();
+    img.onload = () => { const l = magPions[key]; magPions[key] = 'ok'; l.forEach(f => f()); };
+    img.onerror = () => { magPions[key] = 'non'; };
+    img.src = MAG_PIONS_DIR + key + '.png';
+}
+const magTok = {};                     // état d'animation de chaque pion : { pos, jail, gen, cible, fin }
+const MAG_NS = 'http://www.w3.org/2000/svg';
+function magFxLayer() {
+    let fx = document.getElementById('mag-fx');
+    const layer = document.getElementById('mag-tokens');
+    if (!fx && layer) { fx = document.createElementNS(MAG_NS, 'g'); fx.setAttribute('id', 'mag-fx'); fx.setAttribute('pointer-events', 'none'); layer.parentNode.insertBefore(fx, layer); }
+    return fx;
+}
+// Petit effet posé sur le plateau puis retiré : onde, point de traînée ou texte qui s'envole
+function magFx(pt, inner, ms) {
+    const fx = magFxLayer();
+    if (!fx) return;
+    const g = document.createElementNS(MAG_NS, 'g');
+    g.setAttribute('transform', `translate(${pt[0].toFixed(1)} ${pt[1].toFixed(1)})`);
+    g.innerHTML = inner;
+    fx.appendChild(g);
+    setTimeout(() => g.remove(), ms);
+}
+function magFxOnde(pt, color) { magFx(pt, `<circle class="mag-fx-onde" r="13" fill="none" stroke="${color}" stroke-width="3"/><circle class="mag-fx-onde2" r="13" fill="none" stroke="${color}" stroke-width="2"/>`, 900); }
+function magFxTrace(pt, color) { magFx(pt, `<circle class="mag-fx-trace" r="6" fill="${color}"/>`, 750); }
+function magFxTexte(pt, txt, color) { magFx(pt, `<text class="mag-fx-texte" text-anchor="middle" font-size="17" font-weight="bold" fill="${color}" stroke="#020617" stroke-width="3" paint-order="stroke" font-family="Arial, sans-serif">${magEsc(txt)}</text>`, 1500); }
+function magTokPlace(g, pt, transition) { g.style.transition = transition; g.style.transform = `translate(${pt[0].toFixed(1)}px, ${pt[1].toFixed(1)}px)`; }
+function magTokJoue(g, cls) {          // relance une animation CSS sur le dessin du pion
+    const inn = g.querySelector('.mag-tok-in');
+    if (!inn) return;
+    inn.classList.remove('mag-hop', 'mag-land', 'mag-warp-out', 'mag-warp-in', 'mag-tremble');
+    void inn.getBoundingClientRect();
+    if (cls) inn.classList.add(cls);
+}
+// Saut de case en case (cases = liste des cases traversées, la dernière étant l'arrivée)
+function magTokSauts(g, st, cases, color, fini) {
+    const gen = st.gen, pas = cases.length > 8 ? 135 : 185;
+    let i = 0, avant = magPt(214, st.pos * 10);
+    const etape = () => {
+        if (st.gen !== gen) return;
+        const sp = cases[i], dernier = i === cases.length - 1;
+        const pt = dernier ? st.fin : magPt(214, sp * 10);
+        magFxTrace(avant, color);
+        magTokPlace(g, pt, `transform ${pas - 25}ms cubic-bezier(.3,.6,.4,1)`);
+        magTokJoue(g, 'mag-hop');
+        if (sp === 0 && st.avance) magFxTexte(magPt(214, 0), '+' + MAG.SALARY + ' cr', '#6ee7b7');
+        avant = pt; st.pos = sp; i++;
+        if (dernier) setTimeout(() => { if (st.gen === gen) fini(); }, pas);
+        else setTimeout(etape, pas);
+    };
+    etape();
+}
+// Disparition en vrille puis réapparition à l'arrivée (saut hyperspatial, ou capture par la Patrouille en rouge)
+function magTokSaut(g, st, color, fini) {
+    const gen = st.gen;
+    magFxOnde(magPt(214, st.pos * 10), color);
+    magTokJoue(g, 'mag-warp-out');
+    setTimeout(() => {
+        if (st.gen !== gen) return;
+        magTokPlace(g, st.fin, 'none');
+        st.pos = st.cible;
+        magTokJoue(g, 'mag-warp-in');
+        magFxOnde(st.fin, color);
+        setTimeout(() => { if (st.gen === gen) fini(); }, 420);
+    }, 400);
+}
 function magRenderTokens(s) {
     const layer = document.getElementById('mag-tokens');
     if (!layer) return;
+    const calme = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const perSpace = {}, total = {};
     s.order.forEach(n => { const p = s.players[n]; if (!p.out) total[p.pos] = (total[p.pos] || 0) + 1; });
     s.order.forEach((n, idx) => {
         const p = s.players[n];
         let g = document.getElementById('mag-tok-' + idx);
-        if (p.out) { if (g) g.remove(); return; }
-        if (!g) {
-            g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('id', 'mag-tok-' + idx);
-            g.style.transition = 'transform .6s ease';
-            g.innerHTML = `<circle r="12" fill="${magColor(s, n)}" stroke="#020617" stroke-width="2.5"/><text text-anchor="middle" y="4" font-size="11" font-weight="bold" fill="#020617" font-family="Arial, sans-serif">${magEsc(String(n).charAt(0).toUpperCase())}</text>`;
-            layer.appendChild(g);
-        }
+        if (p.out) { if (g) g.remove(); if (magTok[idx]) magTok[idx].gen++; delete magTok[idx]; return; }
+        const color = magColor(s, n);
         const k = perSpace[p.pos] = (perSpace[p.pos] || 0) + 1;
         const slot = k - 1;
         // jusqu'à 4 pions : une file vers le centre ; au-delà : deux files côte à côte
         const two = total[p.pos] > 4;
         const pt = magPt(214 - (two ? Math.floor(slot / 2) : slot) * 23.5, p.pos * 10 + (two ? (slot % 2 ? 4.2 : -4.2) : 0));
-        g.style.transform = `translate(${pt[0].toFixed(1)}px, ${pt[1].toFixed(1)}px)`;
-        const circle = g.firstChild;
-        if (circle) { circle.setAttribute('stroke', n === s.order[s.turn] ? '#ffffff' : '#020617'); circle.setAttribute('stroke-dasharray', p.jail > 0 ? '4 3' : ''); }
+        let st = magTok[idx];
+        const pion = magPionDe(s, n);
+        if (!g || !st || st.sess !== s.startedAt || st.pion !== pion) {
+            // premier affichage (ou retour dans la partie) : le pion est posé directement sur sa case
+            if (g) g.remove();
+            if (st) st.gen++;
+            g = document.createElementNS(MAG_NS, 'g');
+            g.setAttribute('id', 'mag-tok-' + idx);
+            g.innerHTML = `<g class="mag-tok-in"><circle class="mag-tok-halo" r="17" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0"/><circle class="mag-tok-rond" r="12" fill="${color}" stroke="#020617" stroke-width="2.5"/><text text-anchor="middle" y="4" font-size="11" font-weight="bold" fill="#020617" font-family="Arial, sans-serif">${magEsc(String(n).charAt(0).toUpperCase())}</text><title>${magEsc(n)}</title></g>`;
+            layer.appendChild(g);
+            magTokPlace(g, pt, 'none');
+            st = magTok[idx] = { sess: s.startedAt, pion: pion, pos: p.pos, jail: p.jail, gen: 0, cible: p.pos, fin: pt, occupe: false };
+            // image du modèle choisi (remplacée par le modèle 3D quand le moteur 3D est prêt)
+            const cible = g;
+            g.dataset.pion = pion;
+            magPionImage(pion, () => {
+                const inn = cible.querySelector('.mag-tok-in'), rond = cible.querySelector('.mag-tok-rond'), txt = cible.querySelector('text');
+                if (!inn || !rond || cible.querySelector('image')) return;
+                const t = MAG_PION_TAILLE - 4;
+                rond.setAttribute('r', '14'); rond.setAttribute('fill', color); rond.setAttribute('fill-opacity', '.28'); rond.setAttribute('stroke', color); rond.setAttribute('stroke-width', '2');
+                rond.dataset.modele = '1';
+                if (txt) txt.remove();
+                const im = document.createElementNS(MAG_NS, 'image');
+                im.setAttribute('href', MAG_PIONS_DIR + pion + '.png');
+                im.setAttribute('x', -t / 2); im.setAttribute('y', -t / 2); im.setAttribute('width', t); im.setAttribute('height', t);
+                im.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                im.style.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,.7))';
+                inn.insertBefore(im, inn.querySelector('title'));
+            });
+        } else if (st.cible !== p.pos) {
+            // le joueur a changé de case : on choisit l'animation
+            const depuis = st.pos, avance = (p.pos - depuis + MAG_N) % MAG_N, recul = MAG_N - avance;
+            const prison = p.jail > 0 && p.pos === MAG.JAIL && !(st.jail > 0);
+            st.gen++; st.cible = p.pos; st.fin = pt; st.occupe = true;
+            const fini = () => { st.occupe = false; st.pos = st.cible; magTokPlace(g, st.fin, 'transform .3s ease'); magTokJoue(g, 'mag-land'); magFxOnde(st.fin, prison ? '#f87171' : color); };
+            if (calme || avance === 0) { st.pos = p.pos; st.occupe = false; magTokPlace(g, pt, calme ? 'none' : 'transform .45s ease'); }
+            else if (prison) {
+                const gen = st.gen;
+                magTokJoue(g, 'mag-tremble');
+                magFxTexte(magPt(214, depuis * 10), '🚨', '#f87171');
+                setTimeout(() => { if (st.gen === gen) magTokSaut(g, st, '#f87171', fini); }, 420);
+            } else if (avance === s.dice[0] + s.dice[1] || avance <= 12) {
+                const cases = []; for (let i = 1; i <= avance; i++) cases.push((depuis + i) % MAG_N);
+                st.avance = true; magTokSauts(g, st, cases, color, fini);
+            } else if (recul <= 6) {
+                const cases = []; for (let i = 1; i <= recul; i++) cases.push((depuis - i + MAG_N) % MAG_N);
+                st.avance = false; magTokSauts(g, st, cases, color, fini);
+            } else magTokSaut(g, st, '#a5f3fc', fini);
+        } else {
+            // même case : le pion se décale seulement si d'autres pions arrivent ou partent
+            st.fin = pt;
+            if (!st.occupe) magTokPlace(g, pt, 'transform .45s ease');
+        }
+        st.jail = p.jail;
+        const rond = g.querySelector('.mag-tok-rond'), halo = g.querySelector('.mag-tok-halo');
+        if (rond) { if (!rond.dataset.modele) rond.setAttribute('stroke', n === s.order[s.turn] ? '#ffffff' : '#020617'); rond.setAttribute('stroke-dasharray', p.jail > 0 ? '4 3' : ''); }
+        if (halo) halo.setAttribute('opacity', rond && rond.dataset.modele && n === s.order[s.turn] ? '.9' : '0');
     });
+    mag3dSync(s);
+}
+
+// ============================ PIONS EN 3D ============================
+// Un canevas WebGL transparent est posé sur le plateau. Chaque pion y est un vrai modèle 3D qui suit, image par
+// image, la position et les animations (sauts, vrille, écrasement) de son pion SVG. Le moteur 3D (three.js) est
+// chargé seulement à l'ouverture de Magnat ; s'il est absent, refusé ou en panne, les pions restent des images.
+const mag3d = { etat: '', items: {}, raf: 0, t0: 0, taille: 0 };
+const MAG_3D_SCRIPTS = ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'];
+function mag3dVoulu() { try { return localStorage.getItem('lmlp-3d') !== '0'; } catch (e) { return true; } }
+function mag3dScript(src) {
+    if (typeof sysChargerScript === 'function') return sysChargerScript(src);
+    return new Promise((ok, ko) => { const el = document.createElement('script'); el.src = src; el.async = false; el.onload = ok; el.onerror = () => ko(new Error(src)); document.head.appendChild(el); });
+}
+function mag3dArret(definitif) {
+    if (mag3d.raf) cancelAnimationFrame(mag3d.raf);
+    mag3d.raf = 0;
+    try { if (mag3d.renderer) mag3d.renderer.dispose(); } catch (e) {}
+    if (mag3d.canvas) mag3d.canvas.remove();
+    mag3d.renderer = mag3d.scene = mag3d.cam = mag3d.canvas = null;
+    mag3d.items = {};
+    document.querySelectorAll('.mag-tok-3d').forEach(g => g.classList.remove('mag-tok-3d'));
+    mag3d.etat = definitif ? 'non' : (mag3d.etat === 'non' ? 'non' : (window.THREE && THREE.GLTFLoader ? 'pret' : ''));
+}
+function mag3dSync(s) {
+    if (typeof window === 'undefined' || !document.getElementById('mag-board')) return;
+    if (!mag3dVoulu()) { if (mag3d.canvas) mag3dArret(false); return; }
+    if (mag3d.etat === 'non' || mag3d.etat === 'cours') return;
+    if (mag3d.etat === '') {
+        if (window.THREE && THREE.GLTFLoader) mag3d.etat = 'pret';
+        else {
+            mag3d.etat = 'cours';
+            const besoin = window.THREE ? MAG_3D_SCRIPTS.slice(1) : MAG_3D_SCRIPTS;
+            besoin.reduce((p, src) => p.then(() => mag3dScript(src)), Promise.resolve())
+                .then(() => { mag3d.etat = window.THREE && THREE.GLTFLoader ? 'pret' : 'non'; const cur = magCurrent(); if (cur) mag3dSync(cur); })
+                .catch(err => { mag3d.etat = 'non'; console.warn('Pions 3D indisponibles, pions en images :', err && err.message); });
+            return;
+        }
+    }
+    try {
+        if (mag3d.canvas && !mag3d.canvas.isConnected) mag3dArret(false);      // nouveau plateau : on repart d'un canevas neuf
+        if (!mag3d.canvas) mag3dInit();
+        // un modèle par pion présent sur le plateau
+        const vus = {};
+        s.order.forEach((n, idx) => {
+            const g = document.getElementById('mag-tok-' + idx);
+            if (!g || s.players[n].out) return;
+            vus[idx] = true;
+            const key = g.dataset.pion, it = mag3d.items[idx];
+            if (it && it.key === key && it.g === g) return;
+            if (it) mag3dRetirer(idx);
+            mag3dCharger(idx, key, g, magColor(s, n));
+        });
+        Object.keys(mag3d.items).forEach(idx => { if (!vus[idx]) mag3dRetirer(idx); });
+        if (!mag3d.raf) mag3d.raf = requestAnimationFrame(mag3dImage);
+    } catch (err) {
+        console.warn('Pions 3D désactivés :', err);
+        mag3dArret(true);
+    }
+}
+function mag3dInit() {
+    const board = document.getElementById('mag-board'), svg = document.getElementById('mag-svg');
+    const canvas = document.createElement('canvas');
+    canvas.id = 'mag-3d';
+    canvas.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
+    svg.insertAdjacentElement('afterend', canvas);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    renderer.setClearColor(0x000000, 0);
+    if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+    // repère du plateau : x vers la droite, y vers le bas (comme le SVG, 720 × 720) ; la profondeur suit y
+    const cam = new THREE.OrthographicCamera(0, 720, 0, -720, -2000, 2000);
+    cam.position.set(0, 0, 1000);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x3a4a6a, 1.05));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.15); sun.position.set(0.5, 0.9, 1.2); scene.add(sun);
+    const rim = new THREE.DirectionalLight(0x7dd3fc, 0.45); rim.position.set(-1, 0.3, -0.6); scene.add(rim);
+    mag3d.canvas = canvas; mag3d.renderer = renderer; mag3d.cam = cam; mag3d.scene = scene; mag3d.taille = 0; mag3d.t0 = performance.now();
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); mag3dArret(true); });
+}
+function mag3dRetirer(idx) {
+    const it = mag3d.items[idx];
+    if (!it) return;
+    if (it.pivot && mag3d.scene) mag3d.scene.remove(it.pivot);
+    if (it.g) it.g.classList.remove('mag-tok-3d');
+    delete mag3d.items[idx];
+}
+function mag3dCharger(idx, key, g, color) {
+    const info = magPionInfo(key);
+    if (!info) return;
+    const it = mag3d.items[idx] = { key: key, g: g, pivot: null, mixer: null, pret: false };
+    new THREE.GLTFLoader().load(MAG_PIONS_DIR + key + '.glb', gltf => {
+        if (mag3d.items[idx] !== it || !mag3d.scene) return;      // pion changé ou retiré pendant le chargement
+        const obj = gltf.scene, bb = info.bb;
+        const larg = Math.max(bb[3] - bb[0], bb[5] - bb[2]), haut = bb[4] - bb[1];
+        const k = MAG_PION_TAILLE / Math.max(haut, larg * 0.9, 1e-6);
+        obj.scale.setScalar(k);
+        obj.position.set(-(bb[0] + bb[3]) / 2 * k, -bb[1] * k, -(bb[2] + bb[5]) / 2 * k);      // centré, les pieds à l'origine
+        obj.traverse(o => { o.frustumCulled = false; });
+        const tour = new THREE.Group(); tour.add(obj);                     // tourne sur lui-même
+        const pivot = new THREE.Group(); pivot.add(tour);                 // posé sur la case, légèrement penché vers le joueur
+        pivot.rotation.x = 0.32;
+        it.pivot = pivot; it.tour = tour;
+        if (gltf.animations && gltf.animations.length) { it.mixer = new THREE.AnimationMixer(obj); it.mixer.clipAction(gltf.animations[0]).play(); }
+        mag3d.scene.add(pivot);
+        it.pret = true;
+        g.classList.add('mag-tok-3d');      // l'image 2D du pion est masquée, le disque de couleur reste comme socle
+    }, undefined, err => { console.warn('Modèle 3D non chargé (' + key + ') : le pion reste en image.', err && err.message); });
+}
+function mag3dMatrice(el) {
+    const t = getComputedStyle(el).transform;
+    if (!t || t === 'none') return [1, 0, 0, 1, 0, 0];
+    const v = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number);
+    return v.length === 6 ? v : [v[0], v[1], v[4], v[5], v[12], v[13]];
+}
+function mag3dImage(now) {
+    mag3d.raf = 0;
+    const board = document.getElementById('mag-board');
+    if (!mag3d.renderer || !board || !mag3d.canvas || !mag3d.canvas.isConnected) { mag3dArret(false); return; }
+    try {
+        const dt = Math.min(0.1, (now - (mag3d.dernier || now)) / 1000); mag3d.dernier = now;
+        const w = board.clientWidth;
+        if (w && w !== mag3d.taille) {
+            mag3d.taille = w;
+            mag3d.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, document.body.classList.contains('mob') ? 1.5 : 2));
+            mag3d.renderer.setSize(w, w, false);
+        }
+        const t = (now - mag3d.t0) / 1000;
+        Object.keys(mag3d.items).forEach(idx => {
+            const it = mag3d.items[idx];
+            if (!it.pret) return;
+            if (!it.g.isConnected) { it.pivot.visible = false; return; }
+            const m = mag3dMatrice(it.g);                                   // position du pion SVG (en cours de glissement)
+            const inn = it.g.querySelector('.mag-tok-in');
+            const mi = inn ? mag3dMatrice(inn) : [1, 0, 0, 1, 0, 0];        // saut, écrasement, vrille en cours
+            const sx = Math.hypot(mi[0], mi[1]), sy = Math.hypot(mi[2], mi[3]), rot = Math.atan2(mi[1], mi[0]);
+            const op = inn ? parseFloat(getComputedStyle(inn).opacity) : 1;
+            const x = m[4] + mi[4], y = m[5] + mi[5] * 1.6 + 13;            // les pieds un peu sous le centre du socle
+            it.pivot.visible = op > 0.03 && sx > 0.02;
+            it.pivot.position.set(x, -y, y * 0.6);                          // plus bas sur le plateau = devant
+            it.pivot.scale.set(sx, sy, sx);
+            it.tour.rotation.y = -0.5 + Math.sin(t * 0.9 + idx * 1.7) * 0.45 + rot * 2;
+            if (it.mixer) it.mixer.update(dt);
+        });
+        mag3d.renderer.render(mag3d.scene, mag3d.cam);
+        mag3d.raf = requestAnimationFrame(mag3dImage);
+    } catch (err) {
+        console.warn('Pions 3D désactivés :', err);
+        mag3dArret(true);
+    }
+}
+
+// ============================ CHOIX DU PION ============================
+function magFermerPions() { const el = document.getElementById('mag-pions'); if (el) el.remove(); }
+function magChoisirPion(key) {
+    const moi = window.myPlayerKey, code = window.currentCodeSalon;
+    if (!magPionInfo(key)) return;
+    try { localStorage.setItem('lmlp-pion', key); } catch (e) {}
+    if (moi && code && window.update && !window.estSpectateur) {
+        window.update(window.ref(window.db, 'salons/' + code), { ['players/' + moi + '/pion']: key }).catch(err => console.error('Pion :', err));
+    }
+    if (typeof window.sfx === 'function') window.sfx('clic');
+    magFermerPions();
+}
+// Un joueur qui a déjà choisi un pion lors d'une soirée précédente le retrouve automatiquement
+function magPionMemoire(data) {
+    const moi = window.myPlayerKey, code = window.currentCodeSalon;
+    if (!moi || !code || window.estSpectateur || !data || !data.players || !data.players[moi] || data.players[moi].pion) return;
+    let k = ''; try { k = localStorage.getItem('lmlp-pion') || ''; } catch (e) {}
+    if (k && magPionInfo(k) && window.update) window.update(window.ref(window.db, 'salons/' + code), { ['players/' + moi + '/pion']: k }).catch(() => {});
+}
+function magBasculer3d() {
+    try { localStorage.setItem('lmlp-3d', mag3dVoulu() ? '0' : '1'); } catch (e) {}
+    if (mag3d.etat === 'non' && mag3dVoulu()) mag3d.etat = '';      // nouvel essai si l'utilisateur le redemande
+    const cur = magCurrent(); if (cur) mag3dSync(cur);
+    magOuvrirPions();
+}
+function magOuvrirPions() {
+    magFermerPions();
+    const room = window.currentRoom || window.magData || {}, players = room.players || {}, moi = window.myPlayerKey;
+    const cur = magCurrent();
+    const pris = {};
+    Object.values(players).forEach(p => { if (p && p.name && !p.isBot) { const k = cur && cur.players && cur.players[p.name] ? magPionDe(cur, p.name) : p.pion; if (k) (pris[k] = pris[k] || []).push(p.name); } });
+    const mien = players[moi] ? (cur && cur.players && cur.players[moi] ? magPionDe(cur, moi) : players[moi].pion) : '';
+    const ov = document.createElement('div');
+    ov.id = 'mag-pions';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:12px';
+    ov.onclick = e => { if (e.target === ov) magFermerPions(); };
+    const cartes = MAG_PIONS.map(m => {
+        const qui = (pris[m.key] || []).filter(n => n !== moi);
+        return `<button onclick="magChoisirPion('${m.key}')" style="position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px 8px;border-radius:14px;cursor:pointer;font-family:inherit;border:2px solid ${m.key === mien ? '#34d399' : 'rgba(148,163,184,.3)'};background:${m.key === mien ? 'rgba(6,78,59,.55)' : 'rgba(15,23,42,.9)'}">
+            <img src="${MAG_PIONS_DIR}${m.key}.png" alt="" loading="lazy" style="width:100%;max-width:104px;aspect-ratio:1/1;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))">
+            <span style="font-weight:800;font-size:12px;color:#f8fafc;line-height:1.15">${magEsc(m.nom)}</span>
+            <span style="font-size:10px;min-height:12px;color:${m.key === mien ? '#6ee7b7' : '#94a3b8'}">${m.key === mien ? '✓ Votre pion' : (qui.length ? 'Aussi : ' + magEsc(qui.join(', ')) : '')}</span>
+        </button>`;
+    }).join('');
+    const credits = MAG_PIONS.map(m => `« <a href="${m.source}" target="_blank" rel="noopener" style="color:#7dd3fc">${magEsc(m.titre)}</a> » par ${magEsc(m.auteur)} (${m.licence})`).join(' · ');
+    const etat3d = !mag3dVoulu() ? 'désactivés' : (mag3d.etat === 'non' ? 'indisponibles sur cet appareil' : 'activés');
+    ov.innerHTML = `<div style="width:min(560px,100%);max-height:94vh;overflow-y:auto;background:#091424;border:1px solid #22d3ee;border-radius:18px;padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+            <span class="sci-font" style="font-weight:800;letter-spacing:.12em;font-size:15px;color:#a5f3fc">🎭 CHOISIR MON PION</span>
+            <button onclick="magFermerPions()" style="border:1px solid #475569;background:transparent;color:#cbd5e1;border-radius:8px;padding:3px 10px;cursor:pointer;font-family:inherit">✕</button>
+        </div>
+        ${window.estSpectateur || !players[moi] ? '<div style="color:#fbbf24;font-size:12px;margin-bottom:8px">Vous êtes spectateur : le choix du pion est réservé aux joueurs.</div>' : ''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px">${cartes}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(148,163,184,.2)">
+            <span style="font-size:12px;color:#cbd5e1">Pions en 3D : <b style="color:#f8fafc">${etat3d}</b></span>
+            <button onclick="magBasculer3d()" style="border:1px solid #475569;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">${mag3dVoulu() ? 'Passer aux images (plus léger)' : 'Activer la 3D'}</button>
+        </div>
+        <details style="margin-top:8px;font-size:10px;color:#94a3b8;line-height:1.5"><summary style="cursor:pointer">Crédits des modèles 3D</summary>
+            Modèles allégés pour le jeu à partir de : ${credits}. « Char araignée » : usage non commercial uniquement.</details>
+    </div>`;
+    document.body.appendChild(ov);
+}
+// Bouton « Choisir mon pion » affiché dans le salon (réglages de l'hôte et dossier de mission des autres joueurs)
+function magBoutonPion() {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '🎭 Choisir mon pion';
+    b.onclick = magOuvrirPions;
+    b.style.cssText = 'display:block;margin-top:6px;padding:6px 12px;border-radius:8px;border:1px solid #22d3ee;background:rgba(8,51,68,.7);color:#a5f3fc;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit';
+    return b;
 }
 
 function magDie(n) {
@@ -1175,7 +1551,7 @@ function magRender(s, force) {
     if (s.order[s.turn] !== magMe()) magUI.trOpen = false;
     if (!s.auction) magUI.bid = '';
     const tr = magUI.tr || {};
-    const sig = JSON.stringify([s.seq, magUI.props, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
+    const sig = JSON.stringify([s.seq, s.order.map(n => magPionDe(s, n)).join(), magUI.props, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
     if (!force && sig === magUI.sig) return;
     magUI.sig = sig;
     magSounds(s);
@@ -1236,6 +1612,24 @@ function magOnAct(d) {
     magRender(s);
 }
 const MAG_CSS = `
+.mag-tok-3d image{visibility:hidden}
+.mag-tok-in.mag-hop{animation:magHop .17s ease-out}
+.mag-tok-in.mag-land{animation:magLand .4s ease-out}
+.mag-tok-in.mag-warp-out{animation:magWarpOut .4s ease-in forwards}
+.mag-tok-in.mag-warp-in{animation:magWarpIn .42s ease-out}
+.mag-tok-in.mag-tremble{animation:magTremble .42s linear}
+@keyframes magHop{0%{transform:translateY(0) scale(1)}45%{transform:translateY(-9px) scale(1.4)}100%{transform:translateY(0) scale(1)}}
+@keyframes magLand{0%{transform:scale(1.5,.7)}40%{transform:scale(.85,1.2)}70%{transform:scale(1.1,.94)}100%{transform:scale(1)}}
+@keyframes magWarpOut{0%{transform:scale(1) rotate(0);opacity:1}100%{transform:scale(0) rotate(540deg);opacity:0}}
+@keyframes magWarpIn{0%{transform:scale(3.2) rotate(-200deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes magTremble{0%,100%{transform:translateX(0)}15%{transform:translateX(-5px) rotate(-10deg)}35%{transform:translateX(5px) rotate(10deg)}55%{transform:translateX(-4px) rotate(-8deg)}75%{transform:translateX(4px) rotate(8deg)}}
+.mag-fx-onde{animation:magOnde .7s ease-out forwards}
+.mag-fx-onde2{animation:magOnde .7s ease-out .15s forwards;opacity:0}
+.mag-fx-trace{animation:magTrace .7s ease-out forwards}
+.mag-fx-texte{animation:magTexte 1.4s ease-out forwards}
+@keyframes magOnde{0%{transform:scale(.4);opacity:.95}100%{transform:scale(3);opacity:0}}
+@keyframes magTrace{0%{transform:scale(1);opacity:.75}100%{transform:scale(.2);opacity:0}}
+@keyframes magTexte{0%{transform:translateY(0) scale(.6);opacity:0}15%{transform:translateY(-6px) scale(1.15);opacity:1}100%{transform:translateY(-38px) scale(1);opacity:0}}
 @keyframes magShake{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-18deg) scale(1.15)}50%{transform:rotate(14deg) scale(1.1)}75%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
 .mag-shake{animation:magShake .55s ease}
 #mag-root{--mag-side:350px;position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box;background:radial-gradient(circle at 50% 40%,#0b1a30 0%,#040913 70%)}
@@ -1306,7 +1700,7 @@ function magBuildLayout() {
             </div>
             <div id="mag-main">
                 <div id="mag-col-left" class="mag-col"><div class="mag-zoom mag-col" style="flex:1">
-                    ${sec('👥 Joueurs', 'mag-players', '#22d3ee', true)}
+                    ${sec('👥 Joueurs', 'mag-players', '#22d3ee', true, '<button onclick="magOuvrirPions()" class="mag-mini" style="padding:1px 8px">🎭 Mon pion</button>')}
                 </div></div>
                 <div id="mag-boardwrap"><div id="mag-board">
                     ${magBoardSvg()}
@@ -1386,6 +1780,7 @@ if (typeof window !== 'undefined') {
         if (magUI.seenSess === sess && s.seq < magUI.seenSeq) return;
         magUI.seenSess = sess; magUI.seenSeq = s.seq;
         window.magData = data;
+        magPionMemoire(data);
         try { magShow(data, s, sess); }
         finally { if (window.isHost) magHostProcess(data); }      // l'arbitrage se fait APRÈS l'affichage
     };
