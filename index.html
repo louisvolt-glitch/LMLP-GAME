@@ -372,12 +372,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 // --- 🔄 SYNCHRONISATION DU MODE DE JEU EN TEMPS REEL ---
                 if (data.selectedMode && data.selectedMode !== state.selectedMode) {
                     const modeMap = {
-                        'quiz': { name: 'Quiz Culture G', icon: '❓', desc: 'Quiz chronométré en équipe à travers 20 catégories de culture générale.' },
-                        'geoguessr': { name: 'GeoGuessr', icon: '📍', desc: 'Explorez Street View et placez votre repère géographique.' },
-                        'cine': { name: 'Cinématophile', icon: '🎥', desc: 'Reconnaissez le film à partir de l affiche floutée.' },
-                        'codenames': { name: 'Codenames', icon: '🕵️', desc: 'Donnez un indice unique pour faire deviner vos mots en équipe.' },
-                        'petitsbac': { name: 'Petit Bac', icon: '📝', desc: 'Trouvez des mots par catégorie avec la lettre imposée.' },
-                        'impostor': { name: 'Impostor', icon: '🥷', desc: 'Démasquez l impostor ou bluffez pour survivre incognito.' },
+                        'quiz': { name: 'Examen de l’Académie', icon: '🎓', desc: 'Passez l’examen de l’Académie : 21 catégories et trois grades de difficulté.' },
+                        'geoguessr': { name: 'Atterrissage d’urgence', icon: '🛰️', desc: 'Votre capsule s’est posée quelque part sur Terre : retrouvez le point d’impact.' },
+                        'cine': { name: 'Archives terrestres', icon: '🎞️', desc: 'Restaurez un fichier corrompu des archives terrestres et identifiez le film.' },
+                        'codenames': { name: 'Noms de Code', icon: '🌌', desc: 'Deux flottes rivales : l’Amiral transmet un indice, les Éclaireurs sondent les secteurs.' },
+                        'petitsbac': { name: 'Transmission codée', icon: '📡', desc: 'Décryptez la lettre du signal et trouvez un mot par catégorie.' },
+                        'impostor': { name: 'L’Infiltré', icon: '🥷', desc: 'Un infiltré se cache dans l’équipage : démasquez-le ou bluffez pour rester à bord.' },
                         'anomaly': { name: 'Anomalies', icon: '👁️', desc: 'Surveillez le couloir infini et détectez les anomalies visuelles.' },
 			'references': { name: 'Références Gaming', icon: '🎮', desc: 'Retrouvez et nommez les références de jeux vidéo cachées dans l image.' },
                         'estimation': { name: 'Au Plus Proche', icon: '🎯', desc: 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.' },
@@ -842,16 +842,16 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <i class="fa-solid fa-folder"></i> [CULTURE GÉNÉRALE] (4)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-amber-500/20">
-                    <div onclick="selectProtocol('Quiz Culture G', '❓', 'Quiz chronométré en équipe à travers 20 catégories de culture générale.', 'quiz')" id="protocol-btn-quiz" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Quiz Général</span>
+                    <div onclick="selectProtocol('Examen de l’Académie', '🎓', 'Passez l’examen de l’Académie : 21 catégories et trois grades de difficulté.', 'quiz')" id="protocol-btn-quiz" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Examen de l’Académie</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('GeoGuessr', '📍', 'Explorez Street View et placez votre repère géographique.', 'geoguessr')" id="protocol-btn-geoguessr" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">GeoGuessr</span>
+                    <div onclick="selectProtocol('Atterrissage d’urgence', '🛰️', 'Votre capsule s’est posée quelque part sur Terre : retrouvez le point d’impact.', 'geoguessr')" id="protocol-btn-geoguessr" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Atterrissage d’urgence</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Cinématophile', '🎥', 'Reconnaissez le film à partir de l affiche floutée.', 'cine')" id="protocol-btn-cine" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Cinématophile</span>
+                    <div onclick="selectProtocol('Archives terrestres', '🎞️', 'Restaurez un fichier corrompu des archives terrestres et identifiez le film.', 'cine')" id="protocol-btn-cine" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Archives terrestres</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Au Plus Proche', '🎯', 'Estimez un nombre : plus vous êtes proche de la vraie valeur, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -867,12 +867,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (7)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-rose-500/20">
-                    <div onclick="selectProtocol('Codenames', '🕵️', 'Donnez un indice unique pour faire deviner vos mots en équipe.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Codenames</span>
+                    <div onclick="selectProtocol('Noms de Code', '🌌', 'Deux flottes rivales : l’Amiral transmet un indice, les Éclaireurs sondent les secteurs.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Noms de Code</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Petit Bac', '📝', 'Trouvez des mots par catégorie avec la lettre imposée.', 'petitsbac')" id="protocol-btn-petitsbac" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Petit Bac</span>
+                    <div onclick="selectProtocol('Transmission codée', '📡', 'Décryptez la lettre du signal et trouvez un mot par catégorie.', 'petitsbac')" id="protocol-btn-petitsbac" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Transmission codée</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Esprit Commun', '🧠', 'Une consigne, un mot : écrivez la même réponse que les autres joueurs.', 'telepathie')" id="protocol-btn-telepathie" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -904,8 +904,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <i class="fa-solid fa-folder"></i> [RÉFLEXION & LOGIQUE] (2)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-emerald-500/20">
-                    <div onclick="selectProtocol('Impostor', '🥷', 'Démasquez l impostor ou bluffez pour survivre incognito.', 'impostor')" id="protocol-btn-impostor" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Imposteur</span>
+                    <div onclick="selectProtocol('L’Infiltré', '🥷', 'Un infiltré se cache dans l’équipage : démasquez-le ou bluffez pour rester à bord.', 'impostor')" id="protocol-btn-impostor" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">L’Infiltré</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Anomalies', '👁️', 'Surveillez le couloir infini et détectez les anomalies visuelles.', 'anomaly')" id="protocol-btn-anomaly" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -1029,7 +1029,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                 <!-- Options Géoguessr -->
                 <div id="host-settings-geo" class="hidden space-y-1 text-xs shrink-0">
-                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS GEOGUESSR</div>
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ATTERRISSAGE D’URGENCE</div>
                     <div>
                         <span class="text-slate-300 text-[11px]">Manches :</span>
                         <input type="number" id="setting-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
@@ -1038,7 +1038,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                 <!-- Options CINE -->
 		<div id="host-settings-cine" class="hidden space-y-1 text-xs shrink-0">
-    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS CINÉMATOPHILE</div>
+    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS ARCHIVES TERRESTRES</div>
     <div>
         <span class="text-slate-300 text-[11px]">Manches :</span>
         <input type="number" id="setting-cine-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
@@ -1048,7 +1048,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
 		<!-- Options Imposteur -->
 <div id="host-settings-impostor" class="hidden space-y-1 text-xs shrink-0">
-    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS IMPOSTEUR</div>
+    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS L’INFILTRÉ</div>
     <div>
         <span class="text-slate-300 text-[11px]">Tours d'indices (1-5) :</span>
         <input type="number" id="setting-impostor-rounds" min="1" max="5" value="2" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
@@ -1075,7 +1075,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                 <!-- Options Petits Bac -->
                 <div id="host-settings-petitsbac" class="hidden space-y-1 text-xs shrink-0">
-                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS PETIT BAC</div>
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS TRANSMISSION CODÉE</div>
                     <div>
                         <span class="text-slate-300 text-[11px]">Manches :</span>
             <input type="number" id="setting-petitsbac-rounds" min="1" max="10" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
@@ -1150,7 +1150,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 <!-- OPTIONS CODENAMES -->
                 <div id="host-settings-codenames" class="hidden space-y-2 text-xs shrink-0">
                     <div class="text-[11px] text-amber-400 uppercase tracking-wide font-bold flex items-center justify-between">
-                        <span>AFFECTATION DES ÉQUIPES (CODENAMES)</span>
+                        <span>COMPOSITION DES FLOTTES (NOMS DE CODE)</span>
                         <div class="flex gap-1">
                             <button onclick="randomizeCodenamesTeams()" class="px-2 py-0.5 bg-cyan-950 border border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black transition rounded text-[10px] cursor-pointer">🎲 Aléatoire</button>
                             <button onclick="resetCodenamesTeams()" class="px-2 py-0.5 bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition rounded text-[10px] cursor-pointer">🔄 Reset</button>
@@ -1161,15 +1161,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <!-- Équipe Bleue -->
                         <div class="bg-blue-950/30 border border-blue-500/40 p-2 rounded flex flex-col min-h-[130px]">
                             <div class="text-[10px] font-bold text-blue-400 border-b border-blue-500/30 pb-1 mb-1 flex justify-between">
-                                <span>ÉQUIPE BLEUE</span>
+                                <span>FLOTTE AZUR</span>
                                 <span id="count-blue">0</span>
                             </div>
                             <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'spymaster')">
-                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
+                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Amiral :</div>
                                 <div id="team-blue-spymaster" class="min-h-[24px] bg-blue-950/50 border border-dashed border-blue-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Aucun</div>
                             </div>
                             <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'blue', 'agent')">
-                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Espions :</div>
+                                <div class="text-[9px] text-blue-300 font-bold uppercase tracking-wider">Éclaireurs :</div>
                                 <div id="team-blue-agents" class="min-h-[35px] bg-blue-950/20 border border-dashed border-blue-500/30 rounded p-1 space-y-1"></div>
                             </div>
                         </div>
@@ -1177,15 +1177,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <!-- Équipe Rouge -->
                         <div class="bg-rose-950/30 border border-rose-500/40 p-2 rounded flex flex-col min-h-[130px]">
                             <div class="text-[10px] font-bold text-rose-400 border-b border-rose-500/30 pb-1 mb-1 flex justify-between">
-                                <span>ÉQUIPE ROUGE</span>
+                                <span>FLOTTE ÉCARLATE</span>
                                 <span id="count-red">0</span>
                             </div>
                             <div class="space-y-1.5 flex-1 overflow-y-auto max-h-[120px]" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'spymaster')">
-                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Maître-Espion :</div>
+                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Amiral :</div>
                                 <div id="team-red-spymaster" class="min-h-[24px] bg-rose-950/50 border border-dashed border-rose-500/40 rounded p-1 flex items-center justify-center text-[10px] text-slate-400">Aucun</div>
                             </div>
                             <div class="space-y-1 mt-1.5" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'red', 'agent')">
-                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Espions :</div>
+                                <div class="text-[9px] text-rose-300 font-bold uppercase tracking-wider">Éclaireurs :</div>
                                 <div id="team-red-agents" class="min-h-[35px] bg-rose-950/20 border border-dashed border-rose-500/30 rounded p-1 space-y-1"></div>
                             </div>
                         </div>
@@ -1193,7 +1193,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
                     <!-- Réserve d'opérateurs non assignés -->
                     <div class="bg-black/40 border border-cyan-500/20 p-2 rounded mt-1" ondragover="allowDrop(event)" ondrop="dropOperator(event, 'unassigned', 'agent')">
-                        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve d'Opérateurs (glisser, ou toucher un joueur pour le placer) :</div>
+                        <div class="text-[9px] text-slate-400 mb-1 uppercase tracking-wider">Réserve (glisser, ou toucher un joueur pour l'affecter à une flotte) :</div>
                         <div id="team-unassigned-container" class="flex flex-wrap gap-1 min-h-[35px]"></div>
                     </div>
                 </div>
@@ -1268,7 +1268,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <!-- SCREEN QUIZ DIFFICULTY -->
     <main id="screen-quiz-difficulty" class="hidden flex-1 flex flex-col justify-center items-center py-6">
         <div class="neon-border-cyan bg-[#091424]/90 p-8 rounded-3xl max-w-lg w-full text-center space-y-6">
-            <h3 class="text-xl font-black sci-font text-white">Choisissez la Difficulté</h3>
+            <h3 class="text-xl font-black sci-font text-white">Choisissez votre grade</h3>
             
             <!-- Badge dynamique de la catégorie en cours -->
             <div id="diff-theme-badge" class="inline-block px-3 py-1 bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 rounded-full text-xs font-bold tracking-wider">
@@ -1276,9 +1276,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             </div>
 
             <div class="grid grid-cols-1 gap-3">
-                <button onclick="chooseQuizDifficulty('easy')" class="p-4 bg-slate-900 hover:bg-emerald-500/10 border border-slate-700 rounded-xl text-emerald-400 font-bold cursor-pointer transition">Facile (x1)</button>
-                <button onclick="chooseQuizDifficulty('medium')" class="p-4 bg-slate-900 hover:bg-amber-500/10 border border-slate-700 rounded-xl text-amber-400 font-bold cursor-pointer transition">Modéré (x2)</button>
-                <button onclick="chooseQuizDifficulty('hard')" class="p-4 bg-slate-900 hover:bg-red-500/10 border border-slate-700 rounded-xl text-red-400 font-bold cursor-pointer transition">Difficile (x3.5)</button>
+                <button onclick="chooseQuizDifficulty('easy')" class="p-4 bg-slate-900 hover:bg-emerald-500/10 border border-slate-700 rounded-xl text-emerald-400 font-bold cursor-pointer transition">🎓 Cadet (x1)</button>
+                <button onclick="chooseQuizDifficulty('medium')" class="p-4 bg-slate-900 hover:bg-amber-500/10 border border-slate-700 rounded-xl text-amber-400 font-bold cursor-pointer transition">⭐ Officier (x2)</button>
+                <button onclick="chooseQuizDifficulty('hard')" class="p-4 bg-slate-900 hover:bg-red-500/10 border border-slate-700 rounded-xl text-red-400 font-bold cursor-pointer transition">🎖️ Commandant (x3.5)</button>
             </div>
         </div>
     </main>
@@ -1336,7 +1336,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <main id="screen-quiz-recap" class="hidden flex-1 flex flex-col items-center py-6 overflow-y-auto">
         <div class="neon-border-cyan bg-[#091424]/90 p-6 rounded-3xl max-w-2xl w-full space-y-5">
 
-            <h3 class="text-xl font-black sci-font text-white text-center">🏆 Classement final</h3>
+            <h3 class="text-xl font-black sci-font text-white text-center">🏆 Résultats de l’examen</h3>
             <div id="quiz-final-leaderboard" class="space-y-2"></div>
 
             <div>
@@ -1357,18 +1357,19 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <!-- SCREEN GEOGUESSR -->
     <main id="screen-game-geoguessr" class="hidden flex-1 flex flex-col space-y-3 relative w-full mx-auto">
         <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center z-10">
-            <span id="round-indicator" class="font-bold text-emerald-400 text-sm">Manche 1 / 5</span>
+            <span id="round-indicator" class="font-bold text-emerald-400 text-sm">🛰️ Atterrissage 1 / 5</span>
             <span id="geo-timer" class="font-mono text-xl font-bold bg-black/50 px-4 py-1 rounded-xl text-amber-400 border border-cyan-500/30">45s</span>
         </div>
         <div id="pano-container">
             <div id="streetview-holder" class="w-full h-full"></div>
-			<button onclick="returnToGeoSpawn()" title="Retourner à mon point de départ"
+            <div id="geo-capsule" style="position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:19;pointer-events:none;max-width:60%;text-align:center;font-size:11px;font-weight:700;color:#e2e8f0;background:rgba(2,6,23,.78);border:1px solid rgba(34,211,238,.45);border-radius:10px;padding:5px 10px">🛰️ Votre capsule s’est posée quelque part sur Terre. Où êtes-vous ?</div>
+			<button onclick="returnToGeoSpawn()" title="Retourner à la capsule (point de départ)"
                 class="absolute top-3 left-3 z-20 bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/50 text-cyan-300 font-bold text-xs px-3 py-2 rounded-xl shadow-lg transition cursor-pointer flex items-center gap-2">
-                <i class="fa-solid fa-location-crosshairs"></i> Retour au départ
+                <i class="fa-solid fa-location-crosshairs"></i> Retour à la capsule
             </button>
                         <div id="minimap-box" class="minimap-wrapper p-2 flex flex-col justify-between">
                 <div id="geoguessr-map"></div>
-                <button onclick="submitGeoGuess()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 rounded-xl transition text-xs shadow-lg mt-2 cursor-pointer">Valider mon Repère</button>
+                <button onclick="submitGeoGuess()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 rounded-xl transition text-xs shadow-lg mt-2 cursor-pointer">Transmettre ma position</button>
             </div>
         </div>
     </main>
@@ -1376,7 +1377,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <!-- ÉCRAN CINE -->
     <main id="screen-cine" class="hidden flex-1 flex flex-col items-center py-3 overflow-y-auto w-full max-w-7xl mx-auto px-4 gap-3">
     <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center gap-3 w-full">
-        <span id="cine-round-indicator" class="font-bold text-cyan-400 text-sm md:text-base"><i class="fa-solid fa-film"></i> Cinématophile</span>
+        <span id="cine-round-indicator" class="font-bold text-cyan-400 text-sm md:text-base"><i class="fa-solid fa-database"></i> Archives terrestres</span>
         <div id="cine-hearts-container" class="flex gap-1 text-lg md:text-2xl"></div>
         <span id="cine-timer" class="font-mono text-xl md:text-3xl font-bold bg-black/50 px-4 py-1 rounded-xl text-amber-400 border border-cyan-500/30">--s</span>
     </div>
@@ -1389,7 +1390,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     </div>
     <div id="cine-winner-box" class="hidden"></div>
     <div id="cine-input-area" class="w-full max-w-xl flex gap-2">
-        <input type="text" id="input-cine-guess" placeholder="Titre du film..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 md:py-4 md:text-lg text-white focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') submitCineGuess()">
+        <input type="text" id="input-cine-guess" placeholder="Titre du film archivé..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 md:py-4 md:text-lg text-white focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') submitCineGuess()">
         <button onclick="submitCineGuess()" class="neon-glow-btn font-bold px-5 md:px-8 rounded-xl uppercase tracking-wider text-xs md:text-sm cursor-pointer">Deviner</button>
     </div>
     <button id="cine-next-btn" onclick="nextCineRound()" class="hidden w-full max-w-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition">Prêt pour la suite</button>
@@ -1399,7 +1400,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <main id="screen-round-summary" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto">
         <div class="neon-border-cyan bg-[#091424]/90 p-5 rounded-3xl max-w-3xl w-full space-y-4 shrink-0">
             <div class="flex justify-between items-center">
-                <h3 class="text-lg font-black sci-font text-white">Résultat de la manche</h3>
+                <h3 class="text-lg font-black sci-font text-white">Rapport d’atterrissage</h3>
                 <span id="round-score-info" class="font-mono text-sm text-emerald-400 font-bold"></span>
             </div>
             <div id="round-summary-map" class="w-full h-72 rounded-xl border border-cyan-500/30"></div>
@@ -1413,7 +1414,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <!-- ÉCRAN CODENAMES -->
     <main id="screen-codenames" class="hidden flex-1 flex flex-col items-center py-4 overflow-y-auto w-full max-w-5xl mx-auto px-4 gap-3">
         <div class="neon-border-dim p-3 rounded-xl flex justify-between items-center gap-3 w-full">
-            <span id="codenames-turn-indicator" class="font-bold text-sm text-slate-300">Codenames</span>
+            <span id="codenames-turn-indicator" class="font-bold text-sm text-slate-300">Noms de Code</span>
             <div id="codenames-role-badge" class="text-xs text-slate-300 text-center"></div>
             <div class="flex items-center gap-2 font-mono text-lg font-bold">
                 <span class="px-3 py-1 rounded bg-red-900/40 border border-red-500/50 text-red-300" title="Mots rouges restants"><i class="fa-solid fa-circle text-[10px]"></i> <span id="score-red">9</span></span>
@@ -1431,7 +1432,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         <div class="flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4">
             <div id="bac-round-indicator" class="text-xs sm:text-sm font-bold text-cyan-300 uppercase tracking-wider">Manche 1</div>
             <div class="flex flex-col items-center">
-                <span class="text-[10px] uppercase text-slate-500 tracking-widest">Lettre</span>
+                <span class="text-[10px] uppercase text-slate-500 tracking-widest">📡 Signal</span>
                 <span id="bac-letter-display" class="text-5xl sm:text-6xl font-black text-amber-400 leading-none">?</span>
             </div>
             <div id="bac-timer" class="text-2xl sm:text-3xl font-mono font-black text-red-400 min-w-[4rem] text-right">0s</div>
@@ -1459,7 +1460,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <!-- ÉCRAN IMPOSTOR -->
 <main id="screen-impostor" class="hidden flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto w-full max-w-4xl mx-auto gap-4">
     <div class="w-full flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4">
-        <div class="text-xs sm:text-sm font-bold text-red-400 uppercase tracking-wider">🥷 Imposteur</div>
+        <div class="text-xs sm:text-sm font-bold text-red-400 uppercase tracking-wider">🥷 L’Infiltré</div>
         <div id="impostor-timer" class="text-xs sm:text-sm font-mono text-slate-300"></div>
     </div>
     <div id="impostor-main-area" class="w-full text-center"></div>
@@ -1738,7 +1739,7 @@ function joinRoom() {
                         <span class="sci-font font-bold text-[10px] tracking-wider ${a.text}">${label}</span>
                         <span class="text-[10px] px-1.5 rounded-full bg-black/40 ${a.text}">${members.length}</span>
                     </div>
-                    <div class="text-[8px] uppercase tracking-wider ${a.text} opacity-80">🕵️ Maître-Espion</div>
+                    <div class="text-[8px] uppercase tracking-wider ${a.text} opacity-80">🎖️ Amiral</div>
                     ${spy ? chip(spy, a) : '<div class="text-[10px] text-slate-500 italic px-1">— non assigné —</div>'}
                     <div class="text-[8px] uppercase tracking-wider ${a.text} opacity-80 mt-1">Agents</div>
                     <div class="flex flex-col gap-1">
@@ -1757,14 +1758,14 @@ function joinRoom() {
             box.innerHTML = `
                 <div class="text-slate-400 text-[10px] mb-1 tracking-wider">ÉQUIPES</div>
                 <div class="grid grid-cols-2 gap-2">
-                    ${teamCard('blue', 'ÉQUIPE BLEUE', blue)}
-                    ${teamCard('red', 'ÉQUIPE ROUGE', red)}
+                    ${teamCard('blue', 'FLOTTE AZUR', blue)}
+                    ${teamCard('red', 'FLOTTE ÉCARLATE', red)}
                 </div>
                 ${reserve.length ? `<div class="mt-2 rounded-lg border border-slate-600/40 bg-black/30 p-2">
                     <div class="text-[8px] uppercase tracking-wider text-slate-400 mb-1">${anyAssigned ? 'Spectateurs / en réserve' : 'Pas encore assignés'}</div>
                     <div class="grid grid-cols-2 gap-1">${reserve.map(p => chip(p, grey)).join('')}</div>
                 </div>` : ''}
-                ${!anyAssigned ? '<div class="text-[10px] text-slate-500 mt-2 italic">L\'hôte n\'a pas encore choisi les équipes : elles seront tirées au sort au lancement.</div>' : ''}
+                ${!anyAssigned ? '<div class="text-[10px] text-slate-500 mt-2 italic">L\'hôte n\'a pas encore composé les flottes : elles seront tirées au sort au lancement.</div>' : ''}
             `;
         }
 
@@ -2058,7 +2059,7 @@ function launchGame() {
     			const timer = Math.min(180, Math.max(15, parseInt(document.getElementById('input-host-timer')?.value, 10) || 90));
     			const prepared = window.prepareCineGame(wantedRounds);
     			if (!prepared.movies.length) {
-        			showToast("⚠️ Aucun film disponible pour le mode Cinématophile.");
+        			showToast("⚠️ Aucun film disponible dans les Archives terrestres.");
         			return;
     			}
     			const playerStatus = {};
@@ -2235,9 +2236,9 @@ function showScreen(id) {
 const protocolData = {
     'quiz': {
         rules: [
-            "Les joueurs sélectionnent une difficulté de questions selon la catégorie obtenue.",
+            "Chaque candidat choisit son grade (Cadet, Officier, Commandant) selon la catégorie tirée.",
             "Sélectionnez la bonne réponse avant l'expiration du délai.",
-            "Les points sont calculés selon votre rapidité de synchronisation."
+            "Les points dépendent de votre rapidité de réponse."
         ],
         players: "1 - 8 JOUEURS",
         duration: "10-15 MIN",
@@ -2248,9 +2249,9 @@ const protocolData = {
     },
     'geoguessr': {
         rules: [
-            "Analysez l'environnement visuel dans Google Map pour extraire des indices de votre emplacement.",
-            "Placez votre marqueur sur la carte globale.",
-            "Votre score dépend de la distance kilométrique de l'épicentre cible."
+            "Votre capsule s'est posée quelque part sur Terre : cherchez des indices autour de vous.",
+            "Indiquez votre position sur l'écran de localisation.",
+            "Plus vous êtes proche du point d'impact, plus vous marquez."
         ],
         players: "1 - 8 JOUEURS",
         duration: "15-25 MIN",
@@ -2261,9 +2262,9 @@ const protocolData = {
     },
     'cine': {
         rules: [
-            "Observez une affiche de film avec un filtre de brouillage ainsi qu'un texte la décrivant.",
-            "Saisissez le titre exact de l'œuvre cinématographique.",
-            "Le filtre se dissipe avec le temps, mais diminue le potentiel de points."
+            "Un fichier des archives terrestres est corrompu : son affiche et son résumé se restaurent peu à peu.",
+            "Saisissez le titre exact du film archivé.",
+            "Plus la restauration avance, moins l'identification rapporte de points."
         ],
         players: "1 - 8 JOUEURS",
         duration: "10-20 MIN",
@@ -2274,9 +2275,9 @@ const protocolData = {
     },
     'codenames': {
         rules: [
-            "Divisez-vous en équipes (Bleu vs Rouge) et désignez vos Maîtres-Espions.",
-            "Le Maître-Espion donne un indice unique lié à un nombre (ex: 'OCEAN 3').",
-            "Identifiez vos agents en évitant les neutres et l'Assassin (perte immédiate)."
+            "Formez deux flottes, Azur et Écarlate, avec un Amiral chacune.",
+            "L'Amiral transmet un indice d'un mot et un nombre (ex : 'OCEAN 3').",
+            "Les Éclaireurs sondent leurs secteurs en évitant les neutres et le trou noir (défaite immédiate)."
         ],
         players: "4 - 8 JOUEURS",
         duration: "15-20 MIN",
@@ -2287,9 +2288,9 @@ const protocolData = {
     },
     'petitsbac': {
         rules: [
-            "Le système attribue une lettre de départ prioritaire.",
-            "Trouvez un terme commençant par cette lettre pour chaque catégorie.",
-            "L'originalité tactique (mots uniques) augmente la valeur des points."
+            "Un signal codé arrive : décryptez la lettre de la manche.",
+            "Trouvez un mot commençant par cette lettre pour chaque catégorie.",
+            "Les mots uniques rapportent davantage de points."
         ],
         players: "2 - 8 JOUEURS",
         duration: "20-30 MIN",
@@ -2300,9 +2301,9 @@ const protocolData = {
     },
     'impostor': {
         rules: [
-            "Un mot clé est distribué à l'escouade. L'Imposteur reçoit un mot similaire.",
-            "Donnez un mot-indice prouvant votre connaissance du mot clé.",
-            "Éliminez l'Imposteur ou, si vous l'êtes, bluffez pour survivre."
+            "Un mot de passe est transmis à l'équipage. L'Infiltré reçoit un mot proche.",
+            "Donnez un mot-indice prouvant que vous connaissez le mot.",
+            "Éjectez l'Infiltré par le sas ou, si c'est vous, bluffez pour rester à bord."
         ],
         players: "3 - 8 JOUEURS",
         duration: "15-25 MIN",
@@ -2405,8 +2406,8 @@ const protocolData = {
     'magnat': {
         rules: [
             "Lancez les dés et parcourez l'anneau : achetez les colonies libres ou laissez-les partir aux enchères.",
-            "Percevez des loyers, réunissez une famille complète pour bâtir avant-postes et métropoles, hypothéquez et négociez des échanges.",
-            "Un joueur incapable de payer fait faillite. Le dernier en jeu, ou le plus riche à la fin du temps, l'emporte."
+            "Percevez des loyers, bâtissez sur vos familles complètes, hypothéquez et négociez des échanges.",
+            "Des événements de secteur modifient les loyers. Le dernier en jeu, ou le plus riche à la fin du temps, l'emporte."
         ],
         players: "2 - 8 JOUEURS",
         duration: "20-90 MIN",
@@ -2417,8 +2418,8 @@ const protocolData = {
     'bataille': {
         rules: [
             "Chaque amiral cache 5 vaisseaux (de 2 à 5 cases) sur sa grille de 10 × 10.",
-            "À tour de rôle, visez une case du secteur ennemi : manqué, touché ou vaisseau détruit.",
-            "Le premier qui détruit toute la flotte adverse remporte la bataille."
+            "À tour de rôle, visez le secteur ennemi. Deux armes spéciales : scanner 3 × 3 et salve de trois tirs.",
+            "Le premier qui détruit toute la flotte adverse l'emporte."
         ],
         players: "2 JOUEURS",
         duration: "10-20 MIN",
@@ -2710,7 +2711,7 @@ function renderCodenamesTeams() {
 function randomizeCodenamesTeams() {
     const playersArr = state.players ? Object.values(state.players) : [];
     if (playersArr.length < 4) {
-        showToast("⚠️ Il faut au moins 4 joueurs pour répartir les équipes équitablement (min 2 par équipe).");
+        showToast("⚠️ Il faut au moins 4 joueurs pour former deux flottes (2 joueurs minimum par flotte).");
     }
 
     // Mélanger les joueurs aléatoirement
@@ -2745,7 +2746,7 @@ function randomizeCodenamesTeams() {
     if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, { players: state.players });
     }
-    showToast("🎲 Équipes générées aléatoirement avec succès !");
+    showToast("🎲 Flottes composées au hasard !");
 }
 
 function resetCodenamesTeams() {
@@ -2761,7 +2762,7 @@ function resetCodenamesTeams() {
     if (window.isHost && window.currentCodeSalon && window.mettreAJourSalonFirebase) {
         window.mettreAJourSalonFirebase(window.currentCodeSalon, { players: state.players });
     }
-    showToast("🔄 Réinitialisation des équipes effectuée.");
+    showToast("🔄 Flottes remises à zéro.");
 }
 
     </script>
