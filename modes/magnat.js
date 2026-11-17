@@ -359,6 +359,7 @@ function magNorm(raw) {
     if (s.trade) { s.trade.give = magCleanSide(s.trade.give); s.trade.get = magCleanSide(s.trade.get); } else s.trade = null;
     s.card = s.card || null;
     if (s.card) s.card.p = !!s.card.p;
+    s.st = s.st || {}; s.st.r = s.st.r || {}; s.st.c = s.st.c || {}; s.st.m = s.st.m || null;
     s.rank = arr(s.rank);
     ['turn', 'rollSeq', 'dbl', 'dl', 'dlAt', 'endAt', 'outCount', 'seq', 'turnCount', 'evNext', 'evSeq'].forEach(k => { s[k] = s[k] || 0; });
     s.ev = s.ev && MAG_EVENTS[s.ev.k] ? s.ev : null; s.evShow = s.evShow && MAG_EVENTS[s.evShow.k] ? s.evShow : null;
@@ -374,9 +375,13 @@ function magPay(s, who, amt, to) {
     if (to && s.players[to] && !s.players[to].out) s.players[to].cash += amt;
 }
 // Fait payer un joueur ; s'il n'a pas assez de crédits, une dette est ouverte (il devra vendre ou hypothéquer)
-function magCharge(s, who, amt, to, why) {
+function magCharge(s, who, amt, to, why, sp) {
     amt = Math.floor(amt);
     if (amt <= 0 || !s.players[who] || s.players[who].out) return;
+    // statistiques pour le résumé de fin : loyers perçus par joueur et par case, plus gros paiement
+    const st = s.st = s.st || {}; st.r = st.r || {}; st.c = st.c || {};
+    if (sp !== undefined && to) { st.r[to] = (st.r[to] || 0) + amt; st.c['s' + sp] = (st.c['s' + sp] || 0) + amt; }
+    if (!st.m || amt > st.m.a) st.m = { w: who, a: amt, t: to || '', y: why || '' };
     if (s.players[who].cash >= amt) {
         magPay(s, who, amt, to);
         magLog(s, `${who} paie ${amt} cr${to ? ' à ' + to : ''}${why ? ' (' + why + ')' : ''}.`);
@@ -451,7 +456,7 @@ function magLand(s, name, depth) {
         else if (owner === name) magLog(s, `${name} arrive chez lui : ${c.n}.`);
         else if (magOwn(s, sp).m) magLog(s, `${name} arrive sur ${c.n} (hypothéquée) : pas de loyer.`);
         else if (s.ev && magEvTouche(s.ev, sp) && MAG_EVENTS[s.ev.k].m === 0) magLog(s, `${name} arrive sur ${c.n} : loyer suspendu (${MAG_EVENTS[s.ev.k].n}).`);
-        else magCharge(s, name, magRent(s, sp, s.dice[0] + s.dice[1]), owner, 'loyer ' + c.n + (s.ev && magEvTouche(s.ev, sp) ? ' ×2, ' + MAG_EVENTS[s.ev.k].n : ''));
+        else magCharge(s, name, magRent(s, sp, s.dice[0] + s.dice[1]), owner, 'loyer ' + c.n + (s.ev && magEvTouche(s.ev, sp) ? ' ×2, ' + MAG_EVENTS[s.ev.k].n : ''), sp);
     } else if (c.t === 'tax') magCharge(s, name, c.a, '', c.n);
     else if (c.t === 'card') magDrawCard(s, name, c.d);
     else if (c.t === 'gojail') magJail(s, name);
@@ -659,6 +664,16 @@ function magApply(s0, a, now, rnd) {
         if (magCheckTrade(s, tr)) return null;
         s.trade = tr;
         magLog(s, `${by} propose un échange à ${tr.to}.`);
+        break;
+    }
+    case 'counter': {
+        // le destinataire répond par une autre offre : les rôles s'inversent (3 contre-propositions au plus)
+        const old = s.trade;
+        if (!old || old.to !== by || s.debts.length || s.auction || (old.c || 0) >= 3) return null;
+        const tr = { from: by, to: old.from, give: magCleanSide(a.give), get: magCleanSide(a.get), k: s.seq, c: (old.c || 0) + 1 };
+        if (magCheckTrade(s, tr)) return null;
+        s.trade = tr;
+        magLog(s, `${by} fait une contre-proposition à ${tr.to}.`);
         break;
     }
     case 'accept': {
@@ -1562,6 +1577,48 @@ function magTickTimer() {
     let txt = 'Sans limite de temps';
     if (g.s.endAt) { const left = Math.max(0, Math.ceil((g.s.endAt - now) / 1000)); txt = left > 0 ? `Fin de partie dans ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : 'Dernier tour'; }
     ['generic-game-timer', 'mag-top-timer'].forEach(id => { const top = document.getElementById(id); if (top) top.innerText = txt; });
+    magFinProche(g.s, now);
+}
+// Cinq dernières minutes : bandeau de décompte avec le classement provisoire (fortune de chaque joueur)
+function magFinProche(s0, now) {
+    const board = document.getElementById('mag-board');
+    let el = document.getElementById('mag-fin');
+    const left = s0.endAt ? Math.ceil((s0.endAt - now) / 1000) : 0;
+    if (!board || !s0.endAt || left > 300 || s0.status !== 'PLAYING') { if (el) el.remove(); magUI.finVu = 0; return; }
+    const s = magNorm(s0);
+    if (!el) { el = document.createElement('div'); el.id = 'mag-fin'; board.appendChild(el); }
+    const rang = magAlive(s).map(n => ({ n: n, w: magWorth(s, n) })).sort((a, b) => b.w - a.w);
+    const t = Math.max(0, left);
+    el.className = t <= 60 ? 'urgent' : '';
+    el.innerHTML = `<b>⏳ ${t > 0 ? 'Fin dans ' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0') : 'Dernier tour'}</b>` +
+        rang.map((r, i) => `<span style="color:${magColor(s, r.n)}">${i + 1}. ${magEsc(r.n)} <i>${r.w}</i></span>`).join('');
+    // annonces : 5 minutes, 1 minute, puis les dix dernières secondes
+    const palier = t <= 10 ? 3 : (t <= 60 ? 2 : 1);
+    if ((magUI.finVu || 0) < palier) {
+        const premier = !magUI.finVu;
+        magUI.finVu = palier;
+        if (typeof window.sfx === 'function') window.sfx(palier === 1 ? 'tour' : 'erreur');
+        if (typeof showToast === 'function' && (premier || palier === 2)) showToast(palier === 1 ? '⏳ Plus que 5 minutes : le plus riche à la fin l\'emporte.' : (palier === 2 ? '⏳ Dernière minute !' : '⏳ Fin imminente !'));
+    }
+    if (t <= 10 && t > 0 && typeof window.sfx === 'function') window.sfx('clic');
+}
+
+// Résumé de fin de partie : loyers perçus, colonie la plus rentable, plus gros paiement
+function magResumeHtml(s) {
+    const st = s.st || {}, r = st.r || {}, c = st.c || {};
+    const lignes = [];
+    const top = Object.keys(r).sort((a, b) => r[b] - r[a])[0];
+    if (top) lignes.push(['💰', 'Roi des loyers', `${magEsc(top)} — ${r[top]} cr perçus`]);
+    const best = Object.keys(c).sort((a, b) => c[b] - c[a])[0];
+    if (best) { const sp = Number(best.slice(1)), o = magOwn(s, sp); lignes.push(['🪐', 'Case la plus rentable', `${magEsc(MAG_SPACES[sp].n)} — ${c[best]} cr de loyers${o ? ' (' + magEsc(o.o) + ')' : ''}`]); }
+    if (st.m) lignes.push(['💸', 'Plus gros paiement', `${magEsc(st.m.w)} — ${st.m.a} cr${st.m.t ? ' à ' + magEsc(st.m.t) : ''}${st.m.y ? ' (' + magEsc(st.m.y) + ')' : ''}`]);
+    let bat = 0, batQui = '';
+    s.order.forEach(n => { const k = magOwned(s, n).reduce((t, sp) => t + (magHouses(s, sp) === 5 ? 5 : magHouses(s, sp)), 0); if (k > bat) { bat = k; batQui = n; } });
+    if (batQui) lignes.push(['🚀', 'Grand bâtisseur', `${magEsc(batQui)} — ${bat} niveau${bat > 1 ? 'x' : ''} de construction`]);
+    if (!lignes.length) return '';
+    return `<div style="margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid rgba(34,211,238,.4);background:rgba(8,47,73,.35);text-align:left">
+        <div style="font-size:10px;letter-spacing:.14em;color:#67e8f9;margin-bottom:6px">RÉSUMÉ DE LA PARTIE</div>
+        ${lignes.map(l => `<div style="display:flex;gap:8px;font-size:12px;padding:2px 0"><span>${l[0]}</span><span style="color:#94a3b8;flex:0 0 9.5em">${l[1]}</span><span style="color:#f8fafc;font-weight:700">${l[2]}</span></div>`).join('')}</div>`;
 }
 
 // ----- Panneau latéral -----
@@ -1584,13 +1641,14 @@ function magActionHtml(s, me) {
 
     if (s.trade && s.trade.to === me) {
         html += `<div class="p-3 rounded-xl border border-amber-400/60 bg-amber-950/30 space-y-2">
-            <div class="text-xs font-bold text-amber-300">🤝 ${magEsc(s.trade.from)} vous propose un échange</div>
+            <div class="text-xs font-bold text-amber-300">🤝 ${magEsc(s.trade.from)} vous ${s.trade.c ? 'fait une contre-proposition' : 'propose un échange'}</div>
             <div class="text-[11px] text-slate-200">Vous recevez : <b>${magSideDesc(s.trade.give)}</b></div>
             <div class="text-[11px] text-slate-200">Vous donnez : <b>${magSideDesc(s.trade.get)}</b></div>
-            <div class="flex gap-2">${magBtn('Accepter', 'data-act="accept"', GREEN)}${magBtn('Refuser', 'data-act="decline"', RED)}</div></div>`;
+            <div class="flex gap-2 flex-wrap">${magBtn('Accepter', 'data-act="accept"', GREEN)}${(s.trade.c || 0) < 3 ? magBtn('↩️ Contre-proposer', 'data-act="trcounter"', BLUE) : ''}${magBtn('Refuser', 'data-act="decline"', RED)}</div></div>`;
+        if (magUI.trOpen && magUI.trCounter) html += magTradeFormHtml(s, me);
     } else if (s.trade && s.trade.from === me) {
         html += `<div class="p-3 rounded-xl border border-amber-400/40 bg-amber-950/20 space-y-2">
-            <div class="text-xs text-amber-200">🤝 Proposition envoyée à <b>${magEsc(s.trade.to)}</b> — en attente de sa réponse.</div>
+            <div class="text-xs text-amber-200">🤝 ${s.trade.c ? 'Contre-proposition envoyée' : 'Proposition envoyée'} à <b>${magEsc(s.trade.to)}</b> — en attente de sa réponse.</div>
             <div class="text-[11px] text-slate-300">Vous donnez : ${magSideDesc(s.trade.give)} · Vous recevez : ${magSideDesc(s.trade.get)}</div>
             ${magBtn('Retirer ma proposition', 'data-act="decline"')}</div>`;
     } else if (s.trade) {
@@ -1653,11 +1711,12 @@ function magActionHtml(s, me) {
     } else body = `<div class="text-sm text-slate-200">${magEsc(magPhaseText(s))}...</div>`;
 
     html += `<div class="p-3 rounded-xl border border-cyan-500/40 bg-slate-900/80 space-y-2">${body}</div>`;
-    if (magUI.trOpen && p && !p.out && cur === me) html += magTradeFormHtml(s, me);
+    if (magUI.trOpen && !magUI.trCounter && p && !p.out && cur === me) html += magTradeFormHtml(s, me);
     return html;
 }
 function magTradeFormHtml(s, me) {
-    const others = magAlive(s).filter(n => n !== me);
+    const contre = !!magUI.trCounter && s.trade && s.trade.to === me;
+    const others = contre ? [s.trade.from] : magAlive(s).filter(n => n !== me);
     const tr = magUI.tr = magUI.tr || { to: others[0] || '', give: {}, get: {}, gc: '', rc: '', gk: false, rk: false };
     if (others.indexOf(tr.to) < 0) { tr.to = others[0] || ''; tr.get = {}; tr.rk = false; }
     const chips = (name, sel, act) => {
@@ -1669,7 +1728,7 @@ function magTradeFormHtml(s, me) {
     const card = (has, on, act) => has > 0 ? ` <button data-act="${act}" class="px-2 py-1 rounded-lg text-[11px] cursor-pointer border ${on ? 'bg-emerald-700 border-emerald-300 text-white' : 'bg-slate-900 border-slate-600 text-slate-200'}">🎫 Sauf-conduit</button>` : '';
     const cash = (id, v, max) => `<input id="${id}" type="number" min="0" max="${max}" value="${magEsc(v)}" placeholder="0" class="w-24 bg-slate-950 border border-slate-600 rounded-lg px-2 py-1 text-white text-xs font-mono"> <span class="text-[11px] text-slate-400">cr (max ${max})</span>`;
     return `<div class="p-3 rounded-xl border border-amber-400/50 bg-slate-900/90 space-y-2">
-        <div class="flex justify-between items-center"><span class="text-xs font-bold text-amber-300">🤝 Proposer un échange</span>${magBtn('✕', 'data-act="trclose"')}</div>
+        <div class="flex justify-between items-center"><span class="text-xs font-bold text-amber-300">${contre ? '↩️ Votre contre-proposition' : '🤝 Proposer un échange'}</span>${magBtn('✕', 'data-act="trclose"')}</div>
         <div class="text-[11px] text-slate-300">Avec : <select id="mag-tr-to" class="bg-slate-950 border border-slate-600 rounded-lg px-2 py-1 text-white text-xs">${others.map(n => `<option value="${magEsc(n)}" ${n === tr.to ? 'selected' : ''}>${magEsc(n)}</option>`).join('')}</select></div>
         <div class="text-[11px] font-bold text-slate-200">Vous donnez</div>
         <div>${cash('mag-tr-gc', tr.gc, s.players[me].cash)}</div>
@@ -1678,7 +1737,7 @@ function magTradeFormHtml(s, me) {
         <div>${cash('mag-tr-rc', tr.rc, tr.to ? s.players[tr.to].cash : 0)}</div>
         <div class="flex flex-wrap gap-1">${tr.to ? chips(tr.to, tr.get, 'trr') + card(s.players[tr.to].cards, tr.rk, 'trrk') : ''}</div>
         <div class="text-[10px] text-slate-500">Les colonies d'une famille portant des constructions ne peuvent pas être échangées.</div>
-        ${magBtn('Envoyer la proposition', 'data-act="trsend"', 'bg-emerald-600 hover:bg-emerald-500 text-white')}</div>`;
+        ${magBtn(contre ? 'Envoyer la contre-proposition' : 'Envoyer la proposition', 'data-act="trsend"', 'bg-emerald-600 hover:bg-emerald-500 text-white')}</div>`;
 }
 function magAvatar(name) {
     const room = (window.magData && window.magData.players) || {};
@@ -1834,10 +1893,11 @@ function magFit() {
 }
 function magRender(s, force) {
     if (!s.debts.length || s.debts[0].who !== magMe()) magUI.bk = false;
-    if (s.order[s.turn] !== magMe()) magUI.trOpen = false;
+    if (magUI.trCounter && !(s.trade && s.trade.to === magMe())) { magUI.trCounter = false; magUI.trOpen = false; magUI.tr = null; }
+    if (s.order[s.turn] !== magMe() && !magUI.trCounter) magUI.trOpen = false;
     if (!s.auction) magUI.bid = '';
     const tr = magUI.tr || {};
-    const sig = JSON.stringify([s.seq, s.order.map(n => magPionDe(s, n)).join(), magUI.props, magUI.sel, magUI.trOpen, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
+    const sig = JSON.stringify([s.seq, s.order.map(n => magPionDe(s, n)).join(), magUI.props, magUI.sel, magUI.trOpen, magUI.trCounter, tr.to, tr.give, tr.get, tr.gk, tr.rk, magUI.bk, magMe()]);
     if (!force && sig === magUI.sig) return;
     magUI.sig = sig;
     magSounds(s);
@@ -1881,19 +1941,25 @@ function magOnAct(d) {
     else if (act === 'propsclose') magUI.props = '';
     else if (act === 'bkask') magUI.bk = true;
     else if (act === 'bkno') magUI.bk = false;
-    else if (act === 'tropen') { magUI.trOpen = true; magUI.tr = null; }
-    else if (act === 'trclose') magUI.trOpen = false;
+    else if (act === 'tropen') { magUI.trOpen = true; magUI.trCounter = false; magUI.tr = null; }
+    else if (act === 'trcounter' && s.trade && s.trade.to === magMe()) {
+        // formulaire prérempli avec l'offre reçue, vue de mon côté
+        const o = s.trade, set = l => { const m = {}; l.forEach(x => { m[x] = true; }); return m; };
+        magUI.tr = { to: o.from, give: set(o.get.props), get: set(o.give.props), gc: o.get.cash || '', rc: o.give.cash || '', gk: o.get.cards > 0, rk: o.give.cards > 0 };
+        magUI.trOpen = true; magUI.trCounter = true;
+    }
+    else if (act === 'trclose') { magUI.trOpen = false; magUI.trCounter = false; }
     else if (act === 'trg' && tr) { if (tr.give[sp]) delete tr.give[sp]; else tr.give[sp] = true; }
     else if (act === 'trr' && tr) { if (tr.get[sp]) delete tr.get[sp]; else tr.get[sp] = true; }
     else if (act === 'trgk' && tr) tr.gk = !tr.gk;
     else if (act === 'trrk' && tr) tr.rk = !tr.rk;
     else if (act === 'trsend' && tr) {
-        const offer = { t: 'propose', to: tr.to,
+        const offer = { t: magUI.trCounter ? 'counter' : 'propose', to: tr.to,
             give: { cash: Math.max(0, Math.floor(Number(tr.gc) || 0)), props: Object.keys(tr.give).map(Number), cards: tr.gk ? 1 : 0 },
             get: { cash: Math.max(0, Math.floor(Number(tr.rc) || 0)), props: Object.keys(tr.get).map(Number), cards: tr.rk ? 1 : 0 } };
         const err = magCheckTrade(s, { from: magMe(), to: offer.to, give: magCleanSide(offer.give), get: magCleanSide(offer.get) });
         if (err) { if (typeof showToast === 'function') showToast('⚠️ ' + err); return; }
-        magUI.trOpen = false; magUI.tr = null;
+        magUI.trOpen = false; magUI.trCounter = false; magUI.tr = null;
         magSend(offer);
     }
     magRender(s);
@@ -1948,6 +2014,11 @@ const MAG_CSS = `
 #mag-etoiles::after{background-size:149px 163px;background-position:40px 70px;animation-duration:7.5s;animation-direction:alternate-reverse;opacity:.7}
 #mag-galaxie{position:absolute;inset:6%;background:url(./magnat-visuel/galaxie.webp) center/contain no-repeat;opacity:.92;animation:magGalaxie 360s linear infinite;will-change:transform;pointer-events:none}
 #mag-center{background:radial-gradient(circle,rgba(2,6,23,.66) 0%,rgba(2,6,23,.45) 50%,rgba(2,6,23,0) 72%)}
+#mag-fin{position:absolute;left:50%;top:72%;transform:translateX(-50%);z-index:3;max-width:56%;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;padding:5px 12px;border-radius:12px;border:1px solid #fbbf24;background:rgba(2,6,23,.86);font-size:11px;line-height:1.35;pointer-events:none}
+#mag-fin b{flex-basis:100%;text-align:center;color:#fde68a;font-size:13px;letter-spacing:.04em}
+#mag-fin span{font-weight:700;white-space:nowrap}#mag-fin i{font-style:normal;font-family:monospace;color:#e2e8f0;font-weight:400}
+#mag-fin.urgent{border-color:#f87171;animation:magFinUrgent .9s ease-in-out infinite}#mag-fin.urgent b{color:#fca5a5}
+@keyframes magFinUrgent{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}50%{box-shadow:0 0 18px 2px rgba(248,113,113,.8)}}
 .mag-station-feu{animation:magStationFeu 1.8s ease-in-out infinite}
 .mag-station-neuve{animation:magStationNeuve .5s cubic-bezier(.3,1.6,.5,1) backwards}
 .mag-anneau-or{filter:drop-shadow(0 0 3px rgba(251,191,36,.9));animation:magAnneauOr 2.6s ease-in-out infinite}
@@ -2129,7 +2200,7 @@ if (typeof window !== 'undefined') {
                         <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
                             <span class="font-bold">#${i + 1} - ${magEsc(r.n)} ${r.w > 0 ? '' : '<span class="text-slate-400 font-normal">(faillite)</span>'}</span>
                             <span class="font-mono text-emerald-400 font-bold text-sm">${r.w} cr</span>
-                        </div>`).join('');
+                        </div>`).join('') + magResumeHtml(s);
                 }
                 showScreen('screen-results');
                 if (typeof window.sfx === 'function') window.sfx('victoire');
