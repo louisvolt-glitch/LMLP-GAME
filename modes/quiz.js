@@ -19,7 +19,8 @@ const categoriesMeta = [
             { key: 'popculture', name: '🌟 Séries TV & Médias' },
             { key: 'inventions', name: '💡 Inventions & Innovations' },
             { key: 'languages', name: '🗣️ Langues & Linguistique' },
-            { key: 'pets', name: '🐾 Animaux de Compagnie' }
+            { key: 'pets', name: '🐾 Animaux de Compagnie' },
+            { key: 'scifi', name: '👽 Espace & Science-fiction' }
         ];
 
 window.categoriesMeta = categoriesMeta;
@@ -183,7 +184,7 @@ window.startQuizScreen = function() {
 
     // Affichage correct de la progression (ex: Question 1 / 10)
     document.getElementById('quiz-progress').innerText = `Question ${state.quizGame.currentIndex + 1} / ${totalQ}`;
-    document.getElementById('quiz-chosen-diff-badge').innerText = `Difficulté : ${(qobj.difficulty || 'easy').toUpperCase()}`;
+    document.getElementById('quiz-chosen-diff-badge').innerText = `Grade : ${({ easy: 'CADET', medium: 'OFFICIER', hard: 'COMMANDANT' })[qobj.difficulty || 'easy'] || 'CADET'}`;
     document.getElementById('quiz-question-text').innerText = qobj.q;
     
     // Affichage correct de la catégorie choisie
@@ -478,9 +479,22 @@ window.showQuizFinalRecap = function() {
     let playersArray = Array.isArray(state.players) ? state.players : Object.values(state.players || {});
     let sorted = playersArray.sort((a, b) => (b.score || 0) - (a.score || 0));
     
+    // Insigne de grade obtenu à l'examen de l'Académie, selon la part de bonnes réponses du joueur
+    const journal = state.quizGame.answersLog || [];
+    const bonnes = journal.filter(l => l.isCorrect).length, taux = journal.length ? bonnes / journal.length : 0;
+    const grade = taux >= 0.8 ? ['🎖️', 'COMMANDANT', '#fbbf24', 'Examen réussi avec les honneurs'] : (taux >= 0.5 ? ['⭐', 'OFFICIER', '#67e8f9', 'Examen réussi'] : ['🎓', 'CADET', '#94a3b8', 'Encore un peu d\'entraînement à l\'Académie']);
+    const insigne = journal.length ? `
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:2px solid ${grade[2]};background:rgba(2,6,23,.6);box-shadow:0 0 22px ${grade[2]}55;margin-bottom:8px">
+                <div style="font-size:44px;line-height:1">${grade[0]}</div>
+                <div style="text-align:left">
+                    <div style="font-size:10px;letter-spacing:.14em;color:#94a3b8">VOTRE INSIGNE DE GRADE</div>
+                    <div class="sci-font" style="font-weight:900;font-size:20px;letter-spacing:.1em;color:${grade[2]}">${grade[1]}</div>
+                    <div style="font-size:12px;color:#cbd5e1">${grade[3]} — ${bonnes} bonne${bonnes > 1 ? 's' : ''} réponse${bonnes > 1 ? 's' : ''} sur ${journal.length}</div>
+                </div>
+            </div>` : '';
     const lbContainer = document.getElementById('quiz-final-leaderboard');
     if (lbContainer) {
-        lbContainer.innerHTML = sorted.map((p, i) => `
+        lbContainer.innerHTML = insigne + sorted.map((p, i) => `
             <div class="flex justify-between items-center p-3 rounded-2xl ${i === 0 ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-slate-900 border border-slate-800'} text-xs">
                 <span class="font-bold">#${i + 1} - ${p.name || p.pseudo}</span>
                 <span class="font-mono text-emerald-400 font-bold text-sm">${p.score} pts</span>
