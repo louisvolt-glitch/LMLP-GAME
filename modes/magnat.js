@@ -898,7 +898,7 @@ function magBoardSvg() {
         lieux += `<g transform="translate(${lp[0].toFixed(1)} ${lp[1].toFixed(1)}) rotate(${magTextRot(th)})" text-anchor="middle" font-family="Arial, sans-serif" pointer-events="none" stroke="#020617" stroke-width="3" paint-order="stroke" stroke-linejoin="round">
             <text y="-7" font-size="10" font-weight="bold" fill="#f8fafc">${magEsc(l1)}</text>
             <text y="4" font-size="9.5" fill="#e2e8f0">${magEsc(l2)}</text>
-            <text y="15" font-size="9" font-weight="bold" fill="${c.p ? '#fbbf24' : '#fca5a5'}">${magEsc(l3)}</text></g>`;
+            <text id="mag-prix-${i}" y="15" font-size="9" font-weight="bold" fill="${c.p ? '#fbbf24' : '#fca5a5'}">${magEsc(l3)}</text></g>`;
         hits += `<path data-sp="${i}" d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="transparent" style="cursor:pointer"/>`;
     });
     return `<svg id="mag-svg" viewBox="0 0 720 720" style="position:relative;width:100%;height:100%;display:block">
@@ -920,37 +920,106 @@ function magBoardSvg() {
     </svg>`;
 }
 
-// Éléments qui changent : propriétaires (orbite de couleur), constructions (lunes), hypothèques, événement, sélection
+// ---------- Constructions : des stations en orbite ----------
+// Autour de chaque colonie constructible passe une orbite de construction à quatre emplacements. Chaque avant-poste
+// est une station posée sur un emplacement ; la métropole remplace les quatre stations par un anneau doré.
+const MAG_SLOTS = [48, -48, 132, -132];      // angle de chaque emplacement, mesuré depuis l'extérieur du plateau
+function magOrbiteR(sp) { return magPlaneteR(sp) + 9.5; }
+function magSlotPt(sp, k) {
+    const th = sp * 10 * Math.PI / 180, c = magPt(MAG_RP, sp * 10), R = magOrbiteR(sp), a = MAG_SLOTS[k % 4] * Math.PI / 180;
+    const ux = Math.sin(th), uy = -Math.cos(th), tx = Math.cos(th), ty = Math.sin(th);
+    return [c[0] + R * (Math.cos(a) * ux + Math.sin(a) * tx), c[1] + R * (Math.cos(a) * uy + Math.sin(a) * ty)];
+}
+function magStationSvg(pt, col, cls, delai) {
+    const x = pt[0].toFixed(1), y = pt[1].toFixed(1);
+    return `<g class="mag-station ${cls || ''}" style="transform-origin:${x}px ${y}px;${delai ? 'animation-delay:' + delai + 's' : ''}" pointer-events="none">
+        <line x1="${(pt[0] - 6.5).toFixed(1)}" y1="${y}" x2="${(pt[0] + 6.5).toFixed(1)}" y2="${y}" stroke="#7dd3fc" stroke-width="2.4" stroke-linecap="round"/>
+        <rect x="${(pt[0] - 3.4).toFixed(1)}" y="${(pt[1] - 3.4).toFixed(1)}" width="6.8" height="6.8" rx="1.8" fill="${col}" stroke="#f8fafc" stroke-width="1.3"/>
+        <circle class="mag-station-feu" cx="${x}" cy="${y}" r="1.1" fill="#fef9c3"/></g>`;
+}
+// Loyer affiché sous le nom d'une case possédée (à la place du prix d'achat)
+function magLoyerTexte(s, sp) {
+    const c = MAG_SPACES[sp], o = magOwn(s, sp);
+    if (!o) return { t: c.p ? c.p + ' cr' : (c.t === 'tax' ? '−' + c.a + ' cr' : ''), col: c.p ? '#fbbf24' : '#fca5a5' };
+    if (o.m) return { t: 'hypothéquée', col: '#f87171' };
+    const ev = s.ev && magEvTouche(s.ev, sp);
+    if (c.t === 'net') return { t: ev && MAG_EVENTS[s.ev.k].m === 0 ? 'loyer 0' : 'loyer ' + (magCount(s, o.o, 'net') >= 2 ? 10 : 4) * (ev ? MAG_EVENTS[s.ev.k].m : 1) + ' × dés', col: ev ? MAG_EVENTS[s.ev.k].col : '#6ee7b7' };
+    return { t: 'loyer ' + magRent(s, sp) + ' cr', col: ev ? MAG_EVENTS[s.ev.k].col : '#6ee7b7' };
+}
+// Animation d'une construction : une navette part de la Station Mère et s'arrime à la colonie
+function magFxNavette(sp, k, col, metropole) {
+    const fx = magFxLayer();
+    if (!fx) return;
+    const from = magPt(MAG_RP, 0), to = metropole ? magPt(MAG_RP, sp * 10) : magSlotPt(sp, k);
+    const ang = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI + 90;
+    const g = document.createElementNS(MAG_NS, 'g');
+    g.setAttribute('class', 'mag-navette');
+    g.style.transform = `translate(${from[0].toFixed(1)}px, ${from[1].toFixed(1)}px) rotate(${ang.toFixed(0)}deg)`;
+    g.innerHTML = `<path d="M0 -9 L5 5 L0 2 L-5 5 Z" fill="${metropole ? '#fbbf24' : col}" stroke="#f8fafc" stroke-width="1.2"/><path class="mag-navette-feu" d="M-2.5 5 L0 14 L2.5 5 Z" fill="#fb923c"/>`;
+    fx.appendChild(g);
+    void g.getBoundingClientRect();
+    g.style.transition = 'transform .85s cubic-bezier(.45,.05,.3,1)';
+    g.style.transform = `translate(${to[0].toFixed(1)}px, ${to[1].toFixed(1)}px) rotate(${ang.toFixed(0)}deg)`;
+    setTimeout(() => {
+        g.remove();
+        magFxOnde(to, metropole ? '#fbbf24' : col);
+        if (metropole) magFamilySpaces(MAG_SPACES[sp].f).forEach((x, i) => setTimeout(() => magFxOnde(magPt(MAG_RP, x * 10), '#fbbf24'), 120 * i));
+        if (typeof window.sfx === 'function') window.sfx(metropole ? 'victoire' : 'argent');
+    }, 870);
+}
+// Animation d'une vente : la station se détache et s'éloigne
+function magFxDepart(sp, k, col) {
+    const pt = magSlotPt(sp, k), c = magPt(MAG_RP, sp * 10);
+    const dx = (pt[0] - c[0]) * 2.4, dy = (pt[1] - c[1]) * 2.4;
+    magFx([0, 0], `<g class="mag-station-part" style="--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px">${magStationSvg(pt, col, '')}</g>`, 900);
+}
+
+// Éléments qui changent : propriétaires (orbite de couleur), constructions (stations), hypothèques, événement, sélection
 function magRenderDyn(s) {
     const dyn = document.getElementById('mag-dyn'), dessous = document.getElementById('mag-dyn-dessous');
     if (!dyn) return;
+    const me = magMe(), peutGerer = s.status === 'PLAYING' && magCanManage(s, me);
+    // constructions apparues ou disparues depuis le dernier affichage (rien au premier affichage d'une partie)
+    const avant = magUI.hSess === s.startedAt ? (magUI.hPrev || {}) : null, apres = {};
     let html = '', sous = '';
     for (let i = 0; i < MAG_N; i++) {
-        const th = i * 10, o = magOwn(s, i), pt = magPt(MAG_RP, th), x = pt[0].toFixed(1), y = pt[1].toFixed(1), r = magPlaneteR(i);
+        const th = i * 10, c = MAG_SPACES[i], o = magOwn(s, i), pt = magPt(MAG_RP, th), x = pt[0].toFixed(1), y = pt[1].toFixed(1), r = magPlaneteR(i);
+        // prix d'achat, ou loyer actuel si la case appartient à quelqu'un
+        const prix = document.getElementById('mag-prix-' + i);
+        if (prix) { const l = magLoyerTexte(s, i); if (prix.textContent !== l.t) prix.textContent = l.t; prix.setAttribute('fill', l.col); }
         if (s.ev && magEvTouche(s.ev, i)) {
             const d = MAG_EVENTS[s.ev.k];
             sous += `<circle class="mag-ev-case" cx="${x}" cy="${y}" r="${r + 15}" fill="${d.m === 0 ? 'rgba(2,6,23,.6)' : d.col + '33'}" stroke="${d.col}" stroke-width="3" ${d.m === 0 ? 'stroke-dasharray="8 6"' : ''} pointer-events="none"/>`;
         }
         if (o) {
-            const col = magColor(s, o.o);
-            html += `<circle cx="${x}" cy="${y}" r="${(r + 5.5).toFixed(1)}" fill="none" stroke="${col}" stroke-width="3.2"/><circle cx="${x}" cy="${y}" r="${(r + 5.5).toFixed(1)}" fill="none" stroke="#020617" stroke-width="1" opacity=".5"/>`;
+            const col = magColor(s, o.o), h = o.h || 0, R = magOrbiteR(i).toFixed(1);
+            apres[i] = h;
+            const was = avant ? (avant[i] || 0) : h, neuf = avant && h > was;
+            html += `<circle cx="${x}" cy="${y}" r="${(r + 4).toFixed(1)}" fill="none" stroke="${col}" stroke-width="2.6"/>`;
             // fanion du propriétaire, côté intérieur de la route
-            const fp = magPt(MAG_RP - r - 11, th);
+            const fp = magPt(MAG_RP - r - 13, th);
             html += `<circle cx="${fp[0].toFixed(1)}" cy="${fp[1].toFixed(1)}" r="4.5" fill="${col}" stroke="#020617" stroke-width="1.5"/>`;
-            if (o.m) html += `<circle cx="${x}" cy="${y}" r="${(r + 3).toFixed(1)}" fill="rgba(2,6,23,.78)"/><text x="${x}" y="${(pt[1] + 3.5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="bold" fill="#f87171" font-family="Arial, sans-serif">HYP.</text>`;
-            const h = o.h || 0;
-            if (h === 5) {
-                // métropole : une grande lune dorée cerclée
-                const mp = [pt[0] + (r + 9) * 0.72, pt[1] - (r + 9) * 0.72];
-                html += `<circle cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" r="7" fill="#fbbf24" stroke="#78350f" stroke-width="2"/><ellipse cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" rx="11" ry="3.4" fill="none" stroke="#fde68a" stroke-width="1.6" transform="rotate(-25 ${mp[0].toFixed(1)} ${mp[1].toFixed(1)})"/>`;
-            } else for (let k = 0; k < h; k++) {
-                // avant-postes : de petites lunes en orbite autour de la planète
-                const a = (-70 + k * 38) * Math.PI / 180, mx = pt[0] + (r + 10) * Math.cos(a), my = pt[1] + (r + 10) * Math.sin(a);
-                html += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="4" fill="#f8fafc" stroke="#0f172a" stroke-width="1.5"/>`;
+            if (o.m) html += `<circle cx="${x}" cy="${y}" r="${(r + 2.5).toFixed(1)}" fill="rgba(2,6,23,.78)"/><text x="${x}" y="${(pt[1] + 3.5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="bold" fill="#f87171" font-family="Arial, sans-serif">HYP.</text>`;
+            if (c.t === 'prop') {
+                const constructible = !o.m && magOwnsFamily(s, o.o, c.f);
+                if (h === 5) {
+                    // métropole : anneau doré complet et grande station
+                    const mp = magSlotPt(i, 0);
+                    html += `<circle class="mag-anneau-or ${neuf ? 'mag-anneau-neuf' : ''}" cx="${x}" cy="${y}" r="${R}" fill="none" stroke="#fbbf24" stroke-width="3.4" pathLength="100"/>
+                        <g class="mag-station ${neuf ? 'mag-station-neuve' : ''}" style="transform-origin:${mp[0].toFixed(1)}px ${mp[1].toFixed(1)}px;${neuf ? 'animation-delay:.85s' : ''}"><circle cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" r="6.2" fill="#fbbf24" stroke="#78350f" stroke-width="1.6"/><circle cx="${mp[0].toFixed(1)}" cy="${mp[1].toFixed(1)}" r="2.3" fill="#fffbeb"/></g>`;
+                } else if (constructible || h > 0) {
+                    html += `<circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${h > 0 ? col : 'rgba(226,232,240,.55)'}" stroke-width="1.1" stroke-dasharray="2.5 3.5" opacity="${h > 0 ? '.9' : '.7'}"/>`;
+                    for (let k = 0; k < h; k++) html += magStationSvg(magSlotPt(i, k), col, neuf && k >= was ? 'mag-station-neuve' : '', neuf && k >= was ? 0.85 : 0);
+                    // prochain emplacement libre : il clignote quand je peux y construire maintenant
+                    if (o.o === me && peutGerer && !magCheckBuild(s, me, i)) { const sp2 = magSlotPt(i, h % 4); html += `<circle class="mag-slot-libre" cx="${sp2[0].toFixed(1)}" cy="${sp2[1].toFixed(1)}" r="4.6" fill="rgba(110,231,183,.18)" stroke="#6ee7b7" stroke-width="1.4" stroke-dasharray="2.2 2"/>`; }
+                }
+                if (neuf) magFxNavette(i, h === 5 ? 0 : h - 1, col, h === 5);
+                else if (avant && h < was) { if (was === 5) magFxDepart(i, 0, '#fbbf24'); for (let k = h; k < Math.min(was, 4); k++) magFxDepart(i, k, col); if (typeof window.sfx === 'function') window.sfx('carte'); }
             }
         }
-        if (i === magUI.sel) html += `<path d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="${r + 9}" fill="none" stroke="#ffffff" stroke-width="2.5"/>`;
+        if (i === magUI.sel) html += `<path d="${magArc(MAG_RI, MAG_RO, th - 5, th + 5)}" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="${r + 14}" fill="none" stroke="#ffffff" stroke-width="2.2"/>`;
     }
+    magUI.hSess = s.startedAt; magUI.hPrev = apres;
     dyn.innerHTML = html;
     if (dessous) dessous.innerHTML = sous;
 }
@@ -1654,12 +1723,12 @@ function magStateLabel(s, sp) {
     return '';
 }
 // Boutons de gestion d'une propriété (uniquement pour son propriétaire)
-function magManageBtns(s, me, sp) {
+function magManageBtns(s, me, sp, sansConstruction) {
     const c = MAG_SPACES[sp], o = magOwn(s, sp), can = magCanManage(s, me);
     const b = (label, act, err, title) => `<button data-act="${act}" data-sp="${sp}" ${!can || err ? 'disabled' : ''} title="${magEsc(!can ? 'Possible pendant votre tour' : (err || title))}" class="mag-mini">${label}</button>`;
     const build = c.t === 'prop' ? b('＋ Construire', 'build', magCheckBuild(s, me, sp), `Construire (${magHouseCost(sp)} cr)`) + b('－ Vendre', 'sell', magCheckSell(s, me, sp), `Vendre une construction (+${Math.floor(magHouseCost(sp) / 2)} cr)`) : '';
     const mort = o.m ? b(`Lever (−${magUnmortgageCost(sp)})`, 'unmortgage', magCheckUnmortgage(s, me, sp), `Lever l'hypothèque (${magUnmortgageCost(sp)} cr)`) : b(`Hypothéquer (+${magMortgageValue(sp)})`, 'mortgage', magCheckMortgage(s, me, sp), `Hypothéquer (+${magMortgageValue(sp)} cr)`);
-    return build + mort;
+    return (sansConstruction ? '' : build) + mort;
 }
 function magPropsHtml(s, name, me) {
     const owned = magOwned(s, name), mine = name === me;
@@ -1710,9 +1779,21 @@ function magDetailHtml(s) {
     let info;
     if (c.t === 'prop') {
         const t = magRentTable(sp), h = o ? (o.h || 0) : -1;
-        const labels = ['Terrain nu', '1 avant-poste', '2 avant-postes', '3 avant-postes', '4 avant-postes', 'Métropole'];
-        info = `<div class="grid grid-cols-2 gap-x-3 text-[11px]">${t.map((v, i) => `<span class="${i === h && !(o && o.m) ? 'text-emerald-300 font-bold' : 'text-slate-300'}">${labels[i]}</span><span class="text-right font-mono ${i === h && !(o && o.m) ? 'text-emerald-300 font-bold' : 'text-slate-200'}">${v} cr</span>`).join('')}</div>
-            <div class="text-[10px] text-slate-400">Famille ${MAG_FAMILIES[c.f].name} complète : loyer du terrain nu doublé. Construction : ${magHouseCost(sp)} cr. Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
+        const labels = ['Colonie nue', '1 avant-poste', '2 avant-postes', '3 avant-postes', '4 avant-postes', 'Métropole'];
+        const actif = o && o.m ? -1 : h, max = t[5], moi = magMe(), aMoi = o && o.o === moi;
+        const errB = aMoi ? magCheckBuild(s, moi, sp) : '', errV = aMoi ? magCheckSell(s, moi, sp) : '', gere = magCanManage(s, moi);
+        info = `<div style="display:flex;flex-direction:column;gap:2px">${t.map((v, i) => {
+            const on = i === actif, icone = i === 0 ? '🪐' : (i === 5 ? '<span style="color:#fbbf24">◎</span>' : '<span style="color:#7dd3fc">' + '▪'.repeat(i) + '</span>');
+            return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 5px;border-radius:6px;${on ? 'background:rgba(16,185,129,.2);outline:1px solid #34d399' : ''}">
+                <span style="width:34px;font-size:10px;letter-spacing:-1px">${icone}</span>
+                <span style="flex:1;color:${on ? '#6ee7b7' : '#cbd5e1'};font-weight:${on ? 800 : 400}">${labels[i]}</span>
+                <span style="flex:0 0 46px;height:5px;border-radius:3px;background:rgba(148,163,184,.2);overflow:hidden"><i style="display:block;height:100%;width:${Math.max(4, Math.round(Math.sqrt(v / max) * 100))}%;background:${i === 5 ? '#fbbf24' : (on ? '#34d399' : '#38bdf8')}"></i></span>
+                <span style="width:52px;text-align:right;font-family:monospace;color:${on ? '#6ee7b7' : '#e2e8f0'};font-weight:${on ? 800 : 400}">${v} cr</span></div>`; }).join('')}</div>
+            ${aMoi ? `<div style="display:flex;gap:5px;margin-top:5px">
+                <button data-act="build" data-sp="${sp}" ${!gere || errB ? 'disabled' : ''} title="${magEsc(!gere ? 'Possible pendant votre tour' : errB)}" style="flex:1;padding:6px 4px;border-radius:8px;border:0;font-weight:800;font-size:11px;font-family:inherit;cursor:${!gere || errB ? 'not-allowed' : 'pointer'};background:${!gere || errB ? '#1e293b' : '#059669'};color:${!gere || errB ? '#64748b' : '#fff'}">🚀 ${h === 4 ? 'Métropole' : 'Construire'} · ${magHouseCost(sp)} cr</button>
+                <button data-act="sell" data-sp="${sp}" ${!gere || errV ? 'disabled' : ''} title="${magEsc(!gere ? 'Possible pendant votre tour' : errV)}" style="flex:1;padding:6px 4px;border-radius:8px;border:1px solid #475569;font-weight:700;font-size:11px;font-family:inherit;cursor:${!gere || errV ? 'not-allowed' : 'pointer'};background:transparent;color:${!gere || errV ? '#64748b' : '#e2e8f0'}">Vendre · +${Math.floor(magHouseCost(sp) / 2)} cr</button></div>
+                ${gere && errB && h < 5 ? `<div style="font-size:10px;color:#fbbf24">${magEsc(errB)}</div>` : ''}` : ''}
+            <div class="text-[10px] text-slate-400">Famille ${MAG_FAMILIES[c.f].name} complète : loyer de la colonie nue doublé. Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
     } else if (c.t === 'portal') info = `<div class="text-[11px] text-slate-300">Loyer selon le nombre de Portails possédés : 25 / 50 / 100 / 200 cr. Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
     else if (c.t === 'net') info = `<div class="text-[11px] text-slate-300">Loyer : 4 × le total des dés (10 × si le propriétaire possède les deux Réseaux). Hypothèque : ${magMortgageValue(sp)} cr.</div>`;
     else info = `<div class="text-[11px] text-slate-300">${{ start: `Chaque passage rapporte ${MAG.SALARY} cr.`, tax: `Payez ${c.a} cr à la banque.`, card: `Tirez une carte ${c.n}.`, jail: 'Simple visite... sauf si la Patrouille vous y envoie.', free: 'Zone de repos : rien ne se passe.', gojail: 'Vous êtes envoyé directement en Quarantaine.' }[c.t] || ''}</div>`;
@@ -1721,7 +1802,7 @@ function magDetailHtml(s) {
         ${c.p ? `<span class="text-xs font-mono text-amber-300">${c.p} cr</span>` : ''}</div>
         ${magOwnable(sp) ? `<div class="text-[11px] text-slate-300">Propriétaire : ${o ? `<b style="color:${magColor(s, o.o)}">${magEsc(o.o)}</b> ${magStateLabel(s, sp)}` : '<span class="text-slate-500">à vendre</span>'}</div>` : ''}
         ${info}
-        ${o && o.o === magMe() ? `<div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:4px">${magManageBtns(s, magMe(), sp)}</div>` : ''}</div>`;
+        ${o && o.o === magMe() ? `<div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:4px">${magManageBtns(s, magMe(), sp, c.t === 'prop')}</div>` : ''}</div>`;
 }
 function magLogHtml(s) {
     return `<div class="space-y-1 text-[11px] text-slate-300">${s.log.slice().reverse().map((l, i) => `<div class="${i === 0 ? 'text-white font-bold' : ''}">• ${magEsc(l)}</div>`).join('')}</div>`;
@@ -1867,6 +1948,20 @@ const MAG_CSS = `
 #mag-etoiles::after{background-size:149px 163px;background-position:40px 70px;animation-duration:7.5s;animation-direction:alternate-reverse;opacity:.7}
 #mag-galaxie{position:absolute;inset:6%;background:url(./magnat-visuel/galaxie.webp) center/contain no-repeat;opacity:.92;animation:magGalaxie 360s linear infinite;will-change:transform;pointer-events:none}
 #mag-center{background:radial-gradient(circle,rgba(2,6,23,.66) 0%,rgba(2,6,23,.45) 50%,rgba(2,6,23,0) 72%)}
+.mag-station-feu{animation:magStationFeu 1.8s ease-in-out infinite}
+.mag-station-neuve{animation:magStationNeuve .5s cubic-bezier(.3,1.6,.5,1) backwards}
+.mag-anneau-or{filter:drop-shadow(0 0 3px rgba(251,191,36,.9));animation:magAnneauOr 2.6s ease-in-out infinite}
+.mag-anneau-neuf{stroke-dasharray:100;animation:magAnneauTrace 1s ease-out .85s backwards,magAnneauOr 2.6s ease-in-out 1.85s infinite}
+.mag-slot-libre{animation:magSlotLibre 1.1s ease-in-out infinite}
+.mag-navette{pointer-events:none}
+.mag-navette-feu{animation:magStationFeu .18s linear infinite}
+.mag-station-part{animation:magStationPart .9s ease-in forwards}
+@keyframes magStationFeu{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes magStationNeuve{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes magAnneauOr{0%,100%{filter:drop-shadow(0 0 2px rgba(251,191,36,.7))}50%{filter:drop-shadow(0 0 7px rgba(253,224,71,1))}}
+@keyframes magAnneauTrace{0%{stroke-dashoffset:100;opacity:.2}100%{stroke-dashoffset:0;opacity:1}}
+@keyframes magSlotLibre{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes magStationPart{0%{transform:translate(0,0);opacity:1}100%{transform:translate(var(--dx),var(--dy));opacity:0}}
 .mag-tourne{animation:magGalaxie 9s linear infinite reverse}
 .mag-tourne.lent{animation-duration:26s}
 @keyframes magGalaxie{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
