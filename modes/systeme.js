@@ -8,6 +8,7 @@
 //    6) revanche (l'hôte relance le même jeu sans repasser par le salon)
 //    7) pause pour tous et vote de retour au salon, disponibles dans tous les jeux
 //    8) chargement à la demande des gros fichiers (questions du Quiz, films, moteur 3D d'Anomalies)
+//   10) appareil de chaque joueur (téléphone / ordinateur) et jeu Anomalies grisé si un téléphone est présent
 //    9) spectateurs : un joueur qui arrive en cours de partie regarde, puis rejoint au retour dans le salon
 //  index.html appelle : nettoyerPseudo(), systemeSurSalon(), salonDisparu(),
 //  systemeApresConnexion(), reconnexionAuto(), demanderRevanche(), quitterSalon().
@@ -486,6 +487,10 @@ function systemeFiltre(snapshot) {
 // Appelé par launchGame() : l'hôte ne lance pas un jeu dont les données ne sont pas encore arrivées
 function systemeAvantLancement() {
     const mode = typeof state !== 'undefined' ? state.selectedMode : '';
+    if (mode === 'anomaly' && (document.body.classList.contains('mob') || sysJoueursTel(window.currentRoom).length)) {      // Anomalies ne fonctionne pas sur téléphone
+        sysAnomalieRefus();
+        return false;
+    }
     if (sysRessourcesPretes(mode)) return true;
     window._lancementEnAttente = mode;
     sysCharger(mode);
@@ -558,6 +563,49 @@ function sysPromouvoirSpectateur(data, code) {
       .catch(err => console.error('Spectateur :', err));
 }
 
+// ============================ 10) APPAREIL DE CHAQUE JOUEUR ============================
+// Chaque joueur indique au salon s'il est sur téléphone ou sur ordinateur (icône sur sa carte dans le salon).
+// Anomalies ne fonctionnant pas sur téléphone, il est grisé pour l'hôte dès qu'un joueur sur téléphone est présent.
+function sysMonAppareil() { return document.body.classList.contains('mob') ? 'tel' : 'ordi'; }
+function sysJoueursTel(data) { return Object.values((data && data.players) || {}).filter(p => p && p.name && !p.isBot && p.appareil === 'tel').map(p => p.name); }
+function sysAppareil(data, code) {
+    const moi = window.myPlayerKey, cur = sysMonAppareil();
+    if (moi && !window.estSpectateur && data.players && data.players[moi] && data.players[moi].appareil !== cur) {
+        window.update(window.ref(window.db, 'salons/' + code), { ['players/' + moi + '/appareil']: cur }).catch(() => {});
+    }
+    const btn = document.getElementById('protocol-btn-anomaly');
+    if (!btn) return;
+    const tels = sysJoueursTel(data), bloque = !!window.isHost && tels.length > 0;
+    if (bloque) {
+        btn.dataset.bloque = '1';
+        btn.style.opacity = '.38'; btn.style.filter = 'grayscale(1)'; btn.style.cursor = 'not-allowed';
+        btn.title = 'Indisponible : ' + tels.join(', ') + (tels.length > 1 ? ' sont' : ' est') + ' sur téléphone';
+    } else if (btn.dataset.bloque) {
+        delete btn.dataset.bloque;
+        btn.style.opacity = ''; btn.style.filter = ''; btn.style.cursor = ''; btn.title = '';
+    }
+}
+function sysAnomalieRefus() {
+    const tels = sysJoueursTel(window.currentRoom);
+    if (typeof showToast === 'function') showToast('📱 Anomalies ne se joue pas sur téléphone : ' + (tels.length ? tels.join(', ') + (tels.length > 1 ? ' sont' : ' est') + ' sur téléphone.' : 'choisissez un autre jeu.'));
+    if (typeof window.sfx === 'function') window.sfx('erreur');
+}
+if (SYS_NAVIGATEUR0) {
+    // un clic sur le jeu grisé ne le sélectionne pas : il explique pourquoi
+    document.addEventListener('click', e => {
+        const b = e.target && e.target.closest ? e.target.closest('#protocol-btn-anomaly[data-bloque="1"]') : null;
+        if (!b) return;
+        e.preventDefault(); e.stopPropagation();
+        sysAnomalieRefus();
+    }, true);
+    // fenêtre redimensionnée ou téléphone tourné : l'appareil annoncé est mis à jour
+    let sysAppareilT = 0;
+    window.addEventListener('resize', () => {
+        clearTimeout(sysAppareilT);
+        sysAppareilT = setTimeout(() => { if (window.currentRoom && window.currentCodeSalon) sysAppareil(window.currentRoom, window.currentCodeSalon); }, 400);
+    });
+}
+
 // ============================ BOUTONS ET SUIVI DU SALON ============================
 function sysBoutons() {
     // bouton son (toujours visible) + boutons du salon (classement, quitter) + boutons « Revanche » réservés à l'hôte
@@ -579,6 +627,7 @@ function systemeSurSalon(data, code, prevStatus) {
     try {
         sysPauseEtVote(data, code);
         sysPromouvoirSpectateur(data, code);
+        sysAppareil(data, code);
         if (data.selectedMode) sysCharger(data.selectedMode);      // les données du jeu choisi se chargent dès le salon
         sysNettoyage(data, code);
         soireeSuivre(data, code, prevStatus);
