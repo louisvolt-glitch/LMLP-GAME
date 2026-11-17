@@ -1888,6 +1888,7 @@ function updateLobbyUI() {
                     <!-- L'image prend tout l'espace disponible verticalement sans bandes noires -->
                     <div class="scanline-box w-full flex-1 bg-black/90 border border-cyan-500/30 flex items-center justify-center my-1 relative overflow-hidden rounded min-h-0">
                         ${avatarHTML}
+                        ${p.appareil ? `<div title="${p.appareil === 'tel' ? 'Sur téléphone' : 'Sur ordinateur'}" style="position:absolute;right:3px;bottom:3px;z-index:20;font-size:13px;line-height:1;padding:3px 4px;border-radius:6px;background:rgba(2,6,23,.78);border:1px solid rgba(34,211,238,.45)">${p.appareil === 'tel' ? '📱' : '💻'}</div>` : ''}
                     </div>
                     
                     <div class="text-[8px] py-1 border ${p.isReady ? 'border-emerald-500 text-emerald-400 bg-emerald-950/80' : 'border-amber-500 text-amber-400 bg-amber-950/80'} sci-font font-bold tracking-wider relative z-20 truncate shrink-0">
