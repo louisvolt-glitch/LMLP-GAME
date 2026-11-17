@@ -7,6 +7,8 @@
 //    5) classement de la soirée (cumul sur tout le salon)
 //    6) revanche (l'hôte relance le même jeu sans repasser par le salon)
 //    7) pause pour tous et vote de retour au salon, disponibles dans tous les jeux
+//    8) chargement à la demande des gros fichiers (questions du Quiz, films, moteur 3D d'Anomalies)
+//    9) spectateurs : un joueur qui arrive en cours de partie regarde, puis rejoint au retour dans le salon
 //  index.html appelle : nettoyerPseudo(), systemeSurSalon(), salonDisparu(),
 //  systemeApresConnexion(), reconnexionAuto(), demanderRevanche(), quitterSalon().
 // =====================================================================
@@ -57,8 +59,8 @@ function nettoyerPseudo(raw) {
         .trim();
 }
 // Si le pseudo est déjà porté par un AUTRE joueur du salon, on ajoute un numéro
-function pseudoLibre(nom, players, cid) {
-    players = players || {};
+function pseudoLibre(nom, players, cid, spectateurs) {
+    players = Object.assign({}, spectateurs || {}, players || {});
     const pris = n => players[n] && players[n].cid !== cid;
     if (!pris(nom)) return nom;
     const base = nom.slice(0, 13);
@@ -108,7 +110,8 @@ function quitterSalon() {
     if (code && me && window.db && window.set) {
         window._joinedRoom = null; window._lastMyPlayer = null;      // empêche la réinscription automatique
         const humans = Object.values((window.currentRoom && window.currentRoom.players) || {}).filter(p => p && !p.isBot && p.name);
-        const cible = humans.length <= 1 ? 'salons/' + code : 'salons/' + code + '/players/' + me;      // dernier joueur : le salon est supprimé
+        const cible = window.estSpectateur ? 'salons/' + code + '/spectateurs/' + me
+            : (humans.length <= 1 ? 'salons/' + code : 'salons/' + code + '/players/' + me);      // dernier joueur : le salon est supprimé
         window.set(window.ref(window.db, cible), null).then(fin).catch(fin);
     } else fin();
 }
@@ -223,15 +226,17 @@ function soireeSuivre(data, code, prevStatus) {
     if (!window.isHost || !window.update || prevStatus === undefined || prevStatus === data.status) return;
     const humans = Object.values(data.players || {}).filter(p => p && !p.isBot && p.name);
     if (prevStatus === 'LOBBY' && data.status === 'IN_GAME') {
-        const scores = {};
-        humans.forEach(p => { scores[p.name] = Number(p.score) || 0; });
-        window.update(window.ref(window.db, 'salons/' + code), { soireeBase: { mode: data.selectedMode || '', t: Date.now(), scores: scores } }).catch(() => {});
+        const scores = {}, joueurs = {};
+        humans.forEach(p => { scores[p.name] = Number(p.score) || 0; joueurs[p.name] = true; });
+        window.update(window.ref(window.db, 'salons/' + code), { soireeBase: { mode: data.selectedMode || '', t: Date.now(), scores: scores }, partie: { t: SYS_REAL_NOW(), joueurs: joueurs } }).catch(() => {});
+    } else if (prevStatus === 'IN_GAME' && data.status === 'LOBBY' && !data.soireeBase) {
+        if (data.partie) window.update(window.ref(window.db, 'salons/' + code), { partie: null }).catch(() => {});
     } else if (prevStatus === 'IN_GAME' && data.status === 'LOBBY' && data.soireeBase) {
         const cle = code + ':' + data.soireeBase.t;
         if (soireeVerrou === cle) return;
         soireeVerrou = cle;
         const res = soireeResultat(humans.map(p => ({ name: p.name, score: p.score })), data.soireeBase.scores);
-        const updates = { soireeBase: null };
+        const updates = { soireeBase: null, partie: null };
         if (res) {
             const cur = data.soiree || {};
             Object.keys(res).forEach(n => {
@@ -399,7 +404,7 @@ function sysPauseEtVote(data, code) {
         // l'hôte tranche : tout le monde a accepté → retour au salon ; délai dépassé → vote annulé
         if (window.isHost) {
             if (humains.length && attente.length === 0) {
-                const updates = { status: 'LOBBY', quitVote: null, lobbyReturn: null, soireeBase: null, pause: null, abandon: now };
+                const updates = { status: 'LOBBY', quitVote: null, lobbyReturn: null, soireeBase: null, partie: null, pause: null, abandon: now };
                 if (data.pause) updates.pauseTotal = (data.pauseTotal || 0) + Math.max(0, now - (data.pause.t || now));
                 Object.keys(data.players || {}).forEach(k => { updates['players/' + k + '/isReady'] = false; });
                 sysEcrire(updates);
@@ -427,6 +432,132 @@ if (SYS_NAVIGATEUR0) window.sysRealSetInterval(() => {
     if (left < 0 && window.isHost && room.status === 'IN_GAME') sysEcrire({ quitVote: null, quitRefus: { by: '', t: SYS_REAL_NOW() } });
 }, 1000);
 
+// ============================ 8) CHARGEMENT À LA DEMANDE ============================
+// Fichiers lourds chargés seulement quand leur jeu est choisi dans le salon (et non plus à l'ouverture du site).
+const SYS_RESSOURCES = {
+    quiz: ['./modes/donnees-quiz.js'],
+    cine: ['./modes/donnees-cine.js'],
+    anomaly: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+              'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
+              './modes/anomaly.js']
+};
+const sysRes = {};       // mode -> 'ok' | 'cours' ; absent = pas encore demandé
+function sysRessourcesPretes(mode) { return !SYS_RESSOURCES[mode] || sysRes[mode] === 'ok'; }
+function sysChargerScript(src) {
+    return new Promise((resolve, reject) => {
+        const el = document.createElement('script');
+        el.src = src; el.async = false;
+        el.onload = resolve;
+        el.onerror = () => { el.remove(); reject(new Error('Chargement impossible : ' + src)); };
+        document.head.appendChild(el);
+    });
+}
+function sysCharger(mode) {
+    if (!SYS_RESSOURCES[mode] || sysRes[mode]) return;
+    sysRes[mode] = 'cours';
+    SYS_RESSOURCES[mode].reduce((p, src) => p.then(() => sysChargerScript(src)), Promise.resolve()).then(() => {
+        sysRes[mode] = 'ok';
+        // on rejoue la dernière mise à jour du salon : le jeu qui attendait ses données peut maintenant s'afficher
+        if (window._surSalon && window._dernierSnapshot) window._surSalon(window._dernierSnapshot);
+        if (window._lancementEnAttente === mode) { window._lancementEnAttente = ''; if (typeof launchGame === 'function') launchGame(); }
+    }).catch(err => {
+        delete sysRes[mode];      // nouvel essai à la prochaine mise à jour du salon
+        console.error(err);
+        if (typeof showToast === 'function') showToast('⚠️ Les données de ce jeu n\'ont pas pu être chargées. Vérifiez la connexion.');
+    });
+}
+// Appelé par index.html au tout début de chaque mise à jour du salon. Renvoie true s'il faut attendre.
+let sysAttenteVue = '';
+function systemeFiltre(snapshot) {
+    const data = snapshot && snapshot.val ? snapshot.val() : null;
+    if (!data) return false;
+    const mode = data.selectedMode;
+    if (mode && SYS_RESSOURCES[mode] && !sysRessourcesPretes(mode)) {
+        sysCharger(mode);
+        if (data.status === 'IN_GAME') {
+            window._dernierSnapshot = snapshot;
+            if (sysAttenteVue !== mode) { sysAttenteVue = mode; if (typeof showToast === 'function') showToast('⏳ Chargement des données du jeu...'); }
+            return true;
+        }
+    }
+    window._dernierSnapshot = snapshot;
+    return false;
+}
+// Appelé par launchGame() : l'hôte ne lance pas un jeu dont les données ne sont pas encore arrivées
+function systemeAvantLancement() {
+    const mode = typeof state !== 'undefined' ? state.selectedMode : '';
+    if (sysRessourcesPretes(mode)) return true;
+    window._lancementEnAttente = mode;
+    sysCharger(mode);
+    if (typeof showToast === 'function') showToast('⏳ Chargement des données du jeu, lancement dans un instant...');
+    return false;
+}
+
+// ============================ 9) SPECTATEURS ============================
+// Un joueur qui arrive alors qu'une partie est en cours (et qui n'en fait pas partie) n'entre pas dans la liste
+// des joueurs : il est rangé dans « spectateurs », regarde, puis rejoint les joueurs au retour dans le salon.
+const SYS_VUE_DIRECTE = { magnat: true, bataille: true, missive: true };      // jeux qui ont leur propre vue spectateur
+function entrerEnSpectateur(dataSalon, roomCode) {
+    const nom = state.username, partie = dataSalon.partie;
+    if (dataSalon.status !== 'IN_GAME' || !partie || !partie.joueurs || partie.joueurs[nom]) return false;
+    if (dataSalon.players && dataSalon.players[nom]) return false;
+    window.estSpectateur = true;
+    window.isHost = false;
+    state.roomCode = roomCode;
+    window.myPlayerKey = nom;
+    const el = document.getElementById('session-code'); if (el) el.innerText = roomCode;
+    window.update(window.ref(window.db, 'salons/' + roomCode), { ['spectateurs/' + nom]: { name: nom, avatar: state.avatar, cid: window.monCid || '', t: SYS_REAL_NOW() } })
+        .catch(err => console.error('Spectateur :', err));
+    try { window.onDisconnect(window.ref(window.db, 'salons/' + roomCode + '/spectateurs/' + nom)).remove(); } catch (e) {}
+    window.rejoindreSalonFirebase(roomCode);
+    systemeApresConnexion();
+    if (typeof showToast === 'function') showToast('👁️ Partie en cours : vous entrez en spectateur.');
+    return true;
+}
+// Appelé par index.html avant d'afficher un jeu. Renvoie true si l'écran « spectateur » remplace le jeu.
+function systemeSpectateur(data) {
+    let ov = document.getElementById('sys-spectateur');
+    if (!window.estSpectateur || data.status !== 'IN_GAME' || SYS_VUE_DIRECTE[data.selectedMode]) { if (ov) ov.remove(); return false; }
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'sys-spectateur';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:10030;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#0b1a30 0%,#040913 72%);padding:16px;overflow-y:auto';
+        document.body.appendChild(ov);
+    }
+    const btn = document.getElementById('protocol-btn-' + data.selectedMode);
+    const jeu = btn && btn.querySelector('span') ? btn.querySelector('span').innerText : 'ce jeu';
+    const rows = Object.values(data.players || {}).filter(p => p && p.name && !p.isBot).sort((a, b) => (b.score || 0) - (a.score || 0)).map(p => {
+        const av = p.avatar && p.avatar.src;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid rgba(148,163,184,.2)">
+            ${av ? `<img src="${soireeEsc(av)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #22d3ee">` : ''}
+            <span style="flex:1;min-width:0;text-align:left;font-weight:800;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${soireeEsc(p.name)}</span>
+            <span style="font-family:monospace;font-weight:800;color:#6ee7b7">${p.score || 0} pts</span></div>`;
+    }).join('');
+    const autres = Object.keys(data.spectateurs || {}).filter(n => n !== window.myPlayerKey);
+    ov.innerHTML = `<div style="width:min(460px,100%);text-align:center;border:1px solid #22d3ee;border-radius:18px;background:#091424;padding:24px 20px">
+        <div style="font-size:48px;line-height:1">👁️</div>
+        <div class="sci-font" style="font-weight:800;letter-spacing:.14em;font-size:18px;color:#a5f3fc;margin-top:8px">MODE SPECTATEUR</div>
+        <div style="color:#cbd5e1;font-size:14px;margin:8px 0 14px">Une partie de <b style="color:#f8fafc">${soireeEsc(jeu)}</b> est en cours. Vous rejoindrez automatiquement les joueurs dès le retour dans le salon.</div>
+        <div style="text-align:left;font-size:11px;letter-spacing:.12em;color:#94a3b8;text-transform:uppercase">Scores en direct</div>
+        ${rows || '<div style="color:#64748b;font-size:13px;padding:10px 0">—</div>'}
+        ${autres.length ? `<div style="font-size:12px;color:#94a3b8;margin-top:10px">Autres spectateurs : ${autres.map(soireeEsc).join(', ')}</div>` : ''}
+        <button onclick="quitterSalon()" style="margin-top:16px;padding:10px 18px;border-radius:10px;border:1px solid #475569;background:transparent;color:#cbd5e1;font-size:13px;cursor:pointer;font-family:inherit">Quitter le salon</button>
+    </div>`;
+    return true;
+}
+// Retour dans le salon : le spectateur devient un joueur comme les autres
+function sysPromouvoirSpectateur(data, code) {
+    if (!window.estSpectateur || data.status !== 'LOBBY' || !window.myPlayerKey) return;
+    window.estSpectateur = false;
+    const moi = window.myPlayerKey;
+    const ov = document.getElementById('sys-spectateur'); if (ov) ov.remove();
+    window.update(window.ref(window.db, 'salons/' + code), {
+        ['players/' + moi]: { name: moi, avatar: state.avatar, isBot: false, isHost: false, score: 0, isReady: false, cid: window.monCid || '' },
+        ['spectateurs/' + moi]: null
+    }).then(() => { if (typeof showToast === 'function') showToast('Vous rejoignez les joueurs du salon.'); })
+      .catch(err => console.error('Spectateur :', err));
+}
+
 // ============================ BOUTONS ET SUIVI DU SALON ============================
 function sysBoutons() {
     // bouton son (toujours visible) + boutons du salon (classement, quitter) + boutons « Revanche » réservés à l'hôte
@@ -447,6 +578,8 @@ let sysRevancheVue = 0;
 function systemeSurSalon(data, code, prevStatus) {
     try {
         sysPauseEtVote(data, code);
+        sysPromouvoirSpectateur(data, code);
+        if (data.selectedMode) sysCharger(data.selectedMode);      // les données du jeu choisi se chargent dès le salon
         sysNettoyage(data, code);
         soireeSuivre(data, code, prevStatus);
         sysBoutons();
