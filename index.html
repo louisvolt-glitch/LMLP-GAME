@@ -313,6 +313,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
         window._surSalon = (snapshot) => {
             if (typeof systemeFiltre === 'function' && systemeFiltre(snapshot)) return;      // données du jeu en cours de chargement
+            const tourSalon = window._tourSalon = (window._tourSalon || 0) + 1;
             const data = snapshot.val();
             if (data) {
                 // --- 🔌 Réintégration : coupure réseau brève (ou course lors d'un rafraîchissement) ---
@@ -427,6 +428,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		const justStarted = prevStatus !== data.status;
 		window._lastRoomStatus = data.status;
 		if (typeof systemeSurSalon === 'function') systemeSurSalon(data, codeSalon, prevStatus);
+		// Si systemeSurSalon vient d'écrire dans le salon (ex. : l'hôte valide le retour au salon), la mise à jour
+		// plus récente a déjà été affichée : on n'affiche pas par-dessus l'état périmé de celle-ci.
+		if (tourSalon !== window._tourSalon) return;
 
 		if (data.selectedMode === 'anomaly' && data.settings && data.settings.anomalyTheme && typeof warmupAnomaly === 'function') warmupAnomaly(data.settings.anomalyTheme);
 
