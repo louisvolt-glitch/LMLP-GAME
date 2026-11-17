@@ -223,6 +223,18 @@
 /* La notification cachée sort entièrement de l'écran (elle dépassait de 20 px sur le bord droit) */
 #toast.translate-x-full { transform: translateX(calc(100% + 2.5rem)); }
 
+/* ===== Ordinateur : sur un écran peu haut, le panneau du jeu choisi se réduit (ses règles défilent) au lieu
+   d'écraser la rangée du bas (réglages, joueurs, chat et bouton « Prêt ») ===== */
+@media (min-width: 1024px) {
+    #screen-lobby > section { flex: 0 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    #screen-lobby > section > div { min-height: 0; }
+    #screen-lobby > section > div:first-child { overflow: hidden; }
+    #screen-lobby > section > div:first-child > .grid { min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+    #screen-lobby > section > div:first-child > .grid > div { min-height: 0; max-height: 100%; }
+    #screen-lobby > section > div:first-child > .grid > div:last-child { overflow-y: auto; }
+    #screen-lobby > section + div { flex: 1 0 19.5rem; }
+}
+
 /* ===== Version téléphone et tablette (moins de 1024 px de large) : le salon défile au lieu de tenir sur un écran ===== */
 @media (max-width: 1023px) {
     html, body { height: auto !important; min-height: 100vh; min-height: 100dvh; width: 100% !important; overflow-x: hidden; }
@@ -1111,6 +1123,15 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             <option value="0">Sans limite (jusqu'au dernier survivant)</option>
                         </select>
                     </div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Événements de secteur :</span>
+                        <select id="setting-magnat-events" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            <option value="souvent">Fréquents (un tour de table sur deux)</option>
+                            <option value="normal" selected>Normaux (un tour de table sur trois)</option>
+                            <option value="rare">Rares (un tour de table sur cinq)</option>
+                            <option value="non">Désactivés (partie classique)</option>
+                        </select>
+                    </div>
                     <div class="text-[10px] text-slate-500">Temps par action : réglez le curseur ci-dessus (30 à 180 s). À la fin du temps, le joueur le plus riche l'emporte.</div>
                 </div>
 
@@ -1824,7 +1845,7 @@ if (mode === 'codenames') {
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'magnat') {
                 const mm = parseInt(s.magnatMinutes, 10);
-                displayEl.innerText = `${timer}s/action | ${mm > 0 ? mm + ' min' : (s.magnatMinutes === undefined ? '30 min' : 'sans limite')}`;
+                displayEl.innerText = `${timer}s/action | ${mm > 0 ? mm + ' min' : (s.magnatMinutes === undefined ? '30 min' : 'sans limite')} | événements : ${({ souvent: 'fréquents', normal: 'normaux', rare: 'rares', non: 'désactivés' })[s.magnatEvents] || 'normaux'}`;
                 if (typeof magBoutonPion === 'function') displayEl.appendChild(magBoutonPion());      // chaque joueur choisit son pion
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (protocolData[mode] && protocolData[mode].settingsId === 'host-settings-manches') {
@@ -2204,6 +2225,7 @@ function showScreen(id) {
 
 		const manchesRounds = document.getElementById('setting-manches-rounds')?.value || 6;
 		const magnatMinutes = document.getElementById('setting-magnat-minutes')?.value ?? 30;
+		const magnatEvents = document.getElementById('setting-magnat-events')?.value || 'normal';
 		const bsAgain = document.getElementById('setting-bataille-again')?.value || '1';
 		const bsDuel1 = document.getElementById('setting-bataille-p1')?.value || '';
 		const bsDuel2 = document.getElementById('setting-bataille-p2')?.value || '';
@@ -2223,6 +2245,7 @@ function showScreen(id) {
 			anomalyTheme: anomalyTheme,
 			manchesRounds: manchesRounds,
 			magnatMinutes: magnatMinutes,
+			magnatEvents: magnatEvents,
 			bsAgain: bsAgain,
 			bsDuel1: bsDuel1,
 			bsDuel2: bsDuel2,
