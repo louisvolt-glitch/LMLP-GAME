@@ -283,6 +283,8 @@
     <script src="./modes/bataille.js"></script>
     <script src="./modes/missive.js"></script>
     <script src="./modes/machines.js"></script>
+    <script src="./modes/conseil.js"></script>
+    <script src="./modes/dessin.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -405,7 +407,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' },
                         'bataille': { name: 'Bataille Stellaire', icon: '🛸', desc: 'Duel à 2 joueurs : cachez votre flotte de vaisseaux et détruisez celle de l adversaire.' },
                         'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' },
-                        'machines': { name: 'Salle des machines', icon: '⚙️', desc: 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.' }
+                        'machines': { name: 'Salle des machines', icon: '⚙️', desc: 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.' },
+                        'dessin': { name: 'Transmission visuelle', icon: '🎨', desc: 'Un membre d’équipage dessine un mot sur son écran, les autres décodent la transmission en direct.' },
+                        'conseil': { name: 'Conseil de bord', icon: '🗳️', desc: '« Qui à bord est le plus susceptible de… ? » Votez en secret, puis découvrez le verdict de l’équipage.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -510,6 +514,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		    } else if (selectedMode === 'machines') {
     			if (justStarted) showScreen('screen-generic-game');
     			if (typeof renderMachinesScreen === 'function') renderMachinesScreen(data);
+		    } else if (selectedMode === 'dessin') {
+    			if (typeof renderDessinScreen === 'function') renderDessinScreen(data);
 		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
@@ -825,15 +831,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 
     <!-- Badges d'informations -->
     <div class="flex flex-wrap gap-1.5 pt-2 mt-2 border-t border-cyan-500/20 shrink-0 text-[10px]">
-        <span class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">
-            <i class="fa-solid fa-users text-[8px]"></i> ??? Joueurs
-        </span>
-        <span class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">
-            <i class="fa-solid fa-clock text-[8px]"></i> Chrono Actif
-        </span>
-        <span class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">
-            <i class="fa-solid fa-sitemap text-[8px]"></i> Équipe
-        </span>
+        <span id="protocol-badge-players" class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">👥 — joueurs</span>
+        <span id="protocol-badge-duration" class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">⏱️ — min</span>
+        <span id="protocol-badge-type" class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 rounded flex items-center gap-1">🎮 Type de partie</span>
+        <span id="protocol-badge-ambiance" class="contents"></span>
     </div>
 </div>
 </div>
@@ -845,7 +846,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <div class="absolute inset-0 p-3 flex flex-col">
         <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
             <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
-                BIBLIOTHÈQUE DE PROTOCOLES (<span id="protocol-count">17</span>)
+                BIBLIOTHÈQUE DE PROTOCOLES (<span id="protocol-count">19</span>)
             </div>
             <div class="text-[10px] text-cyan-400">INDEXÉ</div>
         </div>
@@ -864,53 +865,104 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         <div id="protocols-list-container" class="space-y-2 overflow-y-auto flex-1 pr-1 text-xs min-h-0">
             <div id="protocol-filter-vide" class="hidden text-center text-slate-400 py-6 text-[11px]">Aucun protocole ne correspond à ces filtres.<br><button type="button" onclick="reinitialiserFiltresProtocoles()" class="mt-2 text-cyan-300 underline">Réinitialiser les filtres</button></div>
             
-            <!-- Catégorie : Culture G -->
+            <!-- Catégorie : SOIRÉE & CRÉATIVITÉ -->
             <div>
-                <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <i class="fa-solid fa-folder"></i> [CULTURE GÉNÉRALE] (4)
+                <div class="text-[10px] text-fuchsia-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-folder"></i> [SOIRÉE &amp; CRÉATIVITÉ] (<span class="protocol-cat-count">4</span>)
                 </div>
-                <div class="space-y-1 pl-2 border-l border-amber-500/20">
-                    <div onclick="selectProtocol('Examen de l’Académie', '🎓', 'Passez l’examen de l’Académie : 21 catégories et trois grades de difficulté.', 'quiz')" id="protocol-btn-quiz" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Examen de l’Académie</span>
+                <div class="space-y-1 pl-2 border-l border-fuchsia-500/20">
+                    <div onclick="selectProtocol('Transmission visuelle', '🎨', 'Un membre d’équipage dessine un mot sur son écran, les autres décodent la transmission en direct.', 'dessin')" id="protocol-btn-dessin" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Transmission visuelle</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Atterrissage d’urgence', '🛰️', 'Votre capsule s’est posée quelque part sur Terre : retrouvez le point d’impact.', 'geoguessr')" id="protocol-btn-geoguessr" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Atterrissage d’urgence</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-                    <div onclick="selectProtocol('Archives terrestres', '🎞️', 'Restaurez un fichier corrompu des archives terrestres et identifiez le film.', 'cine')" id="protocol-btn-cine" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Archives terrestres</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-                    <div onclick="selectProtocol('Calcul de trajectoire', '🛰️', 'L’ordinateur de bord demande une valeur : plus votre estimation est juste, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Calcul de trajectoire</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Catégorie : Jeu de société -->
-            <div>
-                <div class="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [JEU DE SOCIÉTÉ] (7)
-                </div>
-                <div class="space-y-1 pl-2 border-l border-rose-500/20">
-                    <div onclick="selectProtocol('Noms de Code', '🌌', 'Deux flottes rivales : l’Amiral transmet un indice, les Éclaireurs sondent les secteurs.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Noms de Code</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-                    <div onclick="selectProtocol('Transmission codée', '📡', 'Décryptez la lettre du signal et trouvez un mot par catégorie.', 'petitsbac')" id="protocol-btn-petitsbac" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Transmission codée</span>
+                    <div onclick="selectProtocol('Conseil de bord', '🗳️', '« Qui à bord est le plus susceptible de… ? » Votez en secret, puis découvrez le verdict de l’équipage.', 'conseil')" id="protocol-btn-conseil" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Conseil de bord</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Liaison psychique', '🧠', 'Une consigne, un mot : synchronisez vos pensées avec celles de l’équipage.', 'telepathie')" id="protocol-btn-telepathie" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Liaison psychique</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
+                    <div onclick="selectProtocol('Transmission codée', '📡', 'Décryptez la lettre du signal et trouvez un mot par catégorie.', 'petitsbac')" id="protocol-btn-petitsbac" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Transmission codée</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : CULTURE GÉNÉRALE -->
+            <div>
+                <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [CULTURE GÉNÉRALE] (<span class="protocol-cat-count">3</span>)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-amber-500/20">
+                    <div onclick="selectProtocol('Examen de l’Académie', '🎓', 'Passez l’examen de l’Académie : 21 catégories et trois grades de difficulté.', 'quiz')" id="protocol-btn-quiz" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Examen de l’Académie</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Calcul de trajectoire', '🛰️', 'L’ordinateur de bord demande une valeur : plus votre estimation est juste, plus vous marquez.', 'estimation')" id="protocol-btn-estimation" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Calcul de trajectoire</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Archives terrestres', '🎞️', 'Restaurez un fichier corrompu des archives terrestres et identifiez le film.', 'cine')" id="protocol-btn-cine" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Archives terrestres</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : OBSERVATION & ENQUÊTE -->
+            <div>
+                <div class="text-[10px] text-sky-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [OBSERVATION &amp; ENQUÊTE] (<span class="protocol-cat-count">3</span>)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-sky-500/20">
+                    <div onclick="selectProtocol('Anomalies', '👁️', 'Agent de sécurité de la station : surveillez le couloir sur les caméras et repérez les anomalies.', 'anomaly')" id="protocol-btn-anomaly" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Anomalies</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Reliques terrestres', '🏺', 'Fouillez une épave terrestre : identifiez les reliques de jeux vidéo cachées dans l’image.', 'references')" id="protocol-btn-references" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Reliques terrestres</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Atterrissage d’urgence', '🛰️', 'Votre capsule s’est posée quelque part sur Terre : retrouvez le point d’impact.', 'geoguessr')" id="protocol-btn-geoguessr" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Atterrissage d’urgence</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : BLUFF & DÉDUCTION -->
+            <div>
+                <div class="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [BLUFF &amp; DÉDUCTION] (<span class="protocol-cat-count">4</span>)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-rose-500/20">
+                    <div onclick="selectProtocol('L’Infiltré', '🥷', 'Un infiltré se cache dans l’équipage : démasquez-le ou bluffez pour rester à bord.', 'impostor')" id="protocol-btn-impostor" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">L’Infiltré</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Noms de Code', '🌌', 'Deux flottes rivales : l’Amiral transmet un indice, les Éclaireurs sondent les secteurs.', 'codenames')" id="protocol-btn-codenames" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Noms de Code</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
+                    <div onclick="selectProtocol('Missive Stellaire', '✉️', 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.', 'missive')" id="protocol-btn-missive" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Missive Stellaire</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
                     <div onclick="selectProtocol('Marché noir de la station', '🕶️', 'Des objets rares passent sous le manteau : misez en secret, la mise la plus haute et unique remporte le lot.', 'encheres')" id="protocol-btn-encheres" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Marché noir de la station</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : STRATÉGIE -->
+            <div>
+                <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [STRATÉGIE] (<span class="protocol-cat-count">2</span>)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-indigo-500/20">
                     <div onclick="selectProtocol('Magnat Galactique', '🪐', 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.', 'magnat')" id="protocol-btn-magnat" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Magnat Galactique</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
@@ -919,44 +971,19 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Bataille Stellaire</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Missive Stellaire', '✉️', 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.', 'missive')" id="protocol-btn-missive" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Missive Stellaire</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
+                </div>
+            </div>
+
+            <!-- Catégorie : ACTION & RÉFLEXES -->
+            <div>
+                <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
+                    <i class="fa-solid fa-folder"></i> [ACTION &amp; RÉFLEXES] (<span class="protocol-cat-count">3</span>)
+                </div>
+                <div class="space-y-1 pl-2 border-l border-emerald-500/20">
                     <div onclick="selectProtocol('Salle des machines', '⚙️', 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.', 'machines')" id="protocol-btn-machines" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Salle des machines</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Catégorie : Réflexion & Logique -->
-            <div>
-                <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [RÉFLEXION & LOGIQUE] (2)
-                </div>
-                <div class="space-y-1 pl-2 border-l border-emerald-500/20">
-                    <div onclick="selectProtocol('L’Infiltré', '🥷', 'Un infiltré se cache dans l’équipage : démasquez-le ou bluffez pour rester à bord.', 'impostor')" id="protocol-btn-impostor" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">L’Infiltré</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-                    <div onclick="selectProtocol('Anomalies', '👁️', 'Agent de sécurité de la station : surveillez le couloir sur les caméras et repérez les anomalies.', 'anomaly')" id="protocol-btn-anomaly" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Anomalies</span>
-                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-                    </div>
-		    <div onclick="selectProtocol('Reliques terrestres', '🏺', 'Fouillez une épave terrestre : identifiez les reliques de jeux vidéo cachées dans l’image.', 'references')" id="protocol-btn-references" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-    <span class="text-slate-200">Reliques terrestres</span>
-    <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
-</div>
-                </div>
-            </div>
-
-            <!-- Catégorie : Réflexes & Mémoire -->
-            <div>
-                <div class="text-[10px] text-sky-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [RÉFLEXES & MÉMOIRE] (2)
-                </div>
-                <div class="space-y-1 pl-2 border-l border-sky-500/20">
                     <div onclick="selectProtocol('Simulateur de pilotage', '🕹️', 'Saut hyperespace, astéroïdes, alertes, réacteur : réussissez chaque manœuvre au plus vite.', 'reflexes')" id="protocol-btn-reflexes" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Simulateur de pilotage</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
@@ -1186,6 +1213,26 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <input type="number" id="setting-missive-goal" min="1" max="7" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
                     <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 20 cartes est doublé.</div>
+                </div>
+
+                <!-- Options Transmission visuelle -->
+                <div id="host-settings-dessin" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS TRANSMISSION VISUELLE</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Passages par joueur :</span>
+                            <select id="setting-dessin-tours" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                                <option value="1">1 dessin chacun</option><option value="2" selected>2 dessins chacun</option><option value="3">3 dessins chacun</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Thème des mots :</span>
+                            <select id="setting-dessin-theme" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                                <option value="mixte" selected>🎲 Mixte</option><option value="espace">🚀 Espace</option><option value="quotidien">🏠 Vie quotidienne</option><option value="animaux">🐙 Animaux et nature</option><option value="nourriture">🍕 Nourriture</option><option value="actions">🏃 Actions</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500">Temps de dessin : réglez le curseur ci-dessus (40 à 150 s).</div>
                 </div>
 
                 <!-- Options Salle des machines -->
@@ -1892,6 +1939,10 @@ if (mode === 'codenames') {
                 displayEl.innerText = `${smObj > 0 ? smObj + ' secteurs à franchir' : 'survie'} | ${smShip > 0 ? 'vaisseau n°' + smShip : 'vaisseau au hasard'} | ${smDiff}`;
                 if (typeof smBoutonCouleur === 'function') displayEl.appendChild(smBoutonCouleur());      // chaque joueur choisit la couleur de son astronaute
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (mode === 'dessin') {
+                const th = (window.DV_THEMES || {})[s.dvTheme] || '🎲 Mixte';
+                displayEl.innerText = `${timer}s/dessin | ${s.dvTours || 2} passage${(s.dvTours || 2) > 1 ? 's' : ''} par joueur | mots : ${th.replace(/^\S+\s/, '').toLowerCase()}`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'bataille') {
                 displayEl.innerText = `${timer}s/tir | ${s.bsAgain === '0' ? 'un tir par tour' : 'touché = rejoue'} | ${s.bsDuel1 || 'au hasard'} contre ${s.bsDuel2 || 'au hasard'}`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
@@ -2172,6 +2223,8 @@ function launchGame() {
     			if (typeof window.startMissiveGame === 'function') window.startMissiveGame();
 		} else if (state.selectedMode === 'machines') {
     			if (typeof window.startMachinesGame === 'function') window.startMachinesGame();
+		} else if (state.selectedMode === 'dessin') {
+    			if (typeof window.startDessinGame === 'function') window.startDessinGame();
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -2287,6 +2340,8 @@ function showScreen(id) {
 		const smObj = document.getElementById('setting-machines-obj')?.value ?? 5;
 		const smShip = document.getElementById('setting-machines-ship')?.value || 0;
 		const smDiff = document.getElementById('setting-machines-diff')?.value || 'normal';
+		const dvTours = document.getElementById('setting-dessin-tours')?.value || 2;
+		const dvTheme = document.getElementById('setting-dessin-theme')?.value || 'mixte';
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
@@ -2309,7 +2364,9 @@ function showScreen(id) {
 			msGoal: msGoal,
 			smObj: smObj,
 			smShip: smShip,
-			smDiff: smDiff
+			smDiff: smDiff,
+			dvTours: dvTours,
+			dvTheme: dvTheme
                     }
                 });
             }
@@ -2534,6 +2591,33 @@ const protocolData = {
         sync: "95%",
         settingsId: "host-settings-machines",
         noTimer: true
+    },
+    'dessin': {
+        rules: [
+            "À tour de rôle, un membre d'équipage devient l'émetteur : il choisit un mot parmi trois fréquences (facile, moyen, difficile) et le dessine sur son écran.",
+            "Les autres voient le dessin en direct et tapent leurs propositions. Des lettres se dévoilent avec le temps ; « presque ! » signale qu'on brûle.",
+            "Plus vous décodez vite, plus vous marquez (bonus aux trois premiers). L'émetteur gagne des points pour chaque décodeur. Les dessins sont archivés pour la fin."
+        ],
+        players: "2 - 8 JOUEURS",
+        duration: "10-25 MIN",
+        complexity: "25%",
+        sync: "92%",
+        settingsId: "host-settings-dessin",
+        hint: "Temps de dessin : réglez le curseur ci-dessus (40 à 150 s)."
+    },
+    'conseil': {
+        rules: [
+            "Le Conseil soumet une motion : « Qui à bord est le plus susceptible de… ? », un duel, un dilemme, un aveu anonyme, une tier list ou un classement.",
+            "Chacun vote en secret sur son téléphone. Quand tout le monde a voté, le dépouillement révèle le verdict de l'équipage.",
+            "Vous marquez en étant en phase avec la majorité (ou le consensus). Les aveux restent anonymes : seul leur nombre est révélé, devinez-le !"
+        ],
+        players: "3 - 8 JOUEURS",
+        duration: "10-20 MIN",
+        complexity: "20%",
+        sync: "97%",
+        settingsId: "host-settings-manches",
+        noTimer: true,
+        hint: "Le temps de vote s'adapte à chaque type de motion. 5 joueurs ou plus : c'est encore plus drôle !"
     }
 };
 
@@ -2597,11 +2681,14 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     if (document.getElementById('protocol-sync-text')) document.getElementById('protocol-sync-text').innerText = data.sync;
     if (document.getElementById('protocol-sync-bar')) document.getElementById('protocol-sync-bar').style.width = data.sync;
 
+    // 4 bis. Badges : joueurs, durée, type de partie et ambiance (mêmes données que les filtres)
+    if (typeof majBadgesProtocole === 'function') majBadgesProtocole(modeKey, data);
+
     // 5. Affichage des paramètres spécifiques de l'hôte / lecture seule
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines', 'host-settings-dessin'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
@@ -2627,6 +2714,7 @@ if (timerSlider) {
     magnat: { min: 30, max: 180, step: 10, value: 90 },
     bataille: { min: 10, max: 60, step: 5, value: 30 },
     missive: { min: 15, max: 120, step: 5, value: 45 },
+    dessin: { min: 40, max: 150, step: 10, value: 80 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
@@ -2687,8 +2775,8 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
             cine:       { t: 'solo',    a: ['culture', 'observation'] },
             estimation: { t: 'solo',    a: ['culture'] },
             codenames:  { t: 'equipes', a: ['parole', 'bluff'] },
-            petitsbac:  { t: 'solo',    a: ['parole', 'culture'] },
-            telepathie: { t: 'solo',    a: ['parole'] },
+            petitsbac:  { t: 'solo',    a: ['parole', 'culture', 'creatif'] },
+            telepathie: { t: 'solo',    a: ['parole', 'rire'] },
             encheres:   { t: 'solo',    a: ['bluff', 'strategie'] },
             magnat:     { t: 'solo',    a: ['strategie'] },
             bataille:   { t: 'duel',    a: ['strategie', 'bluff'] },
@@ -2698,13 +2786,15 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
             anomaly:    { t: 'solo',    a: ['observation'] },
             references: { t: 'solo',    a: ['culture', 'observation'] },
             reflexes:   { t: 'solo',    a: ['reflexes'] },
-            memoire:    { t: 'solo',    a: ['reflexes', 'observation'] }
+            memoire:    { t: 'solo',    a: ['reflexes', 'observation'] },
+            dessin:     { t: 'solo',    a: ['creatif', 'rire', 'parole'] },
+            conseil:    { t: 'solo',    a: ['rire', 'parole'] }
         };
         const FILTRES_GROUPES = [
             { g: 'joueurs', n: 'Joueurs', unique: true, o: [['salon', '👥 Salon actuel'], ['1', 'Solo'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5 et +']] },
             { g: 'type', n: 'Type de partie', o: [['coop', '🤝 Coopératif'], ['solo', '🏆 Chacun pour soi'], ['equipes', '🎭 Équipes et rôles cachés'], ['duel', '⚔️ Duel']] },
             { g: 'duree', n: 'Durée', o: [['courte', '⚡ Courte (≈10 min)'], ['moyenne', '⏱️ Moyenne (10-20 min)'], ['longue', '🕰️ Longue (20 min et +)']] },
-            { g: 'ambiance', n: 'Ambiance', o: [['culture', '📚 Culture'], ['reflexes', '🎯 Réflexes'], ['bluff', '🃏 Bluff et déduction'], ['strategie', '♟️ Stratégie'], ['observation', '🔍 Observation'], ['parole', '💬 Communication et mots']] },
+            { g: 'ambiance', n: 'Ambiance', o: [['culture', '📚 Culture'], ['reflexes', '🎯 Réflexes'], ['bluff', '🃏 Bluff et déduction'], ['strategie', '♟️ Stratégie'], ['observation', '🔍 Observation'], ['parole', '💬 Communication et mots'], ['creatif', '🎨 Créativité'], ['rire', '😂 Fous rires']] },
             { g: 'complexite', n: 'Complexité', o: [['simple', 'Simple'], ['moyen', 'Intermédiaire'], ['avance', 'Avancée']] }
         ];
         let filtresProtocoles = { joueurs: [], type: [], duree: [], ambiance: [], complexite: [] };
@@ -2719,6 +2809,18 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
             return { min, max, type: m.t, ambiance: m.a,
                 duree: milieu <= 10 ? 'courte' : milieu <= 20 ? 'moyenne' : 'longue',
                 complexite: cx < 50 ? 'simple' : cx <= 75 ? 'moyen' : 'avance' };
+        }
+        const TYPES_PARTIE = { coop: '🤝 Coopératif', solo: '🏆 Chacun pour soi', equipes: '🎭 Équipes et rôles cachés', duel: '⚔️ Duel' };
+        function majBadgesProtocole(cle, d) {
+            d = d || (typeof protocolData !== 'undefined' && protocolData[cle]) || {};
+            const i = infosFiltreMode(cle), amb = FILTRES_GROUPES.find(G => G.g === 'ambiance').o;
+            const joueurs = i.min === i.max ? `${i.min} joueur${i.min > 1 ? 's' : ''}` : `${i.min} à ${i.max} joueurs`;
+            const set = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+            set('protocol-badge-players', '👥 ' + joueurs);
+            set('protocol-badge-duration', '⏱️ ' + String(d.duration || '').toLowerCase().replace('-', ' à '));
+            set('protocol-badge-type', TYPES_PARTIE[i.type] || '🎮 Partie');
+            const a = document.getElementById('protocol-badge-ambiance');
+            if (a) a.innerHTML = i.ambiance.map(k => { const o = amb.find(x => x[0] === k); return o ? `<span class="px-2 py-0.5 bg-fuchsia-950/40 border border-fuchsia-500/30 text-fuchsia-200 rounded flex items-center gap-1">${o[1]}</span>` : ''; }).join('');
         }
         function nbJoueursSalon() { const p = (window.state && window.state.players) || {}; return Math.max(1, Object.keys(p).length); }
         function modeCorrespond(cle) {
@@ -2768,8 +2870,10 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
                 item.style.display = ok ? 'flex' : 'none'; if (ok) visibles++;
             });
             conteneur.querySelectorAll(':scope > div:not(#protocol-filter-vide)').forEach(cat => {
+                const tous = cat.querySelectorAll('[onclick^="selectProtocol"]').length;
                 const n = [...cat.querySelectorAll('[onclick^="selectProtocol"]')].filter(x => x.style.display !== 'none').length;
                 cat.style.display = n ? '' : 'none';
+                const cc = cat.querySelector('.protocol-cat-count'); if (cc) cc.textContent = n === tous ? tous : `${n}/${tous}`;
             });
             const actifs = Object.values(filtresProtocoles).reduce((t, L) => t + L.length, 0);
             const badge = document.getElementById('protocol-filter-badge'); if (badge) { badge.textContent = actifs; badge.classList.toggle('hidden', !actifs); }
