@@ -454,9 +454,9 @@ function msRender(s, force) {
     msSounds(s, me);
 
     const hand = playing ? r.hands[me] : [];
-    const selCard = myTurn && r.phase === 'PLAY' && msUI.sel >= 0 ? hand[msUI.sel] : 0;
-    const targets = selCard ? msTargets(s, me, selCard) : [];
-    const needT = selCard && msNeedsTarget(selCard) && targets.length > 0;
+    const selCard = myTurn && r.phase === 'PLAY' && msUI.sel >= 0 && hand[msUI.sel] != null ? hand[msUI.sel] : MS_DOS;      // MS_DOS = aucune carte choisie (0 = l'Espionne)
+    const targets = selCard >= 0 ? msTargets(s, me, selCard) : [];
+    const needT = selCard >= 0 && msNeedsTarget(selCard) && targets.length > 0;
     if (needT && targets.indexOf(msUI.target) < 0) msUI.target = targets.length === 1 ? targets[0] : '';
     if (!needT) msUI.target = '';
     const needG = selCard === 1 && needT;
@@ -530,7 +530,7 @@ function msRender(s, force) {
         const steps = [];
         steps.push(`<div style="font-weight:900;color:#6ee7b7;font-size:1.1em">À vous de jouer !</div>`);
         if (forced) steps.push(`<div style="font-size:.8em;color:#fca5a5">Vous tenez la Stratège avec le Téléporteur ou le Diplomate : vous devez jouer la Stratège.</div>`);
-        if (!selCard) steps.push(`<div style="font-size:.85em;color:#cbd5e1">1. Choisissez la carte à jouer. L'autre reste dans votre main.</div>`);
+        if (selCard < 0) steps.push(`<div style="font-size:.85em;color:#cbd5e1">1. Choisissez la carte à jouer. L'autre reste dans votre main.</div>`);
         else {
             steps.push(`<div style="font-size:.85em">Carte choisie : <b>${MS_CARDS[selCard].n} (${selCard})</b></div>`);
             if (msNeedsTarget(selCard) && !targets.length) steps.push(`<div style="font-size:.8em;color:#fde68a">Tous les autres joueurs sont protégés : la carte sera jouée sans effet.</div>`);
