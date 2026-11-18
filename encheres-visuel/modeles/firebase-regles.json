@@ -1,0 +1,13 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "salons": {
+      "$code": {
+        ".read": "$code.matches(/^[A-Z0-9]{1,5}$/)",
+        ".write": "$code.matches(/^[A-Z0-9]{1,5}$/)",
+        ".validate": "newData.hasChild('status')"
+      }
+    }
+  }
+}
