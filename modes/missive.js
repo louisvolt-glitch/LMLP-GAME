@@ -13,9 +13,10 @@
 
 // ============================ 1) DONNÉES ET RÈGLES ============================
 const MS = { END_SECONDS: 15, LOG: 30 };
-// v = valeur, q = exemplaires dans le paquet de 18 cartes (doublé à partir de 5 joueurs)
-// Ordre et effets repris de l'édition 2019 du jeu original (Garde, Prêtre, Baron, Servante, Prince, Chancelier, Roi, Comtesse, Princesse).
+// v = valeur, q = exemplaires dans le paquet de 20 cartes (doublé à partir de 5 joueurs)
+// Ordre et effets repris de l'édition 2019 du jeu original (Espionne, Garde, Prêtre, Baron, Servante, Prince, Chancelier, Roi, Comtesse, Princesse).
 const MS_CARDS = {
+    0: { n: 'Espionne', i: '🕵️', q: 2, c: '#475569', t: "Aucun effet. En fin de manche, si vous êtes le seul joueur encore en lice à avoir joué ou défaussé une Espionne, vous gagnez 1 sceau." },
     1: { n: 'Sentinelle', i: '🤖', q: 5, c: '#64748b', t: "Désignez un joueur et nommez une carte (sauf Sentinelle). S'il la tient, il est éliminé de la manche." },
     2: { n: 'Analyste', i: '🔭', q: 2, c: '#0891b2', t: "Regardez en secret la carte d'un autre joueur." },
     3: { n: 'Duelliste', i: '⚔️', q: 2, c: '#b45309', t: "Comparez en secret votre carte avec celle d'un autre joueur : la plus faible est éliminée." },
@@ -27,7 +28,8 @@ const MS_CARDS = {
     9: { n: 'Souveraine', i: '👑', q: 1, c: '#b91c1c', t: "Si vous la jouez ou la défaussez, vous êtes éliminé de la manche." }
 };
 const MS_MAX = 9;               // valeur de la carte la plus forte (la Souveraine)
-const MS_RANGS = Object.keys(MS_CARDS).map(Number).sort((a, b) => b - a);   // 9, 8, ..., 1
+const MS_DOS = -1;              // « carte retournée » (dos) et « aucune carte » : 0 est maintenant l'Espionne
+const MS_RANGS = Object.keys(MS_CARDS).map(Number).sort((a, b) => b - a);   // 9, 8, ..., 1, 0
 
 function msShuffle(arr, rnd) {
     const a = arr.slice();
@@ -51,7 +53,7 @@ function msNewRound(s, starter, rnd) {
     let deck = [];
     Object.keys(MS_CARDS).forEach(v => { for (let i = 0; i < MS_CARDS[v].q * (s.order.length > 4 ? 2 : 1); i++) deck.push(Number(v)); });
     deck = msShuffle(deck, rnd);
-    const r = { deck: deck, aside: 0, shown: [], hands: {}, out: {}, prot: {}, disc: {}, turn: 0, phase: 'PLAY', winners: [], reason: '', last: null, peek: null, duel: null, qm: null };
+    const r = { deck: deck, aside: MS_DOS, shown: [], hands: {}, out: {}, prot: {}, disc: {}, turn: 0, phase: 'PLAY', winners: [], reason: '', last: null, peek: null, duel: null, qm: null };
     r.aside = r.deck.pop();
     if (s.order.length === 2) r.shown = [r.deck.pop(), r.deck.pop(), r.deck.pop()];
     s.order.forEach(n => { r.hands[n] = [r.deck.pop()]; r.out[n] = false; r.prot[n] = false; r.disc[n] = []; });
@@ -84,7 +86,7 @@ function msNorm(raw) {
     r.deck = arr(r.deck).map(Number); r.shown = arr(r.shown).map(Number); r.winners = arr(r.winners);
     r.hands = r.hands || {}; r.out = r.out || {}; r.prot = r.prot || {}; r.disc = r.disc || {};
     s.order.forEach(n => { s.tokens[n] = s.tokens[n] || 0; r.hands[n] = arr(r.hands[n]).map(Number); r.disc[n] = arr(r.disc[n]).map(Number); r.out[n] = !!r.out[n]; r.prot[n] = !!r.prot[n]; });
-    r.aside = r.aside || 0; r.turn = r.turn || 0; r.phase = r.phase || 'PLAY'; r.reason = r.reason || '';
+    r.aside = r.aside == null ? MS_DOS : Number(r.aside); r.espion = r.espion || ''; r.turn = r.turn || 0; r.phase = r.phase || 'PLAY'; r.reason = r.reason || '';
     r.last = r.last || null; r.peek = r.peek || null; r.duel = r.duel || null; r.qm = r.qm || null;
     ['seq', 'round', 'goal', 'timer', 'dl', 'dlAt'].forEach(k => { s[k] = s[k] || 0; });
     s.dlKey = s.dlKey || '';
@@ -106,7 +108,11 @@ function msEndRound(s, winners, reason) {
     const r = s.r;
     r.phase = 'END'; r.winners = winners; r.reason = reason;
     winners.forEach(n => { s.tokens[n] = (s.tokens[n] || 0) + 1; });
-    msLog(s, `${winners.join(' et ')} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche (${reason}) et gagne${winners.length > 1 ? 'nt' : ''} un sceau.`);
+    if (winners.length) msLog(s, `${winners.join(' et ')} ${winners.length > 1 ? 'remportent' : 'remporte'} la manche (${reason}) et gagne${winners.length > 1 ? 'nt' : ''} un sceau.`);
+    // Espionne : si un seul joueur encore en lice en a joué ou défaussé une, il gagne un sceau de plus
+    const espions = msAlive(s).filter(n => r.disc[n].indexOf(0) >= 0);
+    r.espion = espions.length === 1 ? espions[0] : '';
+    if (r.espion) { s.tokens[r.espion] = (s.tokens[r.espion] || 0) + 1; msLog(s, `🕵️ L'Espionne rapporte un sceau à ${r.espion} !`); }
 }
 // Fin du tour : la manche est-elle terminée ? sinon le joueur suivant pioche
 function msAfterPlay(s, by) {
@@ -162,11 +168,11 @@ function msApply(s0, a, now, rnd) {
             if (targets.indexOf(target) < 0) return null;
         }
         const guess = Number(a.guess);
-        if (card === 1 && target && !(Number.isInteger(guess) && guess >= 2 && guess <= MS_MAX)) return null;
+        if (card === 1 && target && !(Number.isInteger(guess) && guess !== 1 && guess >= 0 && guess <= MS_MAX)) return null;
 
         r.hands[by] = [keep]; r.disc[by].push(card);
         r.peek = null; r.duel = null;
-        r.last = { by: by, c: card, target: target, guess: card === 1 && target ? guess : 0, res: '', k: s.seq };
+        r.last = { by: by, c: card, target: target, guess: card === 1 && target ? guess : MS_DOS, res: '', k: s.seq };
         const C = MS_CARDS[card];
         msLog(s, `${by} joue ${C.n} (${card})${target && target !== by ? ' sur ' + target : ''}.`);
         const noTarget = msNeedsTarget(card) && !target;
@@ -190,12 +196,14 @@ function msApply(s0, a, now, rnd) {
             msLog(s, `${target} défausse ${MS_CARDS[d].n} (${d}).`);
             if (d === 9) { r.last.res = `${target} défausse la Souveraine !`; msEliminate(s, target, 'a défaussé la Souveraine'); }
             else {
-                let drawn = 0;
+                let drawn = MS_DOS;
                 if (r.deck.length) drawn = r.deck.pop();
-                else { drawn = r.aside; r.aside = 0; }      // pioche vide : on prend la carte écartée
-                if (drawn) r.hands[target].push(drawn);
+                else { drawn = r.aside; r.aside = MS_DOS; }      // pioche vide : on prend la carte écartée
+                if (drawn >= 0) r.hands[target].push(drawn);
                 r.last.res = `${target} défausse ${MS_CARDS[d].n} et pioche une nouvelle carte.`;
             }
+        } else if (card === 0) {
+            r.last.res = `${by} glisse une Espionne dans l'ombre…`;
         } else if (card === 6) {
             // Quartier-maître : pioche jusqu'à 2 cartes, le joueur choisira ensuite laquelle garder (phase « QM »)
             const n = Math.min(2, r.deck.length);
@@ -254,7 +262,7 @@ function msAuto(s, now, rnd) {
     const targets = msTargets(s, by, hand[i]);
     const others = targets.filter(n => n !== by);
     const pool = others.length ? others : targets;
-    return msApply(s, { by: by, t: 'play', i: i, target: pool.length ? pool[Math.floor(rnd() * pool.length)] : '', guess: 2 + Math.floor(rnd() * (MS_MAX - 1)) }, now, rnd);
+    return msApply(s, { by: by, t: 'play', i: i, target: pool.length ? pool[Math.floor(rnd() * pool.length)] : '', guess: [0].concat(MS_RANGS.filter(v => v >= 2))[Math.floor(rnd() * MS_MAX)] }, now, rnd);
 }
 function msScore(s, name) { return (s.tokens[name] || 0) * 100; }
 
@@ -264,7 +272,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // ============================ 2) BOUCLE DE L'HÔTE ============================
 const msHost = { startedAt: 0, state: null, done: {} };
-const msUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', sel: -1, target: '', guess: 0, shown: '', fond: 0, qmSeq: -1 };
+const msUI = { seenSess: '', seenSeq: 0, sess: '', sig: '', sel: -1, target: '', guess: MS_DOS, shown: '', fond: 0, qmSeq: -1 };
 
 function msEsc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -416,7 +424,7 @@ function msImg(v) { return MS_IMG_DIR + (MS_CARDS[v] ? 'carte-' + v : 'dos') + '
 function msPrechargerImages() {
     if (msPrechargerImages.fait) return;
     msPrechargerImages.fait = true;
-    MS_RANGS.concat([0]).forEach(v => { const im = new Image(); im.src = msImg(v); });
+    MS_RANGS.concat([MS_DOS]).forEach(v => { const im = new Image(); im.src = msImg(v); });
 }
 function msCardHtml(v, cls, attrs, w) {
     const C = MS_CARDS[v], width = w ? `--w:${w};` : '';
@@ -430,14 +438,14 @@ function msCardHtml(v, cls, attrs, w) {
 function msMiniHtml(v) {
     const C = MS_CARDS[v];
     return C ? `<div class="ms-card ms-mini ms-mini-art" style="--c:${C.c};background-image:url('${msImg(v)}')" title="${C.n} (${v})"><span class="v">${v}</span></div>`
-             : `<div class="ms-card ms-mini ms-back ms-mini-art" style="background-image:url('${msImg(0)}')"></div>`;
+             : `<div class="ms-card ms-mini ms-back ms-mini-art" style="background-image:url('${msImg(MS_DOS)}')"></div>`;
 }
 function msSeals(n, goal) { return '<span style="color:#fbbf24;letter-spacing:.1em">' + '◆'.repeat(n) + '</span><span style="color:#475569;letter-spacing:.1em">' + '◇'.repeat(Math.max(0, goal - n)) + '</span>'; }
 
 function msRender(s, force) {
     const me = msMe(), r = s.r, playing = s.order.indexOf(me) >= 0;
     const actor = msActor(s), myTurn = actor === me;
-    if (!myTurn) { msUI.sel = -1; msUI.target = ''; msUI.guess = 0; }
+    if (!myTurn) { msUI.sel = -1; msUI.target = ''; msUI.guess = MS_DOS; }
     const qmMoi = myTurn && r.phase === 'QM';
     if (qmMoi && msUI.qmSeq !== s.seq) { msUI.qmSeq = s.seq; msUI.sel = -1; msUI.fond = 0; }      // nouvelle fouille : rien de choisi
     const sig = JSON.stringify([s.seq, msUI.sel, msUI.target, msUI.guess, msUI.fond, me]);
@@ -459,7 +467,7 @@ function msRender(s, force) {
     // ----- joueurs (tous, dans l'ordre du tour) -----
     document.getElementById('ms-foes').innerHTML = s.order.map(n => {
         const out = r.out[n], on = n === actor, pick = needT && targets.indexOf(n) >= 0;
-        const cards = r.phase === 'END' ? r.hands[n].map(msMiniHtml).join('') : (n === me ? '' : r.hands[n].map(() => msMiniHtml(0)).join(''));
+        const cards = r.phase === 'END' ? r.hands[n].map(msMiniHtml).join('') : (n === me ? '' : r.hands[n].map(() => msMiniHtml(MS_DOS)).join(''));
         return `<div data-foe="${msEsc(n)}" class="ms-foe ${on ? 'ms-foe-on' : ''} ${out ? 'ms-foe-out' : ''} ${pick ? 'ms-foe-pick' : ''} ${pick && msUI.target === n ? 'ms-foe-sel' : ''}" ${pick ? `data-act="target" data-n="${msEsc(n)}"` : ''}>
             ${msAvatarHtml(n)}
             <div style="min-width:0;flex:1">
@@ -482,12 +490,12 @@ function msRender(s, force) {
     }
     document.getElementById('ms-center').innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;gap:1.2em;flex-wrap:wrap">
-            <div style="text-align:center"><div id="ms-deck" style="position:relative;display:inline-block">${msCardHtml(0, '', '', '6.5em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
-            <div style="text-align:center;opacity:${r.aside ? 1 : .25}">${r.phase === 'END' && r.aside ? msCardHtml(r.aside, '', '', '6.5em') : msCardHtml(0, '', '', '6.5em')}<div style="font-size:.62em;color:#94a3b8;margin-top:.4em">CARTE ÉCARTÉE</div></div>
+            <div style="text-align:center"><div id="ms-deck" style="position:relative;display:inline-block">${msCardHtml(MS_DOS, '', '', '6.5em')}<span style="position:absolute;right:-.5em;bottom:-.4em;background:#fbbf24;color:#0f172a;font-weight:900;border-radius:999px;padding:.05em .5em;font-size:.9em">${r.deck.length}</span></div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">PIOCHE</div></div>
+            <div style="text-align:center;opacity:${r.aside >= 0 ? 1 : .25}">${r.phase === 'END' && r.aside >= 0 ? msCardHtml(r.aside, '', '', '6.5em') : msCardHtml(MS_DOS, '', '', '6.5em')}<div style="font-size:.62em;color:#94a3b8;margin-top:.4em">CARTE ÉCARTÉE</div></div>
             ${r.shown.length ? `<div style="text-align:center"><div style="display:flex;gap:.3em">${r.shown.map(msMiniHtml).join('')}</div><div style="font-size:.62em;color:#94a3b8;margin-top:.4em">HORS JEU (2 JOUEURS)</div></div>` : ''}
             <div class="ms-box" style="flex:1;min-width:14em;max-width:34em">
                 <div class="ms-box-h">Dernier coup</div>
-                ${last ? `<div style="display:flex;align-items:center;gap:.7em"><span id="ms-last-card">${msCardHtml(last.c, '', '', '5.5em')}</span><div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
+                ${last ? `<div style="display:flex;align-items:center;gap:.7em"><span id="ms-last-card">${msCardHtml(last.c, '', '', '5.5em')}</span><div style="font-size:.9em;line-height:1.35"><b>${msEsc(last.by)}</b> joue <b>${MS_CARDS[last.c].n}</b>${last.target && last.target !== last.by ? ' sur <b>' + msEsc(last.target) + '</b>' : ''}${last.guess >= 0 && MS_CARDS[last.guess] ? ' et annonce <b>' + MS_CARDS[last.guess].n + '</b>' : ''}.<br><span style="color:#fde68a">${msEsc(last.res)}</span></div></div>` : '<div style="font-size:.85em;color:#94a3b8">La manche commence.</div>'}
             </div>
         </div>${secret}`;
 
@@ -527,8 +535,8 @@ function msRender(s, force) {
             steps.push(`<div style="font-size:.85em">Carte choisie : <b>${MS_CARDS[selCard].n} (${selCard})</b></div>`);
             if (msNeedsTarget(selCard) && !targets.length) steps.push(`<div style="font-size:.8em;color:#fde68a">Tous les autres joueurs sont protégés : la carte sera jouée sans effet.</div>`);
             if (needT) steps.push(`<div style="font-size:.85em;color:#cbd5e1">2. Choisissez un joueur${selCard === 5 ? ' (vous pouvez vous viser)' : ''} : ${targets.map(n => `<button class="ms-btn ${msUI.target === n ? 'ms-btn-on' : ''}" data-act="target" data-n="${msEsc(n)}">${msEsc(n)}${n === me ? ' (vous)' : ''}</button>`).join(' ')}</div>`);
-            if (needG) steps.push(`<div style="font-size:.85em;color:#cbd5e1">3. Quelle carte tient-il ? ${MS_RANGS.filter(v => v >= 2).reverse().map(v => `<button class="ms-btn ${msUI.guess === v ? 'ms-btn-on' : ''}" data-act="guess" data-v="${v}" title="${MS_CARDS[v].n}">${v} ${MS_CARDS[v].i}</button>`).join(' ')}</div>`);
-            const ok = (!needT || msUI.target) && (!needG || msUI.guess);
+            if (needG) steps.push(`<div style="font-size:.85em;color:#cbd5e1">3. Quelle carte tient-il ? ${MS_RANGS.filter(v => v !== 1).reverse().map(v => `<button class="ms-btn ${msUI.guess === v ? 'ms-btn-on' : ''}" data-act="guess" data-v="${v}" title="${MS_CARDS[v].n}">${v} ${MS_CARDS[v].i}</button>`).join(' ')}</div>`);
+            const ok = (!needT || msUI.target) && (!needG || msUI.guess >= 0);
             steps.push(`<div><button class="ms-btn ms-btn-go" data-act="play" ${ok ? '' : 'disabled'} style="font-size:1em;padding:.7em 1.6em">Jouer ${MS_CARDS[selCard].n}</button></div>`);
         }
         act = steps.join('');
@@ -561,7 +569,7 @@ function msRender(s, force) {
         const over = s.status === 'FINISHED';
         const champions = s.order.filter(n => s.tokens[n] >= s.goal);
         const rows = s.order.slice().sort((a, b) => s.tokens[b] - s.tokens[a]).map(n => `<div style="display:flex;align-items:center;gap:.7em;padding:.35em .2em;border-bottom:1px solid rgba(148,163,184,.2)">
-            ${msAvatarHtml(n)}<div style="flex:1;min-width:0;text-align:left"><b>${msEsc(n)}</b> ${r.winners.indexOf(n) >= 0 ? '<span style="color:#6ee7b7;font-size:.8em">+1 sceau</span>' : ''}${r.out[n] ? ' <span style="color:#f87171;font-size:.75em">éliminé</span>' : ''}<br>${msSeals(s.tokens[n], s.goal)}</div>
+            ${msAvatarHtml(n)}<div style="flex:1;min-width:0;text-align:left"><b>${msEsc(n)}</b> ${r.winners.indexOf(n) >= 0 ? '<span style="color:#6ee7b7;font-size:.8em">+1 sceau</span>' : ''}${r.espion === n ? ' <span style="color:#cbd5e1;font-size:.8em">🕵️ +1 sceau (Espionne)</span>' : ''}${r.out[n] ? ' <span style="color:#f87171;font-size:.75em">éliminé</span>' : ''}<br>${msSeals(s.tokens[n], s.goal)}</div>
             <div style="display:flex;gap:.2em">${r.hands[n].map(msMiniHtml).join('')}</div></div>`).join('');
         end.style.display = 'flex';
         end.innerHTML = `<div class="ms-box" style="width:min(34em,92vw);max-height:86vh;overflow-y:auto;text-align:center;border-color:#fbbf24;background:#0d1026">
@@ -624,7 +632,7 @@ function msAnimer(s, me) {
         if (typeof window.sfx === 'function') window.sfx('carte');
     } else if (maintenant.acteur && maintenant.acteur !== avant.acteur && maintenant.acteur !== me && r.phase === 'PLAY') {
         const f = msFoeEl(maintenant.acteur);
-        msVol(msCardHtml(0, '', '', '6.5em'), deck, msRect(f && (f.querySelector('.ms-back') || f)), 480);
+        msVol(msCardHtml(MS_DOS, '', '', '6.5em'), deck, msRect(f && (f.querySelector('.ms-back') || f)), 480);
     } else if (maintenant.main.length === avant.main.length && maintenant.main.join() !== avant.main.join() && maintenant.acteur !== me && cartes.length && deck) {
         // ma carte a été remplacée (Téléporteur, Diplomate) : la nouvelle arrive
         const c = cartes[0], cr = msRect(c);
@@ -685,9 +693,9 @@ function msOnAct(d) {
     const me = msMe();
     if (d.act === 'next') { msSend({ t: 'next' }); return; }
     if (msActor(s) !== me) return;
-    if (d.act === 'card') { const i = Number(d.i); msUI.sel = msUI.sel === i ? -1 : i; msUI.target = ''; msUI.guess = 0; msUI.fond = 0; }
+    if (d.act === 'card') { const i = Number(d.i); msUI.sel = msUI.sel === i ? -1 : i; msUI.target = ''; msUI.guess = MS_DOS; msUI.fond = 0; }
     else if (d.act === 'target') msUI.target = d.n || '';
-    else if (d.act === 'guess') msUI.guess = Number(d.v) || 0;
+    else if (d.act === 'guess') { const v = Number(d.v); msUI.guess = Number.isInteger(v) ? v : MS_DOS; }
     else if (d.act === 'fond') msUI.fond = Number(d.v) === 1 ? 1 : 0;
     else if (d.act === 'keep') {
         if (msUI.sel < 0) return;
@@ -770,7 +778,7 @@ if (typeof window !== 'undefined') {
         try {
             if (!window.msTicker) window.msTicker = setInterval(() => { msTick(); msHostTick(); }, 1000);
             if (msUI.sess !== sess || !document.getElementById('ms-root')) {
-                msUI.sess = sess; msUI.sig = ''; msUI.sel = -1; msUI.target = ''; msUI.guess = 0;
+                msUI.sess = sess; msUI.sig = ''; msUI.sel = -1; msUI.target = ''; msUI.guess = MS_DOS;
                 showScreen('screen-generic-game');
                 const gt = document.getElementById('generic-game-title'); if (gt) gt.innerText = 'Missive Stellaire';
                 msBuildLayout();
