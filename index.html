@@ -1167,7 +1167,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-300 text-[11px]">Sceaux pour gagner la partie (1-7) :</span>
                         <input type="number" id="setting-missive-goal" min="1" max="7" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
-                    <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 18 cartes est doublé.</div>
+                    <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 20 cartes est doublé.</div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -2455,7 +2455,7 @@ const protocolData = {
     'missive': {
         rules: [
             "Chacun tient une carte secrète. À votre tour, piochez-en une seconde puis jouez l'une des deux et appliquez son effet.",
-            "Neuf personnages : démasquer, espionner, provoquer en duel, se protéger, fouiller la soute, échanger... Un joueur éliminé attend la manche suivante.",
+            "Dix personnages : démasquer, espionner, provoquer en duel, se protéger, fouiller la soute, échanger... Un joueur éliminé attend la manche suivante. L'Espionne (0) rapporte un sceau en plus à celui qui est le seul en lice à en avoir joué une.",
             "La manche revient au dernier en lice, ou à la carte la plus forte quand la pioche est vide. Le premier à réunir les sceaux gagne."
         ],
         players: "2 - 8 JOUEURS",
