@@ -274,6 +274,7 @@
     <script src="./modes/telepathie.js"></script>
     <script src="./modes/encheres.js"></script>
     <script src="./modes/encheres-3d.js"></script>
+    <script src="./modes/encheres-fx.js"></script>
     <script src="./modes/reflexes.js"></script>
     <script src="./modes/memoire.js"></script>
     <script src="./modes/magnat.js"></script>
@@ -395,7 +396,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 			'references': { name: 'Reliques terrestres', icon: '🏺', desc: 'Fouillez une épave terrestre : identifiez les reliques de jeux vidéo cachées dans l’image.' },
                         'estimation': { name: 'Calcul de trajectoire', icon: '🛰️', desc: 'L’ordinateur de bord demande une valeur : plus votre estimation est juste, plus vous marquez.' },
                         'telepathie': { name: 'Liaison psychique', icon: '🧠', desc: 'Une consigne, un mot : synchronisez vos pensées avec celles de l’équipage.' },
-                        'encheres': { name: 'Mise Secrète', icon: '💰', desc: 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.' },
+                        'encheres': { name: 'Marché noir de la station', icon: '🕶️', desc: 'Des objets rares passent sous le manteau : misez en secret, la mise la plus haute et unique remporte le lot.' },
                         'reflexes': { name: 'Simulateur de pilotage', icon: '🕹️', desc: 'Saut hyperespace, astéroïdes, alertes, réacteur : réussissez chaque manœuvre au plus vite.' },
                         'memoire': { name: 'Code d’accès du sas', icon: '🔐', desc: 'Mémorisez le code qui s’allume sur le clavier du sas et retapez-le sans erreur.' },
                         'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' },
@@ -892,8 +893,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Liaison psychique</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
-                    <div onclick="selectProtocol('Mise Secrète', '💰', 'Misez vos crédits en secret : la mise la plus haute et unique remporte le lot.', 'encheres')" id="protocol-btn-encheres" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
-                        <span class="text-slate-200">Mise Secrète</span>
+                    <div onclick="selectProtocol('Marché noir de la station', '🕶️', 'Des objets rares passent sous le manteau : misez en secret, la mise la plus haute et unique remporte le lot.', 'encheres')" id="protocol-btn-encheres" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Marché noir de la station</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
                     <div onclick="selectProtocol('Magnat Galactique', '🪐', 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.', 'magnat')" id="protocol-btn-magnat" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
@@ -1099,7 +1100,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		    </div>
                 </div>
 
-                <!-- Options des modes à manches (Calcul de trajectoire, Liaison psychique, Mise Secrète, Simulateur de pilotage, Code d’accès du sas) -->
+                <!-- Options des modes à manches (Calcul de trajectoire, Liaison psychique, Marché noir de la station, Simulateur de pilotage, Code d’accès du sas) -->
                 <div id="host-settings-manches" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS DE LA PARTIE</div>
                     <div>
@@ -2388,9 +2389,9 @@ const protocolData = {
     },
     'encheres': {
         rules: [
-            "Chaque joueur dispose de 100 crédits pour toute la partie. Un lot est mis en jeu à chaque manche.",
+            "Bienvenue au marché noir de la station : chaque joueur dispose de 100 crédits pour toute la partie, et un objet rare est mis en vente à chaque manche.",
             "Tout le monde mise en secret. La mise la plus haute ET unique remporte le lot et paie sa mise.",
-            "Les mises identiques s'annulent. Les crédits non dépensés ne rapportent rien à la fin."
+            "Les mises identiques s'annulent. Les crédits non dépensés ne rapportent rien à la fin. Chaque lot réserve une surprise quand il est adjugé !"
         ],
         players: "2 - 8 JOUEURS",
         duration: "5-10 MIN",
