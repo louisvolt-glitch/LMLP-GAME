@@ -174,6 +174,7 @@ function ench3dArreter() {
     cancelAnimationFrame(a.raf);
     try { if (a.ro) a.ro.disconnect(); } catch (e) {}
     try { if (a.mixer) a.mixer.stopAllAction(); } catch (e) {}
+    try { if (a.fx) a.fx.detruire(); } catch (e) {}
     try { if (a.fit && a.modele) a.fit.remove(a.modele); } catch (e) {}       // le modèle reste en mémoire pour la prochaine fois
     try { if (a.env) a.env.dispose(); a.renderer.dispose(); } catch (e) {}
     if (a.canvas && a.canvas.parentNode) a.canvas.parentNode.removeChild(a.canvas);
@@ -183,27 +184,53 @@ function ench3dSecours(el, texte) {
     if (el && el.isConnected) el.innerHTML = `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#94a3b8;font-size:12px"><div style="font-size:56px;line-height:1">📦</div>${texte || ''}</div>`;
 }
 
-window.enchMonter3D = function(el, nom) {
+// Surprises déjà jouées (une seule fois par lot et par manche, même si l'écran se redessine)
+const ench3dJoues = {};
+
+// opts : { mode: 'mise' | 'revelation', surprise: 'adjuge' | 'invendu', cle: identifiant unique de la manche }
+window.enchMonter3D = function(el, nom, opts) {
     if (!el) return false;
+    opts = opts || {};
     const lot = ENCH_PAR_NOM[nom];
     if (!lot) { ench3dSecours(el); return false; }
+    // même lot, même écran : l'écran a seulement été redessiné, on raccroche l'affichage en cours (sans tout recharger)
+    const a = ench3d.actif;
+    if (a && a.nom === nom && a.mode === (opts.mode || 'mise')) {
+        el.innerHTML = ''; el.style.position = el.style.position || 'relative';
+        el.appendChild(a.canvas); a.fx && a.fx.doms.forEach(d => el.appendChild(d));
+        a.el = el; a.horsPage = 0;
+        if (a.ro) { a.ro.disconnect(); a.ro.observe(el); }
+        if (a.fxCtx) a.fxCtx.el = el;
+        ench3dCliquable(el, a);
+        return true;
+    }
     ench3dSecours(el, 'Chargement du lot…');
     const jeton = {};
     el._ench3d = jeton;                         // si l'écran change pendant le chargement, on abandonne
     ench3dCharger().then(() => ench3dModele(lot.f)).then(gltf => {
         if (!el.isConnected || el._ench3d !== jeton) return;
-        ench3dAfficher(el, gltf);
+        ench3dAfficher(el, gltf, lot, opts);
     }).catch(err => { console.warn('Lot 3D indisponible :', lot.f, err && err.message); ench3dSecours(el); });
     return true;
 };
 
-function ench3dAfficher(el, gltf) {
+// Pendant les mises, toucher le lot le fait tournoyer
+function ench3dCliquable(el, a) {
+    if (a.mode !== 'mise' || !a.fx) return;
+    el.style.cursor = 'pointer';
+    el.title = 'Touchez le lot pour l’inspecter';
+    el.onclick = () => { if (fxPret(a)) { a.fx.mouvement('toupie', 1.2); fxSon('pop'); } };
+}
+function fxPret(a) { return a && a.fx && ench3d.actif === a; }
+
+function ench3dAfficher(el, gltf, lot, opts) {
     ench3dArreter();
     const T = window.THREE;
     let renderer;
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: true }); }
     catch (e) { ench3dSecours(el); return; }            // pas de WebGL sur cet appareil
     el.innerHTML = '';
+    if (!el.style.position) el.style.position = 'relative';
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.outputEncoding = T.sRGBEncoding;
     renderer.toneMapping = T.ACESFilmicToneMapping;
@@ -217,19 +244,19 @@ function ench3dAfficher(el, gltf) {
     try { env = ench3dEnvironnement(T, renderer); scene.environment = env; } catch (e) {}
     const cam = new T.PerspectiveCamera(35, 1, 0.05, 100);
     cam.position.set(0, 0.55, 5.4); cam.lookAt(0, 0, 0);
-    scene.add(new T.HemisphereLight(0xe0f2fe, 0x1e293b, 0.8));
+    const ciel = new T.HemisphereLight(0xe0f2fe, 0x1e293b, 0.8); scene.add(ciel);
     const cle = new T.DirectionalLight(0xffffff, 1.4); cle.position.set(3, 4, 5); scene.add(cle);
     const contre = new T.DirectionalLight(0x38bdf8, 0.9); contre.position.set(-4, 2, -3); scene.add(contre);
 
-    // inclinaison (objets plats) > rotation > cadrage > modèle
+    // inclinaison (objets plats) > mouvements des effets > rotation > cadrage > modèle
     const c = gltf.cadrage;
-    const incline = new T.Group(), tourne = new T.Group(), fit = new T.Group();
+    const incline = new T.Group(), mouv = new T.Group(), tourne = new T.Group(), fit = new T.Group();
     if (c.plat) incline.rotation.x = 0.85;          // un objet plat est penché vers les joueurs
     fit.scale.setScalar(c.echelle);
     fit.position.set(-c.centre.x * c.echelle, -c.centre.y * c.echelle, -c.centre.z * c.echelle);
     const modele = gltf.scene;
     if (modele.parent) modele.parent.remove(modele);
-    fit.add(modele); tourne.add(fit); incline.add(tourne); scene.add(incline);
+    fit.add(modele); tourne.add(fit); mouv.add(tourne); incline.add(mouv); scene.add(incline);
     // socle holographique
     const socle = new T.Mesh(new T.RingGeometry(1.0, 1.25, 64), new T.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3, side: T.DoubleSide }));
     socle.rotation.x = -Math.PI / 2; socle.position.y = -1.3; scene.add(socle);
@@ -239,23 +266,49 @@ function ench3dAfficher(el, gltf) {
         try { mixer = new T.AnimationMixer(modele); gltf.animations.forEach(a => mixer.clipAction(a).play()); } catch (e) { mixer = null; }
     }
     const taille = () => {
-        const w = Math.max(1, el.clientWidth), h = Math.max(1, el.clientHeight);
+        const cible = actif.el, w = Math.max(1, cible.clientWidth), h = Math.max(1, cible.clientHeight);
         renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
     };
+    const actif = { renderer, canvas, raf: 0, ro: null, mixer, fit, modele, env, el, nom: lot.n, mode: opts.mode || 'mise', horsPage: 0 };
     taille();
-    const actif = { renderer, canvas, raf: 0, ro: null, mixer, fit, modele, env };
     if (window.ResizeObserver) { actif.ro = new ResizeObserver(taille); actif.ro.observe(el); }
     ench3d.actif = actif;
+
+    // --- effets spéciaux ---
+    if (typeof window.enchCreerFx === 'function' && window.enchEffets) {
+        try {
+            actif.fxCtx = { scene, cam, mouv, lumieres: [ciel, cle, contre], el };
+            const fx = actif.fx = window.enchCreerFx(T, actif.fxCtx);
+            const recette = window.enchEffets.surprises[lot.f] || {};
+            const amb = recette.a || ['etincelles'];
+            fx.ambiance(amb[0], amb[1]);
+            if (opts.surprise && opts.cle && !ench3dJoues[opts.cle]) {
+                ench3dJoues[opts.cle] = true;
+                fx.apres(0.5, () => {
+                    if (opts.surprise === 'invendu') window.enchEffets.invendu(fx);
+                    else {
+                        (recette.s || window.enchEffets.defaut)(fx);
+                        if (Math.random() < 0.08) window.enchEffets.collector(fx);      // bonus rare
+                    }
+                });
+            }
+            ench3dCliquable(el, actif);
+        } catch (e) { console.warn('Effets indisponibles :', e); actif.fx = null; }
+    }
+
     const t0 = performance.now();
     let avant = t0;
     const boucle = () => {
         if (ench3d.actif !== actif) return;
-        if (!canvas.isConnected) { ench3dArreter(); return; }        // l'écran a changé : on libère le moteur
-        const maintenant = performance.now(), t = (maintenant - t0) / 1000;
+        // l'écran a changé : on attend un peu (il est peut-être seulement redessiné) avant de libérer le moteur
+        if (!canvas.isConnected) { if (++actif.horsPage > 45) { ench3dArreter(); return; } actif.raf = requestAnimationFrame(boucle); return; }
+        actif.horsPage = 0;
+        const maintenant = performance.now(), t = (maintenant - t0) / 1000, dt = Math.min(0.1, (maintenant - avant) / 1000);
         tourne.rotation.y = t * 0.8;
         incline.position.y = Math.sin(t * 1.6) * 0.07;
         socle.material.opacity = 0.22 + (Math.sin(t * 2) + 1) * 0.08;
-        if (mixer) mixer.update(Math.min(0.1, (maintenant - avant) / 1000));
+        if (mixer) mixer.update(dt);
+        if (actif.fx) actif.fx.maj(dt);
         avant = maintenant;
         renderer.render(scene, cam);
         actif.raf = requestAnimationFrame(boucle);
