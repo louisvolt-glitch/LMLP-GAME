@@ -14,7 +14,8 @@
 //                     players/<nom>/smCouleur  couleur choisie dans le salon
 // =====================================================================
 
-const SM = { W: 86, H: 48, CELL: 20, IMG_W: 1720, IMG_H: 960, BUT: 10, DIR: './machine-visuel/', FRAME: 96, AX: 0.5, AY: 0.835, MARCHE: 12, REPOS: 8, PORTEE: 1.6 };
+const SM = { W: 86, H: 48, CELL: 20, IMG_W: 1720, IMG_H: 960, BUT: 10, DIR: './machine-visuel/', FRAME: 96, AX: 0.5, AY: 0.835, MARCHE: 12, REPOS: 8, PORTEE: 1.75,
+    MARCHE_V: 4.2, COURSE_V: 7.2, ENDU_PERTE: 0.3, ENDU_GAIN: 0.2, ENDU_REPRISE: 0.35 };     // vitesses en cases/s ; endurance de 0 à 1
 const SM_SECTEURS = [
     { n: 'Réacteurs', c: '251,146,60' }, { n: 'Pilotage', c: '34,211,238' },
     { n: 'Navigation', c: '167,139,250' }, { n: 'Soute', c: '74,222,128' }
@@ -41,7 +42,7 @@ function smGrille(ship) {
     if (!v) return null;
     const sol = new Uint8Array(SM.W * SM.H), sec = new Int8Array(SM.W * SM.H).fill(-1);
     v.g.forEach((ligne, y) => { for (let x = 0; x < SM.W; x++) { const c = ligne[x]; if (c >= '0' && c <= '3') { sol[y * SM.W + x] = 1; sec[y * SM.W + x] = +c; } } });
-    const consoles = v.c.map((c, i) => ({ id: 'c' + c[2] + (i % 4), x: c[0], y: c[1], s: c[2], j: i % 4, type: SM_TYPES[i % 4] }));
+    const consoles = v.c.map((c, i) => ({ id: 'c' + c[2] + (i % 4), x: c[0], y: c[1], s: c[2], j: i % 4, type: SM_TYPES[i % 4], b: !!c[3] }));
     return smCacheGrille[ship] = { v, sol, sec, consoles, departs: v.d };
 }
 function smEstLibre(G, x, y, feux) {
@@ -172,15 +173,15 @@ function smCrier(M, n, now) {
     const G = smGrille(s.ship), c = G.consoles.find(x => x.id === o.c);
     smDire(s, smTexte(s.noms[o.c], c.type, o.v), 'cri', n);
     // les androïdes responsables de ce secteur y vont
-    Object.keys(s.crew).forEach(k => { if (s.crew[k].bot && s.crew[k].sec === c.s) smConfier(M, k, c, o.v, now); });
+    Object.keys(s.crew).forEach(k => { if (s.crew[k].bot && s.crew[k].sec === c.s) smConfier(M, k, c, o.v, now, o.t0 + o.d); });
     return true;
 }
-function smConfier(M, k, c, cible, now) {
+function smConfier(M, k, c, cible, now, fin) {
     const s = M.s, b = M.b[k]; if (!b) return;
     const reussit = Math.random() < Math.max(0.72, 0.96 - s.niveau * 0.04);
     const v = c.type === 'bouton' ? true : reussit ? cible : (c.type === 'inter' ? !cible : (cible + 1 + Math.floor(Math.random() * 4)) % 6);
     b.file = (b.file || []).filter(t => t.c !== c.id);
-    b.file.push({ c: c.id, v: v, des: now + smAlea(400, 1000) });
+    b.file.push({ c: c.id, v: v, des: now + smAlea(400, 1000), fin: fin || 0 });
 }
 function smAgir(M, by, cid, v, now) {
     const s = M.s, G = smGrille(s.ship), c = G.consoles.find(x => x.id === cid);
@@ -309,7 +310,7 @@ function smEtape(M, now, dt, presents) {
         const t = b.file && b.file[0];
         if (t && now >= t.des) {
             const c = G.consoles.find(x => x.id === t.c);
-            if (Math.hypot(c.x - b.x, c.y - b.y) < 1.5 && !b.chemin.length) {
+            if (Math.hypot(c.x - b.x, c.y - b.y) < 1.6 && !b.chemin.length) {
                 b.file.shift();
                 if (smAgir(M, k, c.id, t.v, now)) change = true;
                 b.flane = now + smAlea(1500, 3500);
@@ -325,7 +326,8 @@ function smEtape(M, now, dt, presents) {
             const cible = (proches.length ? proches : cases)[0];
             if (cible) b.chemin = smChemin(G, [Math.round(b.x), Math.round(b.y)], cible, feux) || [];
         }
-        smAvancer(b, G, feux, 3.4 * dt);
+        b.r = t && t.fin && t.fin - now < 8000 ? 1 : 0;          // ordre urgent : il court
+        smAvancer(b, G, feux, (b.r ? 5.6 : 3.4) * dt);
     });
     // incidents à partir du secteur 2
     if (s.niveau >= 2 && now > M.prochInc && !s.saut) { M.prochInc = now + Math.max(11000, smAlea(19000, 27000) - s.niveau * 1200); smIncident(M, now); change = true; }
@@ -554,7 +556,7 @@ if (typeof window !== 'undefined') (function () {
         // positions des androïdes, 6 fois par seconde
         if (now - smH.ecritPos > 160 && smC.cheminPos && M.s.status === 'PLAYING') {
             smH.ecritPos = now; const up = {};
-            Object.keys(M.b).forEach(k => { const b = M.b[k]; if (M.s.crew[k] && M.s.crew[k].bot) up[k] = { x: +b.x.toFixed(2), y: +b.y.toFixed(2), d: b.d, w: b.w, s: M.s.startedAt }; });
+            Object.keys(M.b).forEach(k => { const b = M.b[k]; if (M.s.crew[k] && M.s.crew[k].bot) up[k] = { x: +b.x.toFixed(2), y: +b.y.toFixed(2), d: b.d, w: b.w, r: b.w && b.r ? 1 : 0, s: M.s.startedAt }; });
             if (Object.keys(up).length) window.update(window.ref(window.db, smC.cheminPos), up).catch(() => {});
         }
     }
@@ -563,7 +565,7 @@ if (typeof window !== 'undefined') (function () {
     const smC = {
         sess: 0, s: null, G: null, img: null, imgPret: false, cv: null, g: null, raf: 0, ecoute: null, cheminPos: '',
         net: {}, aff: {}, pos: null, chemin: [], touches: new Set(), dernierEnvoi: 0, envoye: '', avant: 0, horloge: 0,
-        decalage: 0, consoleVue: '', logVu: 0, niveauVu: 0, coqueVu: 100, degatVu: 0, tremble: 0, cam: null, pointeur: null, moi: false, finVue: 0, voile: null
+        decalage: 0, holoCle: '', sel: null, selId: '', fermee: '', nuages: [], course: { endu: 1, epuise: false, repos: 0, bouton: false, maj: false }, logVu: 0, niveauVu: 0, coqueVu: 100, degatVu: 0, tremble: 0, cam: null, pointeur: null, moi: false, finVue: 0, voile: null
     };
     window.smC = smC;     // (pour les tests)
     window.smTest = { viser: c => smViser(c), utiliser: (c, v) => smUtiliser(c, v), proche: () => smConsoleProche() };
@@ -589,35 +591,64 @@ if (typeof window !== 'undefined') (function () {
         #sm-cadre canvas{display:block;width:100%;touch-action:none;cursor:pointer}
         #sm-cadre.degat{animation:smDegat .5s}
         @keyframes smDegat{30%{box-shadow:inset 0 0 0 3px #f87171,0 0 40px rgba(248,113,113,.6)}}
-        #sm-root .bas{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:8px}
-        #sm-root .boite{background:#0b1526;border:1px solid #1e3a5f;border-radius:10px;padding:8px 11px;min-height:112px}
+        #sm-root .bas{display:grid;grid-template-columns:1fr 1.3fr;gap:8px}
+        #sm-root .boite{background:#0b1526;border:1px solid #1e3a5f;border-radius:10px;padding:8px 11px;min-height:104px}
         #sm-root .boite h3{margin:0 0 5px;font-size:10px;letter-spacing:.2em;color:#64748b;text-transform:uppercase;font-weight:700}
         #sm-ordre{font-size:15px;font-weight:800;color:#fff;min-height:38px;line-height:1.25}
         #sm-root .t{height:6px;background:#1e293b;border-radius:3px;margin-top:6px;overflow:hidden}
         #sm-root .t i{display:block;height:100%;background:#34d399}
         #sm-crier{margin-top:7px;width:100%;padding:8px;border-radius:8px;border:1px solid #fbbf24;background:rgba(251,191,36,.12);color:#fbbf24;font-weight:800;letter-spacing:.06em;cursor:pointer;font-size:13px;font-family:inherit}
         #sm-crier:disabled{opacity:.35;cursor:default}
-        #sm-console-nom{font-weight:800;font-size:13px;color:#22d3ee;margin-bottom:6px;min-height:16px}
-        #sm-root .vide{color:#64748b;font-size:12px;line-height:1.45}
-        #sm-root .bouton{border:none;border-radius:50%;width:58px;height:58px;display:block;margin:2px auto;cursor:pointer;background:radial-gradient(circle at 35% 30%,#fca5a5,#dc2626 60%,#7f1d1d);box-shadow:0 5px 0 #450a0a,0 0 14px rgba(220,38,38,.35)}
-        #sm-root .bouton.bleu{background:radial-gradient(circle at 35% 30%,#a5f3fc,#0891b2 60%,#164e63);box-shadow:0 5px 0 #083344}
-        #sm-root .bouton:active{transform:translateY(4px);box-shadow:0 1px 0 #000}
-        #sm-root .inter{width:100%;height:40px;border-radius:20px;border:1px solid #334155;background:#0f172a;color:#64748b;font-weight:800;cursor:pointer;font-size:13px;letter-spacing:.1em;font-family:inherit}
-        #sm-root .inter.on{background:rgba(52,211,153,.15);border-color:#34d399;color:#34d399}
-        #sm-root .curseur{display:flex;align-items:center;gap:8px;margin-top:6px}
-        #sm-root .curseur button{width:38px;height:38px;border-radius:9px;border:1px solid #334155;background:#0f172a;color:#22d3ee;font-size:18px;font-weight:900;cursor:pointer}
-        #sm-root .curseur .val{flex:1;text-align:center;font-size:26px;font-weight:900;color:#22d3ee}
-        #sm-root .crans{display:flex;gap:3px;justify-content:center;margin-top:4px}
-        #sm-root .crans i{width:16px;height:6px;border-radius:2px;background:#1e293b}
-        #sm-root .crans i.on{background:#22d3ee}
         #sm-log{display:flex;flex-direction:column-reverse;gap:2px;max-height:104px;overflow:hidden}
         #sm-log .m{font-size:11.5px;line-height:1.3}
         #sm-log .m .qui{color:#fbbf24;font-weight:800}
         #sm-log .ok{color:#34d399}#sm-log .ko{color:#f87171}#sm-log .info{color:#a5b4fc}
         #sm-root .aide{font-size:10.5px;color:#64748b;text-align:center}
-        #sm-fin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.82);padding:12px}
+        #sm-fin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.82);padding:12px;z-index:5}
         #sm-fin .carte{max-width:460px;width:100%;background:#0b1526;border:1px solid rgba(34,211,238,.5);border-radius:14px;padding:16px;text-align:center;max-height:100%;overflow:auto}
-        @media (max-width:760px){#sm-root .bas{grid-template-columns:1fr 1fr}#sm-root .bas .journal{grid-column:1 / -1;min-height:0}#sm-root .boite{min-height:96px}#sm-ordre{font-size:13.5px}}`;
+        /* console holographique, affichée sur la carte à côté de l'équipement */
+        #sm-holo{position:absolute;left:0;top:0;z-index:3;width:218px;pointer-events:none;opacity:0;transition:opacity .15s;will-change:transform}
+        #sm-holo.vu{opacity:1;pointer-events:auto}
+        #sm-holo .in{position:relative;border-radius:12px;padding:8px 10px 7px;color:#e2e8f0;
+            background:linear-gradient(180deg,rgba(var(--c),.18),rgba(2,8,23,.86) 38%),repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px);
+            border:1px solid rgba(var(--c),.85);box-shadow:0 0 18px rgba(var(--c),.45),inset 0 0 14px rgba(var(--c),.18);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+        #sm-holo.neuf .in{animation:smHolo .22s ease-out}
+        @keyframes smHolo{from{transform:scale(.82) translateY(8px);opacity:0;filter:brightness(2)}}
+        #sm-holo .in::after{content:'';position:absolute;left:var(--fx,50%);width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);background:rgba(2,8,23,.9);border:1px solid rgba(var(--c),.85)}
+        #sm-holo:not(.dessous) .in::after{bottom:-7px;border-top:none;border-left:none}
+        #sm-holo.dessous .in::after{top:-7px;border-bottom:none;border-right:none}
+        #sm-holo .tete{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+        #sm-holo .tete i{width:8px;height:8px;border-radius:50%;background:rgb(var(--c));box-shadow:0 0 8px rgb(var(--c));flex-shrink:0}
+        #sm-holo .tete b{font-size:12.5px;line-height:1.15;flex:1;min-width:0}
+        #sm-holo .tete span{display:block;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:rgba(var(--c),1);font-weight:700}
+        #sm-holo .x{border:none;background:transparent;color:#94a3b8;font-size:14px;cursor:pointer;padding:0 2px;font-family:inherit}
+        #sm-holo .corps{display:flex;justify-content:center;align-items:center;min-height:62px}
+        #sm-holo .off .corps{opacity:.35;filter:grayscale(.6);pointer-events:none}
+        #sm-holo .pied{font-size:10px;text-align:center;color:#94a3b8;margin-top:5px;letter-spacing:.04em}
+        #sm-holo .pied b{color:#fbbf24}
+        #sm-holo .hb-bouton{width:56px;height:56px;border-radius:50%;border:3px solid rgba(255,255,255,.15);cursor:pointer;background:radial-gradient(circle at 35% 30%,#fecaca,#dc2626 58%,#7f1d1d);box-shadow:0 5px 0 #450a0a,0 0 18px rgba(239,68,68,.6)}
+        #sm-holo .hb-bouton.bleu{background:radial-gradient(circle at 35% 30%,#cffafe,#0891b2 58%,#164e63);box-shadow:0 5px 0 #083344,0 0 18px rgba(34,211,238,.6)}
+        #sm-holo .hb-bouton:active{transform:translateY(4px);box-shadow:0 1px 0 #000}
+        #sm-holo .hb-inter{position:relative;width:132px;height:42px;border-radius:21px;border:1px solid #334155;background:#0f172a;cursor:pointer;font-family:inherit;color:#64748b;font-weight:900;font-size:11px;letter-spacing:.12em;padding-left:38px;transition:background .2s,border-color .2s}
+        #sm-holo .hb-inter .bille{position:absolute;left:5px;top:5px;width:30px;height:30px;border-radius:50%;background:linear-gradient(#e2e8f0,#94a3b8);transition:left .2s}
+        #sm-holo .hb-inter.on{background:rgba(52,211,153,.18);border-color:#34d399;color:#34d399;padding-left:0;padding-right:38px}
+        #sm-holo .hb-inter.on .bille{left:95px;background:linear-gradient(#bbf7d0,#22c55e);box-shadow:0 0 12px #22c55e}
+        #sm-holo .hb-cur{display:flex;align-items:center;gap:6px}
+        #sm-holo .hb-cur>button{width:34px;height:34px;border-radius:9px;border:1px solid #334155;background:#0f172a;color:#22d3ee;font-size:18px;font-weight:900;cursor:pointer;font-family:inherit}
+        #sm-holo .crans{display:flex;gap:3px;align-items:flex-end;height:38px}
+        #sm-holo .crans button{width:15px;border:none;border-radius:3px;background:#1e293b;cursor:pointer;padding:0}
+        #sm-holo .crans button.on{background:#22d3ee;box-shadow:0 0 8px rgba(34,211,238,.7)}
+        #sm-holo .hb-val{font-size:11px;color:#22d3ee;text-align:center;margin-top:2px;font-weight:800}
+        /* bouton de course et endurance */
+        #sm-courir{position:absolute;right:10px;bottom:10px;z-index:2;width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;padding:0;font-family:inherit;
+            background:conic-gradient(var(--ec,#34d399) calc(var(--e,1)*360deg),rgba(30,41,59,.85) 0);box-shadow:0 4px 14px rgba(0,0,0,.5)}
+        #sm-courir span{position:absolute;inset:5px;border-radius:50%;background:rgba(2,8,23,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;line-height:1;color:#e2e8f0}
+        #sm-courir span em{font-style:normal;font-size:8.5px;letter-spacing:.12em;margin-top:2px;font-weight:800;color:#94a3b8}
+        #sm-courir.on span{background:rgba(6,78,59,.9);box-shadow:inset 0 0 12px rgba(52,211,153,.7)}
+        #sm-courir.on span em{color:#6ee7b7}
+        #sm-courir.epuise span{background:rgba(69,10,10,.9)}
+        #sm-courir.epuise span em{color:#fca5a5}
+        @media (max-width:760px){#sm-root .bas{grid-template-columns:1fr}#sm-root .boite{min-height:0}#sm-ordre{font-size:13.5px;min-height:0}#sm-log{max-height:84px}#sm-holo{width:196px}}`;
         document.head.appendChild(st);
     }
     function smConstruire() {
@@ -629,25 +660,46 @@ if (typeof window !== 'undefined') (function () {
                 <div class="jauge">Saut hyperespace <span id="sm-prog-txt">0 / ${SM.BUT}</span><div class="barre"><i id="sm-prog" style="width:0;background:#22d3ee"></i></div></div>
                 <div class="niv">SECTEUR<b id="sm-niv">1</b></div>
             </div>
-            <div id="sm-cadre"><canvas id="sm-cv"></canvas></div>
+            <div id="sm-cadre"><canvas id="sm-cv"></canvas><div id="sm-holo"></div>
+                <button id="sm-courir" title="Courir (Maj)"><span>🏃<em>COURIR</em></span></button></div>
             <div class="bas">
                 <div class="boite"><h3>Ton ordre</h3><div id="sm-ordre">…</div><div class="t"><i id="sm-ordre-t"></i></div><button id="sm-crier">📢 Crier l’ordre</button></div>
-                <div class="boite"><h3>Console à portée</h3><div id="sm-console-nom"></div><div id="sm-console"></div></div>
                 <div class="boite journal"><h3>Intercom</h3><div id="sm-log"></div></div>
             </div>
-            <div class="aide">Déplacez-vous en touchant la carte (ou ↑ ↓ ← → / ZQSD). Près d’une console : utilisez-la en bas (ou E, et 0 à 5). Criez vos ordres à voix haute… ou avec 📢 (C) !</div>
+            <div class="aide">Touchez la carte pour vous déplacer (ou ↑ ↓ ← → / ZQSD), 🏃 ou Maj pour courir. Passez près d’un équipement ou touchez-le pour ouvrir sa console. Criez vos ordres à voix haute… ou avec 📢 (C) !</div>
         </div>`;
         smC.cv = document.getElementById('sm-cv'); smC.g = smC.cv.getContext('2d');
-        smC.consoleVue = ''; smC.logVu = 0;
+        smC.holoCle = ''; smC.logVu = 0; smC.sel = null; smC.fermee = '';
         document.getElementById('sm-crier').onclick = () => { smEnvoyer({ t: 'crie' }); son('clic'); };
+        const courir = document.getElementById('sm-courir');
+        courir.onclick = () => { smC.course.bouton = !smC.course.bouton; son('clic'); };
+        if (!smC.moi) courir.style.display = 'none';
         const cv = smC.cv;
-        const versCase = e => {
+        const versMonde = e => {
             const r = cv.getBoundingClientRect(), cam = smC.cam; if (!cam) return null;
-            const wx = (e.clientX - r.left) * (cv.width / r.width) / cam.e + cam.x, wy = (e.clientY - r.top) * (cv.height / r.height) / cam.e + cam.y;
-            return [Math.floor(wx / SM.CELL), Math.floor(wy / SM.CELL)];
+            return [(e.clientX - r.left) * (cv.width / r.width) / cam.e + cam.x, (e.clientY - r.top) * (cv.height / r.height) / cam.e + cam.y];
         };
-        cv.onpointerdown = e => { smC.pointeur = { id: e.pointerId, t: 0 }; try { cv.setPointerCapture(e.pointerId); } catch (x) {} smViser(versCase(e)); };
-        cv.onpointermove = e => { if (!smC.pointeur || smC.pointeur.id !== e.pointerId) return; const t = performance.now(); if (t - smC.pointeur.t < 140) return; smC.pointeur.t = t; smViser(versCase(e)); };
+        cv.onpointerdown = e => {
+            const w = versMonde(e); if (!w) return;
+            smC.pointeur = { id: e.pointerId, t: 0, console: false };
+            try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+            // toucher un équipement : sa console s'ouvre et l'astronaute y va
+            const C = SM.CELL, c = smC.G && smC.G.consoles.find(k => Math.hypot((k.x + .5) * C - w[0], (k.y + .5) * C - w[1]) < C * 1.35);
+            if (c && smC.s && smC.s.status === 'PLAYING') {
+                smC.pointeur.console = true; smC.sel = { id: c.id, par: 'clic' }; smC.fermee = '';
+                const p = smC.pos;
+                if (p && Math.hypot(c.x - p.x, c.y - p.y) > SM.PORTEE - .1) smViser([c.x, c.y]);
+                son('clic');
+                return;
+            }
+            if (smC.sel && smC.sel.par === 'clic') smC.sel = null;
+            smViser([Math.floor(w[0] / C), Math.floor(w[1] / C)]);
+        };
+        cv.onpointermove = e => {
+            if (!smC.pointeur || smC.pointeur.id !== e.pointerId || smC.pointeur.console) return;
+            const t = performance.now(); if (t - smC.pointeur.t < 140) return; smC.pointeur.t = t;
+            const w = versMonde(e); if (w) smViser([Math.floor(w[0] / SM.CELL), Math.floor(w[1] / SM.CELL)]);
+        };
         cv.onpointerup = cv.onpointercancel = () => { smC.pointeur = null; };
     }
     function smViser(c) {
@@ -660,6 +712,7 @@ if (typeof window !== 'undefined') (function () {
         const s = smC.s; if (!s || !document.getElementById('sm-root')) return;
         const t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
         const k = (e.key || '').toLowerCase();
+        if (k === 'shift') { smC.course.maj = bas; return; }
         const fleches = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'z', 'q', 's', 'd', 'w', 'a'];
         if (fleches.includes(k)) { if (bas) { smC.touches.add(k); smC.chemin = []; } else smC.touches.delete(k); e.preventDefault(); return; }
         if (!bas || s.status !== 'PLAYING') return;
@@ -670,7 +723,7 @@ if (typeof window !== 'undefined') (function () {
     }
     document.addEventListener('keydown', e => smClavier(e, true));
     document.addEventListener('keyup', e => smClavier(e, false));
-    window.addEventListener('blur', () => smC.touches.clear());
+    window.addEventListener('blur', () => { smC.touches.clear(); smC.course.maj = false; });
 
     function smConsoleProche() {
         if (!smC.pos || !smC.G) return null;
@@ -683,24 +736,56 @@ if (typeof window !== 'undefined') (function () {
         smEnvoyer({ t: 'agir', c: c.id, v: v });
         if (c.type !== 'bouton') s.cons[c.id] = v;         // affichage immédiat, l'hôte confirmera
         s.flash[c.id] = tempsHote();
-        smC.consoleVue = '';
+        smC.holoCle = '';
         son('clic');
     }
-    function smMajConsole() {
-        const s = smC.s, c = s && s.status === 'PLAYING' ? smConsoleProche() : null;
-        const val = c ? s.cons[c.id] : null, cle = c ? c.id + ':' + val : (smC.moi ? 'aucune' : 'spectateur');
-        if (cle === smC.consoleVue) return;
-        smC.consoleVue = cle;
-        const nom = document.getElementById('sm-console-nom'), box = document.getElementById('sm-console'); if (!nom || !box) return;
-        if (!c) { nom.textContent = ''; box.innerHTML = `<div class="vide">${smC.moi ? 'Approchez-vous d’une console pour l’utiliser. Les consoles de votre secteur sont entourées de sa couleur.' : 'Vous regardez la partie.'}</div>`; return; }
-        nom.textContent = s.noms[c.id] + ' · ' + SM_SECTEURS[c.s].n;
-        if (c.type === 'bouton') { box.innerHTML = `<button class="bouton${c.j === 1 ? ' bleu' : ''}" aria-label="Activer"></button>`; box.firstChild.onclick = () => smUtiliser(c, true); }
-        if (c.type === 'inter') { box.innerHTML = `<button class="inter ${val ? 'on' : ''}">${val ? 'ALLUMÉ' : 'ÉTEINT'}</button>`; box.firstChild.onclick = () => smUtiliser(c, !val); }
-        if (c.type === 'curseur') {
-            const v = Number(val) || 0;
-            box.innerHTML = `<div class="curseur"><button data-d="-1">−</button><span class="val">${v}</span><button data-d="1">+</button></div><div class="crans">${[0, 1, 2, 3, 4, 5].map(i => `<i class="${i <= v ? 'on' : ''}"></i>`).join('')}</div>`;
-            box.querySelectorAll('button').forEach(b => { b.onclick = () => { const n = Math.max(0, Math.min(5, v + Number(b.dataset.d))); if (n !== v) smUtiliser(c, n); }; });
+    // Console holographique : s'ouvre quand on passe à côté d'un équipement ou quand on le touche
+    function smMajHolo() {
+        const s = smC.s, G = smC.G, el = document.getElementById('sm-holo'); if (!el || !s || !G || !smC.cam) return;
+        const proche = s.status === 'PLAYING' && !s.saut && smC.moi ? smConsoleProche() : null;
+        if (smC.fermee && (!proche || proche.id !== smC.fermee)) smC.fermee = '';
+        let sel = smC.sel;
+        if (sel && sel.par === 'clic' && proche && proche.id === sel.id) sel.par = 'arrive';
+        if (sel && sel.par !== 'clic' && (!proche || proche.id !== sel.id)) sel = null;
+        if (!sel && proche && proche.id !== smC.fermee) sel = { id: proche.id, par: 'proche' };
+        if (s.status !== 'PLAYING' || s.saut || !smC.moi) sel = null;
+        smC.sel = sel; smC.selId = sel ? sel.id : '';
+        if (!sel) { el.classList.remove('vu'); smC.holoCle = ''; return; }
+        const c = G.consoles.find(x => x.id === sel.id), pret = !!proche && proche.id === c.id, val = s.cons[c.id];
+        const cle = c.id + ':' + val + ':' + pret;
+        if (cle !== smC.holoCle) {
+            const neuf = !smC.holoCle || smC.holoCle.split(':')[0] !== c.id;
+            smC.holoCle = cle;
+            let corps = '';
+            if (c.type === 'bouton') corps = `<button class="hb-bouton${c.j === 1 ? ' bleu' : ''}" data-a="b" aria-label="Activer"></button>`;
+            if (c.type === 'inter') corps = `<button class="hb-inter ${val ? 'on' : ''}" data-a="i"><span class="bille"></span>${val ? 'ALLUMÉ' : 'ÉTEINT'}</button>`;
+            if (c.type === 'curseur') {
+                const v = Number(val) || 0;
+                corps = `<div><div class="hb-cur"><button data-d="-1">−</button><div class="crans">${[0, 1, 2, 3, 4, 5].map(i => `<button data-v="${i}" class="${i <= v ? 'on' : ''}" style="height:${12 + i * 5}px" aria-label="${i}"></button>`).join('')}</div><button data-d="1">+</button></div><div class="hb-val">RÉGLAGE ${v}</div></div>`;
+            }
+            const aide = pret ? (c.type === 'curseur' ? 'Touches <b>0</b> à <b>5</b>' : 'Touche <b>E</b>') : '🚶 En route vers l’équipement…';
+            el.innerHTML = `<div class="in ${pret ? '' : 'off'}" style="--c:${SM_SECTEURS[c.s].c}">
+                <div class="tete"><i></i><b>${smEsc(s.noms[c.id])}<span>${SM_SECTEURS[c.s].n}${c.b ? ' · borne' : ''}</span></b><button class="x" aria-label="Fermer">✕</button></div>
+                <div class="corps">${corps}</div><div class="pied">${aide}</div></div>`;
+            el.querySelector('.x').onclick = () => { smC.fermee = c.id; smC.sel = null; son('clic'); };
+            const b = el.querySelector('[data-a="b"]'); if (b) b.onclick = () => smUtiliser(c, true);
+            const i = el.querySelector('[data-a="i"]'); if (i) i.onclick = () => smUtiliser(c, !val);
+            el.querySelectorAll('[data-d]').forEach(x => { x.onclick = () => { const v = Number(val) || 0, n = Math.max(0, Math.min(5, v + Number(x.dataset.d))); if (n !== v) smUtiliser(c, n); }; });
+            el.querySelectorAll('[data-v]').forEach(x => { x.onclick = () => { const n = Number(x.dataset.v); if (n !== (Number(val) || 0)) smUtiliser(c, n); }; });
+            if (neuf) { el.classList.remove('neuf'); void el.offsetWidth; el.classList.add('neuf'); }
         }
+        el.classList.add('vu');
+        // position : au-dessus de l'équipement (ou en dessous s'il n'y a pas la place)
+        const cv = smC.cv, cam = smC.cam, r = cv.clientWidth / cv.width, C = SM.CELL;
+        const sx = ((c.x + .5) * C - cam.x) * cam.e * r, sy = ((c.y + .5) * C - cam.y) * cam.e * r;
+        const w = el.offsetWidth, h = el.offsetHeight, W = cv.clientWidth, H = cv.clientHeight, marge = C * 1.45 * cam.e * r + 10;
+        let top = sy - marge - h, dessous = false;
+        if (top < 6) { top = sy + marge; dessous = true; }
+        top = Math.max(6, Math.min(H - h - 6, top));
+        const left = Math.max(6, Math.min(W - w - 6, sx - w / 2));
+        el.classList.toggle('dessous', dessous);
+        el.style.transform = `translate(${Math.round(left)}px,${Math.round(top)}px)`;
+        el.style.setProperty('--fx', Math.max(14, Math.min(w - 14, sx - left)) + 'px');
     }
     function smMajInterface() {
         const s = smC.s; if (!s) return;
@@ -716,7 +801,6 @@ if (typeof window !== 'undefined') (function () {
         el('sm-ordre').textContent = o && cons ? smTexte(s.noms[o.c], cons.type, o.v) : (s.saut ? '— saut hyperespace en cours —' : (smC.moi ? '…' : 'Vous regardez la partie.'));
         const b = el('sm-crier'); b.disabled = !o || !!o.cr; b.textContent = o && o.cr ? '📢 Ordre crié' : '📢 Crier l’ordre';
         if (!smC.moi) b.style.display = 'none';
-        // intercom
         const derniers = s.log.slice(-7), vu = derniers.length ? derniers[derniers.length - 1].k : 0;
         if (vu !== smC.logVu) {
             smC.logVu = vu;
@@ -730,7 +814,7 @@ if (typeof window !== 'undefined') (function () {
     // Caméra : tout le vaisseau si l'écran est assez grand, sinon on suit son astronaute
     function smCamera() {
         const cv = smC.cv, W = cv.width, H = cv.height;
-        const fit = Math.min(W / SM.IMG_W, H / SM.IMG_H), mini = 15 * (window.devicePixelRatio || 1) / SM.CELL;
+        const fit = Math.min(W / SM.IMG_W, H / SM.IMG_H), dpr = Math.min(2, window.devicePixelRatio || 1), mini = (W / dpr < 700 ? 15 : 11) * dpr / SM.CELL;
         const e = Math.max(fit, mini);
         let cx = SM.IMG_W / 2, cy = SM.IMG_H / 2;
         if (e > fit + 1e-6 && smC.pos) { cx = (smC.pos.x + .5) * SM.CELL; cy = (smC.pos.y + .5) * SM.CELL; }
@@ -744,7 +828,7 @@ if (typeof window !== 'undefined') (function () {
         const cv = smC.cv, cadre = document.getElementById('sm-cadre'); if (!cv || !cadre) return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
         const L = cadre.clientWidth || 600;
-        const H = L < 700 ? Math.max(280, window.innerHeight * 0.47) : Math.max(240, Math.min(L * SM.IMG_H / SM.IMG_W, window.innerHeight * 0.62));
+        const H = L < 700 ? Math.max(300, window.innerHeight * 0.52) : Math.max(240, Math.min(L * SM.IMG_H / SM.IMG_W, window.innerHeight * 0.64));
         const w = Math.round(L * dpr), h = Math.round(H * dpr);
         if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; cv.style.height = H + 'px'; }
     }
@@ -756,7 +840,7 @@ if (typeof window !== 'undefined') (function () {
         for (let k = 0; k < SM.W * SM.H; k++) {
             const sc = G.sec[k]; if (sc < 0) continue;
             const [r, gg, b] = SM_SECTEURS[sc].c.split(',').map(Number), mien = me && me.sec === sc;
-            im.data[k * 4] = r; im.data[k * 4 + 1] = gg; im.data[k * 4 + 2] = b; im.data[k * 4 + 3] = mien ? 62 : 26;
+            im.data[k * 4] = r; im.data[k * 4 + 1] = gg; im.data[k * 4 + 2] = b; im.data[k * 4 + 3] = mien ? 48 : 18;
         }
         g.putImageData(im, 0, 0);
         smC.calque = cv;
@@ -773,14 +857,26 @@ if (typeof window !== 'undefined') (function () {
         if (smC.moi && smC.pos && s.status === 'PLAYING' && !s.saut && dt > 0) smDeplacer(dt);
         smEnvoyerPos(now);
         smAnimerAutres(dt);
-        smMajConsole();
         // minuteur de son ordre
         const o = smC.moi && s.ord[moi()], bar = document.getElementById('sm-ordre-t');
         if (bar) { const r = o ? Math.max(0, 1 - (tempsHote() - o.t0) / o.d) : 0; bar.style.width = r * 100 + '%'; bar.style.background = r > .5 ? '#34d399' : r > .25 ? '#fbbf24' : '#f87171'; }
         smDessiner(now, dt);
+        smMajHolo();
+        smMajCourse();
+    }
+    // Course : plus rapide, mais l'endurance se vide ; à zéro, il faut souffler avant de pouvoir recourir
+    function smMajCourse() {
+        const b = document.getElementById('sm-courir'), k = smC.course; if (!b) return;
+        b.style.setProperty('--e', k.endu.toFixed(3));
+        b.style.setProperty('--ec', k.epuise ? '#f87171' : k.endu < .35 ? '#fbbf24' : '#34d399');
+        b.classList.toggle('on', !!k.bouton && !k.epuise);
+        b.classList.toggle('epuise', !!k.epuise);
+        const em = b.querySelector('em'); if (em) em.textContent = k.epuise ? 'SOUFFLE' : (k.bouton ? 'COURSE' : 'COURIR');
     }
     function smDeplacer(dt) {
-        const p = smC.pos, G = smC.G, feux = smCasesFeu(smC.s), v = 4.2 * dt;
+        const p = smC.pos, G = smC.G, feux = smCasesFeu(smC.s), K = smC.course;
+        const veut = !!(K.maj || K.bouton) && !K.epuise;
+        const v = (veut ? SM.COURSE_V : SM.MARCHE_V) * dt;
         const T = smC.touches;
         const ancien = [p.x, p.y];
         if (T.size) {
@@ -801,16 +897,29 @@ if (typeof window !== 'undefined') (function () {
         } else { p.chemin = smC.chemin; smAvancer(p, G, feux, v); smC.chemin = p.chemin; }
         const d = Math.hypot(p.x - ancien[0], p.y - ancien[1]);
         p.w = d > 1e-4 ? 1 : 0;
+        p.r = p.w && veut ? 1 : 0;
         p.phase = ((p.phase || 0) + d / 1.5) % 1;
+        // endurance
+        if (p.r) { K.endu = Math.max(0, K.endu - SM.ENDU_PERTE * dt); K.repos = 0; if (K.endu <= 0) { K.epuise = true; son('erreur'); } }
+        else { K.repos += dt; if (K.repos > 0.7) K.endu = Math.min(1, K.endu + SM.ENDU_GAIN * dt * (p.w ? 0.6 : 1)); }
+        if (K.epuise && K.endu >= SM.ENDU_REPRISE) K.epuise = false;
+        if (p.r) smPoussiere(p, dt);
         // pris dans un incendie (il vient d'apparaître) : on est poussé vers la case libre la plus proche
         if (!smEstLibre(G, Math.round(p.x), Math.round(p.y), feux)) { const c = smCaseLibreProche(G, Math.round(p.x), Math.round(p.y), feux); p.x = c[0]; p.y = c[1]; smC.chemin = []; }
     }
+    function smPoussiere(p, dt) {          // petits nuages sous les pieds quand on court
+        p.pouss = (p.pouss || 0) + dt;
+        if (p.pouss < 0.07) return;
+        p.pouss = 0;
+        smC.nuages.push({ x: p.x + (Math.random() - .5) * .4, y: p.y + .3 + (Math.random() - .5) * .2, t: Date.now() });
+        if (smC.nuages.length > 80) smC.nuages.shift();
+    }
     function smEnvoyerPos(now) {
         if (!smC.moi || !smC.pos || !smC.cheminPos || now - smC.dernierEnvoi < 150 || !smC.s || smC.s.status !== 'PLAYING') return;
-        const p = smC.pos, cle = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.d},${p.w}`;
+        const p = smC.pos, cle = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.d},${p.w},${p.r}`;
         if (cle === smC.envoye) return;
         smC.dernierEnvoi = now; smC.envoye = cle;
-        window.update(window.ref(window.db, smC.cheminPos), { [moi()]: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), d: p.d, w: p.w, s: smC.sess } }).catch(() => {});
+        window.update(window.ref(window.db, smC.cheminPos), { [moi()]: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), d: p.d, w: p.w, r: p.r || 0, s: smC.sess } }).catch(() => {});
     }
     function smAnimerAutres(dt) {
         const s = smC.s;
@@ -822,8 +931,9 @@ if (typeof window !== 'undefined') (function () {
             const k = Math.min(1, dt * 10), ox = a.x, oy = a.y;
             a.x += (cible.x - a.x) * k; a.y += (cible.y - a.y) * k;
             const d = Math.hypot(a.x - ox, a.y - oy);
-            a.d = cible.d || 0; a.w = cible.w || d > 0.004 ? 1 : 0;
+            a.d = cible.d || 0; a.w = cible.w || d > 0.004 ? 1 : 0; a.r = cible.r ? 1 : 0;
             a.phase = ((a.phase || 0) + (a.w ? Math.max(d, 0) / 1.5 : 0)) % 1;
+            if (a.r && a.w) smPoussiere(a, dt);
         });
     }
     function smLignes(g, txt, max) {
@@ -831,25 +941,69 @@ if (typeof window !== 'undefined') (function () {
         mots.forEach(m => { const e = l ? l + ' ' + m : m; if (g.measureText(e).width > max && l) { out.push(l); l = m; } else l = e; });
         out.push(l); return out;
     }
-    // Noms des consoles : sous la console, sinon au-dessus, à droite ou à gauche, sans se chevaucher
+    // Noms des équipements : sous l'équipement, sinon à côté ou au-dessus, sans se chevaucher
     function smEtiquettes(g, tp, px) {
         const cle = smC.G.v.f + ':' + tp.toFixed(2) + ':' + Object.values(smC.s.noms).join('|');
         if (smC.etiqCle === cle) return smC.etiq;
         const C = SM.CELL, h = tp * 1.1, places = [];
-        smC.G.consoles.forEach(c => places.push({ x0: c.x * C - 2, y0: c.y * C - 2, x1: (c.x + 1) * C + 2, y1: (c.y + 1) * C + 2 }));
+        smC.G.consoles.forEach(c => places.push({ x0: (c.x - .6) * C, y0: (c.y - 1.5) * C, x1: (c.x + 1.6) * C, y1: (c.y + 1.6) * C }));
         const touche = r => places.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0);
         g.font = `700 ${tp}px ui-monospace, Consolas, monospace`;
         const out = smC.G.consoles.map(c => {
             const ls = smLignes(g, smC.s.noms[c.id], C * 4.6), w = Math.max(...ls.map(l => g.measureText(l).width)) + 4 * px, H = ls.length * h;
             const x = (c.x + .5) * C, y = (c.y + .5) * C;
-            const essais = [[x, y + C * .9], [x, y - C * .9 - H], [x + C * .9 + w / 2, y - H / 2], [x - C * .9 - w / 2, y - H / 2], [x, y + C * .9 + H], [x, y - C * .9 - 2 * H]];
+            const essais = [[x, y + C * 1.15], [x + C * 1.2 + w / 2, y - H / 2], [x - C * 1.2 - w / 2, y - H / 2], [x, y - C * 1.6 - H], [x, y + C * 1.15 + H]];
             let choix = essais[0];
             for (const e of essais) { const r = { x0: e[0] - w / 2, y0: e[1], x1: e[0] + w / 2, y1: e[1] + H }; if (!touche(r)) { choix = e; break; } }
             places.push({ x0: choix[0] - w / 2, y0: choix[1], x1: choix[0] + w / 2, y1: choix[1] + H });
-            return { ls, x: choix[0], y: choix[1], h };
+            return { id: c.id, s: c.s, cx: c.x, cy: c.y, ls, x: choix[0], y: choix[1], h };
         });
         smC.etiqCle = cle; smC.etiq = out;
         return out;
+    }
+    // Équipement relié à une console : halo, crochets holographiques et pastille d'état au-dessus
+    function smDessinerConsoles(g, now, th, px) {
+        const s = smC.s, G = smC.G, C = SM.CELL, me = smC.moi ? s.crew[moi()] : null;
+        G.consoles.forEach(c => {
+            const x = (c.x + .5) * C, y = (c.y + .5) * C, col = SM_SECTEURS[c.s].c, val = s.cons[c.id];
+            const actif = c.id === smC.selId, mien = !me || me.sec === c.s;
+            const eclat = s.flash[c.id] ? Math.max(0, 1 - (th - s.flash[c.id]) / 700) : 0;
+            const pulse = .5 + .5 * Math.sin(now / 520 + c.x * .7);
+            if (c.b) {      // borne autonome posée au sol
+                g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(x, y + C * .42, C * .55, C * .2, 0, 0, 6.3); g.fill();
+                const gr = g.createLinearGradient(x - C * .45, 0, x + C * .45, 0); gr.addColorStop(0, '#334155'); gr.addColorStop(.5, '#64748b'); gr.addColorStop(1, '#1e293b');
+                g.fillStyle = gr; g.beginPath(); g.roundRect(x - C * .42, y - C * .55, C * .84, C * .98, 4); g.fill();
+                g.fillStyle = `rgba(${col},${.75 + .25 * pulse})`; g.beginPath(); g.roundRect(x - C * .3, y - C * .45, C * .6, C * .38, 2); g.fill();
+            }
+            g.save(); g.globalCompositeOperation = 'lighter';
+            const r = C * (1.45 + .15 * pulse) * (actif ? 1.15 : 1);
+            const halo = g.createRadialGradient(x, y, 0, x, y, r);
+            halo.addColorStop(0, `rgba(${col},${(mien ? .3 : .16) + .1 * pulse + eclat * .6})`); halo.addColorStop(.6, `rgba(${col},${(mien ? .1 : .05) + eclat * .2})`); halo.addColorStop(1, `rgba(${col},0)`);
+            g.fillStyle = halo; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill();
+            // balayage holographique
+            const k = (now / 1500 + c.x * .13) % 1, hh = C * .95;
+            g.strokeStyle = `rgba(${col},${.5 * Math.sin(k * Math.PI)})`; g.lineWidth = 1.5;
+            g.beginPath(); g.moveTo(x - hh * .85, y - hh + 2 * hh * k); g.lineTo(x + hh * .85, y - hh + 2 * hh * k); g.stroke();
+            g.restore();
+            // crochets aux quatre coins
+            const h = C * (actif ? 1.08 + Math.sin(now / 170) * .05 : .95), L = C * .4;
+            g.strokeStyle = actif ? '#ffffff' : `rgba(${col},${mien ? .95 : .55})`; g.lineWidth = actif ? 2.6 : 1.7;
+            [-1, 1].forEach(sx => [-1, 1].forEach(sy => { g.beginPath(); g.moveTo(x + sx * h, y + sy * (h - L)); g.lineTo(x + sx * h, y + sy * h); g.lineTo(x + sx * (h - L), y + sy * h); g.stroke(); }));
+            // pastille d'état
+            const bw = C * 1.35, bh = C * .58, bx = x - bw / 2, by = y - h - C * .32 - bh;
+            g.fillStyle = 'rgba(2,8,23,.82)'; g.strokeStyle = `rgba(${col},${mien ? .9 : .5})`; g.lineWidth = 1.2;
+            g.beginPath(); g.roundRect(bx, by, bw, bh, bh / 2); g.fill(); g.stroke();
+            const cy = by + bh / 2;
+            if (c.type === 'bouton') { g.fillStyle = c.j === 1 ? '#22d3ee' : '#ef4444'; g.shadowColor = g.fillStyle; g.shadowBlur = 6; g.beginPath(); g.arc(x, cy, bh * .28, 0, 6.3); g.fill(); g.shadowBlur = 0; }
+            if (c.type === 'inter') {
+                g.fillStyle = val ? 'rgba(52,211,153,.35)' : '#1e293b'; g.beginPath(); g.roundRect(x - bw * .28, cy - bh * .24, bw * .56, bh * .48, bh * .24); g.fill();
+                g.fillStyle = val ? '#34d399' : '#64748b'; g.beginPath(); g.arc(x + (val ? bw * .16 : -bw * .16), cy, bh * .2, 0, 6.3); g.fill();
+            }
+            if (c.type === 'curseur') {
+                const v = Number(val) || 0;
+                for (let i = 0; i < 6; i++) { const hb = bh * (.22 + i * .09); g.fillStyle = i <= v ? '#22d3ee' : '#1e293b'; g.fillRect(x - bw * .33 + i * bw * .12, cy + bh * .3 - hb, bw * .08, hb); }
+            }
+        });
     }
     function smDessiner(now, dt) {
         const s = smC.s, G = smC.G, g = smC.g, cv = smC.cv; if (!g) return;
@@ -861,11 +1015,10 @@ if (typeof window !== 'undefined') (function () {
         g.setTransform(cam.e, 0, 0, cam.e, -cam.x * cam.e + tremble, -cam.y * cam.e + tremble * .6);
         if (smC.imgPret) g.drawImage(smC.img, 0, 0, SM.IMG_W, SM.IMG_H);
         if (smC.calque) { g.imageSmoothingEnabled = false; g.drawImage(smC.calque, 0, 0, SM.IMG_W, SM.IMG_H); g.imageSmoothingEnabled = true; }
-        // noms des secteurs
         const px = 1 / cam.e;
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.font = `900 ${Math.max(13, 15 * px)}px ui-monospace, Consolas, monospace`;
-        (smC.centres || []).forEach((c, i) => { g.fillStyle = `rgba(${SM_SECTEURS[i].c},.4)`; g.fillText(SM_SECTEURS[i].n.toUpperCase(), (c[0] + .5) * C, (c[1] + .5) * C); });
+        (smC.centres || []).forEach((c, i) => { g.fillStyle = `rgba(${SM_SECTEURS[i].c},.35)`; g.fillText(SM_SECTEURS[i].n.toUpperCase(), (c[0] + .5) * C, (c[1] + .5) * C); });
         // incendies
         Object.values(s.feux).forEach(f => {
             for (let k = 0; k < 9; k++) {
@@ -875,27 +1028,22 @@ if (typeof window !== 'undefined') (function () {
                 g.fillStyle = gr; g.beginPath(); g.arc(rx, ry, C * 1.2, 0, 6.3); g.fill();
             }
         });
-        // consoles
-        const proche = smC.moi && s.status === 'PLAYING' ? smConsoleProche() : null;
-        const taillePolice = Math.max(9, 10.5 * px);
-        G.consoles.forEach(c => {
-            const x = (c.x + .5) * C, y = (c.y + .5) * C, col = SM_SECTEURS[c.s].c, val = s.cons[c.id];
-            const eclat = s.flash[c.id] ? Math.max(0, 1 - (th - s.flash[c.id]) / 600) : 0;
-            const pulse = .5 + .5 * Math.sin(now / 400 + c.x);
-            g.fillStyle = `rgba(${col},${.16 + .1 * pulse})`; g.beginPath(); g.arc(x, y, C * 1.05, 0, 6.3); g.fill();
-            g.fillStyle = '#0f172a'; g.strokeStyle = c === proche ? '#ffffff' : `rgb(${col})`; g.lineWidth = c === proche ? 3 : 2;
-            g.beginPath(); g.roundRect(x - C * .62, y - C * .62, C * 1.24, C * 1.24, 5); g.fill(); g.stroke();
-            if (eclat) { g.fillStyle = `rgba(34,211,238,${eclat * .7})`; g.fill(); }
-            if (c.type === 'bouton') { g.fillStyle = c.j === 1 ? '#0891b2' : '#dc2626'; g.beginPath(); g.arc(x, y, C * .32, 0, 6.3); g.fill(); }
-            if (c.type === 'inter') { g.fillStyle = val ? '#34d399' : '#475569'; g.beginPath(); g.roundRect(x - C * .4, y - C * .2, C * .8, C * .4, C * .2); g.fill(); g.fillStyle = '#e2e8f0'; g.beginPath(); g.arc(x + (val ? C * .2 : -C * .2), y, C * .15, 0, 6.3); g.fill(); }
-            if (c.type === 'curseur') { g.font = `800 ${C * .75}px ui-monospace, Consolas, monospace`; g.fillStyle = '#22d3ee'; g.fillText(val || 0, x, y + 1); }
-        });
+        smDessinerConsoles(g, now, th, px);
+        // noms : ceux de son secteur, et ceux des équipements proches
+        const taillePolice = Math.max(9, 10.5 * px), me = smC.moi ? s.crew[moi()] : null, p0 = smC.pos;
         const etiq = smEtiquettes(g, taillePolice, px);
         g.font = `700 ${taillePolice}px ui-monospace, Consolas, monospace`;
-        etiq.forEach(e => e.ls.forEach((l, k) => {
-            const ty = e.y + e.h * (k + .5);
-            g.lineWidth = 3 * px; g.strokeStyle = 'rgba(2,6,23,.85)'; g.strokeText(l, e.x, ty); g.fillStyle = 'rgba(241,245,249,.95)'; g.fillText(l, e.x, ty);
-        }));
+        etiq.forEach(e => {
+            const proche = p0 && Math.hypot(e.cx - p0.x, e.cy - p0.y) < 6;
+            if (me && e.s !== me.sec && !proche) return;
+            e.ls.forEach((l, k) => {
+                const ty = e.y + e.h * (k + .5);
+                g.lineWidth = 3 * px; g.strokeStyle = 'rgba(2,6,23,.85)'; g.strokeText(l, e.x, ty); g.fillStyle = 'rgba(241,245,249,.95)'; g.fillText(l, e.x, ty);
+            });
+        });
+        // poussière de course
+        smC.nuages = smC.nuages.filter(n => now - n.t < 520);
+        smC.nuages.forEach(n => { const k = (now - n.t) / 520; g.fillStyle = `rgba(203,213,225,${.35 * (1 - k)})`; g.beginPath(); g.arc((n.x + .5) * C, (n.y + .5) * C, C * (.18 + k * .32), 0, 6.3); g.fill(); });
         // astronautes (du fond vers l'avant)
         const liste = [];
         Object.keys(s.crew).forEach(n => {
@@ -906,14 +1054,24 @@ if (typeof window !== 'undefined') (function () {
         liste.sort((a, b) => a.p.y - b.p.y);
         const T = C * 3.7;
         liste.forEach(({ n, m, p }) => {
-            const x = (p.x + .5) * C, y = (p.y + .5) * C + C * .35;
+            const x = (p.x + .5) * C, y = (p.y + .5) * C + C * .35, mien = smC.moi && n === moi();
             g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(x, y, C * .62, C * .26, 0, 0, 6.3); g.fill();
-            if (smC.moi && n === moi()) { g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, C * .82, C * .36, 0, 0, 6.3); g.stroke(); }
+            if (mien) { g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, C * .82, C * .36, 0, 0, 6.3); g.stroke(); }
             const image = p.w ? Math.floor((p.phase || 0) * SM.MARCHE) % SM.MARCHE : SM.MARCHE + Math.floor((now + n.length * 300) / 500) % SM.REPOS;
-            smDessinerAstro(g, m.col, p.d || 0, image, x, y, T);
+            // en courant, l'astronaute se penche un peu vers l'avant
+            if (p.r && p.w) { const a = [0, 1, 1, 1, 0, -1, -1, -1][p.d || 0] * .12; g.save(); g.translate(x, y); g.rotate(a); smDessinerAstro(g, m.col, p.d || 0, image, 0, 0, T); g.restore(); }
+            else smDessinerAstro(g, m.col, p.d || 0, image, x, y, T);
             const info = smCouleurInfo(m.col);
             g.font = `800 ${Math.max(10, 11 * px)}px ui-monospace, Consolas, monospace`;
             g.lineWidth = 3 * px; g.strokeStyle = 'rgba(2,6,23,.9)'; g.strokeText(m.nom, x, y - T * .86); g.fillStyle = info ? (info.t || info.h) : '#fff'; g.fillText(m.nom, x, y - T * .86);
+            // jauge d'endurance sous son propre astronaute
+            const K = smC.course;
+            if (mien && (K.endu < .999 || p.r)) {
+                const bw = C * 1.8, bh = Math.max(4, 4.5 * px), bx = x - bw / 2, by = y + C * .55;
+                g.fillStyle = 'rgba(2,6,23,.8)'; g.beginPath(); g.roundRect(bx - 1.5, by - 1.5, bw + 3, bh + 3, bh); g.fill();
+                g.fillStyle = K.epuise ? '#f87171' : K.endu < .35 ? '#fbbf24' : '#34d399';
+                g.beginPath(); g.roundRect(bx, by, Math.max(bh, bw * K.endu), bh, bh / 2); g.fill();
+            }
         });
         // ordres criés : bulle au-dessus de celui qui crie
         liste.forEach(({ n, p }) => {
@@ -998,7 +1156,8 @@ if (typeof window !== 'undefined') (function () {
             if (smC.sess !== s.startedAt || !document.getElementById('sm-root')) {
                 smC.sess = s.startedAt; smC.G = smGrille(s.ship); smC.s = s;
                 smC.moi = !!s.crew[moi()] && !window.estSpectateur;
-                smC.aff = {}; smC.chemin = []; smC.repris = false; smC.envoye = ''; smC.degatVu = s.degat; smC.sautVu = s.saut; smC.finVue = s.status === 'FINISHED' ? -1 : 0; smC.ordreVu = 0;
+                smC.aff = {}; smC.chemin = []; smC.repris = false; smC.envoye = '';
+                smC.course = { endu: 1, epuise: false, repos: 0, bouton: false, maj: false }; smC.nuages = []; smC.etiqCle = ''; smC.degatVu = s.degat; smC.sautVu = s.saut; smC.finVue = s.status === 'FINISHED' ? -1 : 0; smC.ordreVu = 0;
                 showScreen('screen-generic-game');
                 const gt = document.getElementById('generic-game-title'); if (gt) gt.innerText = '⚙️ Salle des machines';
                 smConstruire();
