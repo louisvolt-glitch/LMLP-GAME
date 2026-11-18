@@ -8,11 +8,29 @@
 
 const ENCH_BUDGET = 100;
 const ENCH_VALUES = [20, 30, 40, 50, 60, 80, 100];
+// Lots de secours si le catalogue 3D (encheres-3d.js) n'est pas chargé
 const ENCH_LOTS = [
     "Cristal d'énergie", "Module de navigation", "Noyau quantique", "Drone éclaireur", "Carte stellaire", "Bouclier plasma",
     "Cellule de fusion", "Antenne longue portée", "Prototype furtif", "Archive cryptée", "Réacteur miniature", "Balise de détresse",
     "Scanner orbital", "Générateur de champ", "Puce neuronale", "Capsule de survie"
 ];
+
+// Tirage des lots : on évite ceux des parties récentes (mémorisés sur l'appareil de l'hôte)
+// pour qu'une même pièce ne revienne pas d'une partie à l'autre.
+const ENCH_RECENTS_CLE = 'lmlp-ench-recents';
+function enchTirerLots(count) {
+    const tous = (window.ENCH_CATALOGUE && window.ENCH_CATALOGUE.length) ? window.ENCH_CATALOGUE.map(l => l.n) : ENCH_LOTS;
+    let recents = [];
+    try { recents = JSON.parse(localStorage.getItem(ENCH_RECENTS_CLE) || '[]'); } catch (e) {}
+    const neufs = mchShuffle(tous.filter(n => recents.indexOf(n) < 0));
+    const vus = mchShuffle(tous.filter(n => recents.indexOf(n) >= 0));
+    const lots = neufs.concat(vus).slice(0, Math.min(count, tous.length));
+    try {
+        const garder = Math.max(0, tous.length - count);            // on garde en mémoire autant de lots qu'on peut éviter
+        localStorage.setItem(ENCH_RECENTS_CLE, JSON.stringify(lots.concat(recents.filter(n => lots.indexOf(n) < 0)).slice(0, garder)));
+    } catch (e) {}
+    return lots;
+}
 
 // Crédits restants d'un joueur avant la manche en cours (budget de départ moins les mises payées)
 window.encheresBudget = function(g, name) {
@@ -39,7 +57,7 @@ window.MANCHES_MODES.encheres = {
     minPlayers: 2, minRounds: 3, maxRounds: 12, defaultRounds: 6, revealSeconds: 9,
 
     prepare(count) {
-        const lots = mchShuffle(ENCH_LOTS);
+        const lots = enchTirerLots(count);
         let values = [];
         while (values.length < count) values = values.concat(mchShuffle(ENCH_VALUES));
         return values.slice(0, count).map((v, i) => ({ v: v, n: lots[i % lots.length] }));
@@ -51,7 +69,9 @@ window.MANCHES_MODES.encheres = {
         ctx.el.innerHTML = `
             <div class="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-4">
                 <div class="text-[11px] uppercase tracking-widest text-amber-300">💰 Lot mis aux enchères</div>
+                <div id="ench-lot3d" class="mx-auto rounded-2xl" style="width:100%;max-width:340px;height:240px;background:radial-gradient(ellipse at 50% 60%,rgba(56,189,248,.14),rgba(2,6,23,0) 65%)"></div>
                 <div class="text-xl font-black text-white">${mchEsc(ctx.rd.n)}</div>
+                ${typeof window.enchCredit === 'function' && window.enchCredit(ctx.rd.n) ? `<div class="text-[10px] text-slate-500 -mt-3">${window.enchCredit(ctx.rd.n)}</div>` : ''}
                 <div class="text-4xl font-black text-emerald-400 font-mono">${Number(ctx.rd.v) || 0} <span class="text-base text-emerald-300">pts</span></div>
                 <div class="text-sm text-slate-300">Vos crédits restants : <b class="text-amber-300 font-mono text-lg">${budget}</b></div>
                 <div class="flex items-center justify-center gap-2 max-w-sm mx-auto">
@@ -66,6 +86,9 @@ window.MANCHES_MODES.encheres = {
                 <div class="text-[11px] text-slate-400">La mise la plus haute et <b>unique</b> gagne le lot et paie sa mise. Les mises identiques s'annulent. Miser 0 = passer son tour.</div>
                 <div class="text-[11px] text-slate-500">${upcoming.length ? 'Lots à venir : ' + upcoming.map(v => v + ' pts').join(' · ') : 'Dernier lot de la partie : les crédits restants ne valent plus rien.'}</div>
             </div>`;
+        if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-lot3d'), ctx.rd.n);      // le lot tourne en 3D
+        const suivant = mchArr(ctx.g.rounds)[ctx.round];                                      // on télécharge déjà le lot suivant
+        if (suivant && typeof window.enchPrecharger === 'function') window.enchPrecharger(suivant.n);
         const input = document.getElementById('ench-input');
         const read = () => Math.max(0, Math.min(budget, Math.floor(Number(input.value) || 0)));
         ctx.el.querySelectorAll('.ench-step').forEach(b => {
@@ -114,8 +137,14 @@ window.MANCHES_MODES.encheres = {
                 <span class="font-bold ${r.n === me ? 'text-indigo-300' : 'text-slate-200'}">${mchEsc(r.n)} <span class="font-normal">${tag}</span></span>
                 <span class="text-right shrink-0"><b class="text-amber-300 font-mono text-sm">${r.bid}</b> <span class="text-slate-500">· reste ${r.left}</span></span></div>`;
         }).join('');
+        // le lot reste affiché en 3D à la révélation, avec un tampon « ADJUGÉ » ou « INVENDU »
+        setTimeout(() => { if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-rev3d'), rd.n); }, 0);
         return `
             <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-1">
+                <div class="relative mx-auto" style="width:100%;max-width:260px;height:170px">
+                    <div id="ench-rev3d" style="position:absolute;inset:0"></div>
+                    <div style="position:absolute;right:4px;top:10px;transform:rotate(-12deg);border:3px solid ${info.w ? '#34d399' : '#f87171'};color:${info.w ? '#34d399' : '#f87171'};padding:2px 10px;border-radius:8px;font-weight:900;letter-spacing:.15em;font-size:15px;background:rgba(2,6,23,.6);pointer-events:none">${info.w ? 'ADJUGÉ' : 'INVENDU'}</div>
+                </div>
                 <div class="text-sm font-bold text-slate-200">${mchEsc(rd.n)} · <span class="text-emerald-400 font-mono">${Number(rd.v) || 0} pts</span></div>
                 <div class="text-lg font-black ${info.w ? 'text-emerald-400' : 'text-red-300'}">${info.w ? mchEsc(info.w) + ' remporte le lot !' : 'Personne ne remporte le lot !'}</div>
             </div>
