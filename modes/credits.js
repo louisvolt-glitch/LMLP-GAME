@@ -41,7 +41,16 @@ const CREDITS_ANOMALIES = [
 ];
 const CREDITS_MACHINES = [
     ['Astronaute (animation de marche précalculée en images)', 'Little Astronaut', 'Jelle Vermandere', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/little-astronaut-12184db58b1f44c987537b5607c32098'],
-    ['Plans des 18 vaisseaux', 'créés avec Gemini', 'Google', '', 'https://gemini.google.com']
+    ['Plans des 18 vaisseaux', 'créés avec Gemini', 'Google', '', 'https://gemini.google.com'],
+    ['Extincteur', 'Fire extinguisher', 'Just8', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/fire-extinguisher-32053a83d480423ead43e954dad5fc41'],
+    ['Clé à molette', 'Clé à boulon', 'Nicolas (nicolas-lissarrague)', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/cle-a-boulon-0e9456fdc64f44d8b8280720e270e0eb'],
+    ['Son : moteur du vaisseau', 'Motor vehículo futurista grande', 'pepe827', 'Freesound', 'https://freesound.org/s/602912/'],
+    ['Son : alarme', 'Two tone alarm repeating', 'theprinternet', 'Freesound', 'https://freesound.org/s/696175/'],
+    ['Son : incendie', 'Big fire loop', 'robinhood76', 'Freesound', 'https://freesound.org/s/612277/'],
+    ['Son : brèche dans la coque', 'Hull breach', 'jobro', 'Freesound', 'https://freesound.org/s/244112/'],
+    ['Son : pas sur le métal', 'Metal mesh stairs steps', 'garuda1982', 'Freesound', 'https://freesound.org/s/555386/'],
+    ['Son : démarrage des consoles', 'Turning on game console', 'harrisong024', 'Freesound', 'https://freesound.org/s/620320/'],
+    ['Son : radio de l’intercom', 'MCC5500 keyup astro', 'nmcarpenter', 'Freesound', 'https://freesound.org/s/84397/']
 ];
 const CREDITS_DIVERS = [
     ['Illustrations des cartes (Missive Stellaire, Cargaison et Transmission de Magnat)', 'créées avec Gemini', 'Google', '', 'https://gemini.google.com'],
