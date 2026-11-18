@@ -1198,7 +1198,13 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             </select>
                         </div>
                     </div>
-                    <div class="text-[10px] text-slate-500">1 à 8 joueurs. À moins de 4, des androïdes tiennent les secteurs libres. 10 ordres réussis = un saut hyperespace ; un ordre raté abîme la coque.</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Difficulté :</span>
+                        <select id="setting-machines-diff" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            <option value="facile">Facile (jauges lentes, une panne de moins)</option><option value="normal" selected>Normal</option><option value="difficile">Difficile (jauges rapides, une panne de plus)</option>
+                        </select>
+                    </div>
+                    <div class="text-[10px] text-slate-500">1 à 8 joueurs. À moins de 4, des androïdes tiennent les secteurs libres. La difficulté s’ajuste aussi au nombre de joueurs. 5 pannes réparées = verrouillage des moteurs puis saut hyperespace.</div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -1875,7 +1881,8 @@ if (mode === 'codenames') {
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'machines') {
                 const smObj = parseInt(s.smObj ?? 5, 10), smShip = parseInt(s.smShip || 0, 10);
-                displayEl.innerText = `${smObj > 0 ? smObj + ' secteurs à franchir' : 'survie'} | ${smShip > 0 ? 'vaisseau n°' + smShip : 'vaisseau au hasard'}`;
+                const smDiff = ({ facile: 'facile', normal: 'normal', difficile: 'difficile' })[s.smDiff] || 'normal';
+                displayEl.innerText = `${smObj > 0 ? smObj + ' secteurs à franchir' : 'survie'} | ${smShip > 0 ? 'vaisseau n°' + smShip : 'vaisseau au hasard'} | ${smDiff}`;
                 if (typeof smBoutonCouleur === 'function') displayEl.appendChild(smBoutonCouleur());      // chaque joueur choisit la couleur de son astronaute
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'bataille') {
@@ -2272,6 +2279,7 @@ function showScreen(id) {
 		const msGoal = document.getElementById('setting-missive-goal')?.value || 3;
 		const smObj = document.getElementById('setting-machines-obj')?.value ?? 5;
 		const smShip = document.getElementById('setting-machines-ship')?.value || 0;
+		const smDiff = document.getElementById('setting-machines-diff')?.value || 'normal';
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
@@ -2293,7 +2301,8 @@ function showScreen(id) {
 			bsDuel2: bsDuel2,
 			msGoal: msGoal,
 			smObj: smObj,
-			smShip: smShip
+			smShip: smShip,
+			smDiff: smDiff
                     }
                 });
             }
@@ -2508,9 +2517,9 @@ const protocolData = {
     },
     'machines': {
         rules: [
-            "Chaque membre d'équipage tient un secteur du vaisseau. Déplacez votre astronaute et utilisez les consoles : boutons, interrupteurs et curseurs.",
-            "Votre écran affiche un ordre, mais la console est presque toujours dans le secteur d'un autre : criez-le ! 10 ordres réussis déclenchent un saut hyperespace.",
-            "Un ordre raté abîme la coque. Incendies et pannes de courant compliquent la tâche. Franchissez tous les secteurs avant que le vaisseau ne casse."
+            "Chaque membre d'équipage tient un secteur du vaisseau et a un rôle (ingénieur, pilote, éclaireur, logisticien). Déplacez votre astronaute et utilisez les équipements.",
+            "Les systèmes (réacteur, oxygène, bouclier, gravité) tombent en panne : suivez leur procédure en 2 ou 3 étapes réparties dans le vaisseau, parfois avec une pièce à rapporter, avant que leur jauge n'atteigne zéro.",
+            "5 pannes réparées : tout l'équipage rejoint son poste pour verrouiller les moteurs, puis saut hyperespace. Incendies, brèches et fuites de gaz compliquent la tâche."
         ],
         players: "1 - 8 JOUEURS",
         duration: "8-25 MIN",
