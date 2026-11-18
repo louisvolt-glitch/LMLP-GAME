@@ -1,7 +1,7 @@
 // =====================================================================
 //  MOTEUR « MANCHES » : base commune des modes
 //    Au Plus Proche (estimation.js), Esprit Commun (telepathie.js),
-//    Mise Secrète (encheres.js), Réflexes Éclair (reflexes.js),
+//    Marché noir de la station (encheres.js), Réflexes Éclair (reflexes.js),
 //    Séquence Mémoire (memoire.js).
 //
 //  Tout le monde joue la même manche en même temps. À la fin du temps (ou quand
