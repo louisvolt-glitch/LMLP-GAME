@@ -551,6 +551,8 @@ const SYS_RESSOURCES = {
     quiz: ['./modes/donnees-quiz.js'],
     cine: ['./modes/donnees-cine.js'],
     machines: ['./modes/machines-vaisseaux.js'],
+    conseil: ['./modes/conseil-questions.js'],
+    dessin: ['./modes/dessin-mots.js'],
     anomaly: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
               'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
               './modes/anomaly.js']
