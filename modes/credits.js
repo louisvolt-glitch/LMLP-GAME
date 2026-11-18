@@ -44,6 +44,8 @@ const CREDITS_MACHINES = [
     ['Plans des 18 vaisseaux', 'créés avec Gemini', 'Google', '', 'https://gemini.google.com'],
     ['Extincteur', 'Fire extinguisher', 'Just8', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/fire-extinguisher-32053a83d480423ead43e954dad5fc41'],
     ['Clé à molette', 'Clé à boulon', 'Nicolas (nicolas-lissarrague)', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/cle-a-boulon-0e9456fdc64f44d8b8280720e270e0eb'],
+    ['Pièce de rechange : fusible', 'Electronic Fuse', 'Zillious', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/electronic-fuse-2c09b1e3e1d6475a99172ebe2f18cd51'],
+    ['Pièce de rechange : cellule d’énergie', 'Energy Cell', 'Flode', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/energy-cell-2b67be1a1fa0485c97ea5ef1ae990e76'],
     ['Son : moteur du vaisseau', 'Motor vehículo futurista grande', 'pepe827', 'Freesound', 'https://freesound.org/s/602912/'],
     ['Son : alarme', 'Two tone alarm repeating', 'theprinternet', 'Freesound', 'https://freesound.org/s/696175/'],
     ['Son : incendie', 'Big fire loop', 'robinhood76', 'Freesound', 'https://freesound.org/s/612277/'],
