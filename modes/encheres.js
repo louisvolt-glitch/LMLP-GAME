@@ -1,5 +1,5 @@
 // =====================================================================
-//  MODE « MISE SECRÈTE » : des enchères à l'aveugle.
+//  MODE « MARCHÉ NOIR DE LA STATION » : des enchères à l'aveugle.
 //  Chaque joueur reçoit 100 crédits pour TOUTE la partie. À chaque manche un lot
 //  est mis en jeu : tout le monde mise en secret. La mise la plus haute ET unique
 //  remporte le lot et paie sa mise. Les mises identiques s'annulent entre elles.
@@ -32,6 +32,15 @@ function enchTirerLots(count) {
     return lots;
 }
 
+// Tampon « ADJUGÉ / INVENDU » : il s'abat sur le lot après la surprise (une seule fois par manche)
+const enchTampons = {};
+if (typeof document !== 'undefined' && document.head && !document.getElementById('ench-style')) {
+    const st = document.createElement('style'); st.id = 'ench-style';
+    st.textContent = '@keyframes enchTampon{0%{opacity:0;transform:rotate(-12deg) scale(3)}70%{opacity:1;transform:rotate(-12deg) scale(.9)}100%{opacity:1;transform:rotate(-12deg) scale(1)}}' +
+        '.ench-tampon{opacity:0;animation:enchTampon .35s cubic-bezier(.2,1.6,.4,1) 2.6s forwards;z-index:6}';
+    document.head.appendChild(st);
+}
+
 // Crédits restants d'un joueur avant la manche en cours (budget de départ moins les mises payées)
 window.encheresBudget = function(g, name) {
     let left = ENCH_BUDGET;
@@ -53,7 +62,7 @@ window.encheresWinner = function(bids) {
 };
 
 window.MANCHES_MODES.encheres = {
-    title: 'Mise Secrète',
+    title: 'Marché noir de la station',
     minPlayers: 2, minRounds: 3, maxRounds: 12, defaultRounds: 6, revealSeconds: 9,
 
     prepare(count) {
@@ -68,7 +77,7 @@ window.MANCHES_MODES.encheres = {
         const upcoming = mchArr(ctx.g.rounds).slice(ctx.round).map(r => r.v);
         ctx.el.innerHTML = `
             <div class="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-4">
-                <div class="text-[11px] uppercase tracking-widest text-amber-300">💰 Lot mis aux enchères</div>
+                <div class="text-[11px] uppercase tracking-widest text-amber-300">🕶️ Marché noir · lot en vente sous le manteau</div>
                 <div id="ench-lot3d" class="mx-auto rounded-2xl" style="width:100%;max-width:340px;height:240px;background:radial-gradient(ellipse at 50% 60%,rgba(56,189,248,.14),rgba(2,6,23,0) 65%)"></div>
                 <div class="text-xl font-black text-white">${mchEsc(ctx.rd.n)}</div>
                 ${typeof window.enchCredit === 'function' && window.enchCredit(ctx.rd.n) ? `<div class="text-[10px] text-slate-500 -mt-3">${window.enchCredit(ctx.rd.n)}</div>` : ''}
@@ -86,7 +95,7 @@ window.MANCHES_MODES.encheres = {
                 <div class="text-[11px] text-slate-400">La mise la plus haute et <b>unique</b> gagne le lot et paie sa mise. Les mises identiques s'annulent. Miser 0 = passer son tour.</div>
                 <div class="text-[11px] text-slate-500">${upcoming.length ? 'Lots à venir : ' + upcoming.map(v => v + ' pts').join(' · ') : 'Dernier lot de la partie : les crédits restants ne valent plus rien.'}</div>
             </div>`;
-        if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-lot3d'), ctx.rd.n);      // le lot tourne en 3D
+        if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-lot3d'), ctx.rd.n, { mode: 'mise' });      // le lot tourne en 3D
         const suivant = mchArr(ctx.g.rounds)[ctx.round];                                      // on télécharge déjà le lot suivant
         if (suivant && typeof window.enchPrecharger === 'function') window.enchPrecharger(suivant.n);
         const input = document.getElementById('ench-input');
@@ -123,7 +132,7 @@ window.MANCHES_MODES.encheres = {
         return { p: p, info: { w: winner || '' } };
     },
 
-    renderReveal({ rd, res, info, me, names }) {
+    renderReveal({ rd, res, info, me, names, g }) {
         const rows = names.map(n => Object.assign({ n: n, bid: 0, left: ENCH_BUDGET }, res[n] || {}));
         const counts = {};
         rows.forEach(r => { if (r.bid > 0) counts[r.bid] = (counts[r.bid] || 0) + 1; });
@@ -138,12 +147,14 @@ window.MANCHES_MODES.encheres = {
                 <span class="text-right shrink-0"><b class="text-amber-300 font-mono text-sm">${r.bid}</b> <span class="text-slate-500">· reste ${r.left}</span></span></div>`;
         }).join('');
         // le lot reste affiché en 3D à la révélation, avec un tampon « ADJUGÉ » ou « INVENDU »
-        setTimeout(() => { if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-rev3d'), rd.n); }, 0);
+        const cle = [rd.n, g && g.round, g && (g.sess || g.startedAt || '')].join('|');
+        const premiere = !enchTampons[cle]; enchTampons[cle] = true;          // l'écran se redessine souvent : le tampon ne s'abat qu'une fois
+        setTimeout(() => { if (typeof window.enchMonter3D === 'function') window.enchMonter3D(document.getElementById('ench-rev3d'), rd.n, { mode: 'revelation', surprise: info.w ? 'adjuge' : 'invendu', cle: cle }); }, 0);
         return `
             <div class="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl text-center space-y-1">
-                <div class="relative mx-auto" style="width:100%;max-width:260px;height:170px">
+                <div class="relative mx-auto" style="width:100%;max-width:320px;height:210px">
                     <div id="ench-rev3d" style="position:absolute;inset:0"></div>
-                    <div style="position:absolute;right:4px;top:10px;transform:rotate(-12deg);border:3px solid ${info.w ? '#34d399' : '#f87171'};color:${info.w ? '#34d399' : '#f87171'};padding:2px 10px;border-radius:8px;font-weight:900;letter-spacing:.15em;font-size:15px;background:rgba(2,6,23,.6);pointer-events:none">${info.w ? 'ADJUGÉ' : 'INVENDU'}</div>
+                    <div class="${premiere ? 'ench-tampon' : ''}" style="position:absolute;right:4px;top:10px;transform:rotate(-12deg);border:3px solid ${info.w ? '#34d399' : '#f87171'};color:${info.w ? '#34d399' : '#f87171'};padding:2px 10px;border-radius:8px;font-weight:900;letter-spacing:.15em;font-size:15px;background:rgba(2,6,23,.6);pointer-events:none">${info.w ? 'ADJUGÉ' : 'INVENDU'}</div>
                 </div>
                 <div class="text-sm font-bold text-slate-200">${mchEsc(rd.n)} · <span class="text-emerald-400 font-mono">${Number(rd.v) || 0} pts</span></div>
                 <div class="text-lg font-black ${info.w ? 'text-emerald-400' : 'text-red-300'}">${info.w ? mchEsc(info.w) + ' remporte le lot !' : 'Personne ne remporte le lot !'}</div>
