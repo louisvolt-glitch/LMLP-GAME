@@ -519,6 +519,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 if (data.players) {
                     window.state.players = data.players;
                     state.players = data.players;
+                    if (typeof window.majFiltresProtocoles === 'function') window.majFiltresProtocoles();
                     updateLobbyUI();
                 }
 
@@ -844,18 +845,24 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <div class="absolute inset-0 p-3 flex flex-col">
         <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
             <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
-                BIBLIOTHÈQUE DE PROTOCOLES (30)
+                BIBLIOTHÈQUE DE PROTOCOLES (<span id="protocol-count">17</span>)
             </div>
             <div class="text-[10px] text-cyan-400">INDEXÉ</div>
         </div>
 
         <!-- Barre de recherche rapide -->
-        <div class="mb-2 shrink-0">
-            <input type="text" id="protocol-search" placeholder="Rechercher un protocole..." oninput="filterProtocols(this.value)" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs focus:outline-none focus:border-cyan-300">
+        <div class="mb-2 shrink-0 flex gap-1.5">
+            <input type="text" id="protocol-search" placeholder="Rechercher un protocole..." oninput="filterProtocols(this.value)" class="flex-1 min-w-0 bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs focus:outline-none focus:border-cyan-300">
+            <button type="button" id="protocol-filter-btn" onclick="basculerFiltresProtocoles()" title="Filtrer les protocoles" class="shrink-0 px-2 bg-black/50 border border-cyan-500/40 text-cyan-300 hover:border-cyan-300 hover:text-cyan-100 transition text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-filter text-[10px]"></i><span class="hidden sm:inline">FILTRES</span>
+                <span id="protocol-filter-badge" class="hidden min-w-[16px] h-4 px-1 rounded-full bg-amber-400 text-black text-[9px] font-bold leading-4 text-center"></span>
+            </button>
         </div>
+        <div id="protocol-filter-panel" class="hidden mb-2 shrink-0 overflow-y-auto bg-black/60 border border-cyan-500/30 px-2 py-1.5 text-[10px] space-y-1.5" style="max-height:42%"></div>
 
         <!-- Liste des catégories et modes -->
         <div id="protocols-list-container" class="space-y-2 overflow-y-auto flex-1 pr-1 text-xs min-h-0">
+            <div id="protocol-filter-vide" class="hidden text-center text-slate-400 py-6 text-[11px]">Aucun protocole ne correspond à ces filtres.<br><button type="button" onclick="reinitialiserFiltresProtocoles()" class="mt-2 text-cyan-300 underline">Réinitialiser les filtres</button></div>
             
             <!-- Catégorie : Culture G -->
             <div>
@@ -2672,18 +2679,112 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
     }
 }
 
-        function filterProtocols(query) {
-            const q = query.toLowerCase();
-            const items = document.querySelectorAll('#protocols-list-container [onclick^="selectProtocol"]');
-            items.forEach(item => {
-                const text = item.innerText.toLowerCase();
-                if (text.includes(q)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+        // ===== Filtres de la bibliothèque de protocoles =====
+        // Type de partie et ambiance de chaque mode ; joueurs, durée et complexité viennent de protocolData.
+        const MODE_FILTRES = {
+            quiz:       { t: 'solo',    a: ['culture'] },
+            geoguessr:  { t: 'solo',    a: ['culture', 'observation'] },
+            cine:       { t: 'solo',    a: ['culture', 'observation'] },
+            estimation: { t: 'solo',    a: ['culture'] },
+            codenames:  { t: 'equipes', a: ['parole', 'bluff'] },
+            petitsbac:  { t: 'solo',    a: ['parole', 'culture'] },
+            telepathie: { t: 'solo',    a: ['parole'] },
+            encheres:   { t: 'solo',    a: ['bluff', 'strategie'] },
+            magnat:     { t: 'solo',    a: ['strategie'] },
+            bataille:   { t: 'duel',    a: ['strategie', 'bluff'] },
+            missive:    { t: 'solo',    a: ['bluff', 'strategie'] },
+            machines:   { t: 'coop',    a: ['reflexes', 'parole'] },
+            impostor:   { t: 'equipes', a: ['bluff', 'parole'] },
+            anomaly:    { t: 'solo',    a: ['observation'] },
+            references: { t: 'solo',    a: ['culture', 'observation'] },
+            reflexes:   { t: 'solo',    a: ['reflexes'] },
+            memoire:    { t: 'solo',    a: ['reflexes', 'observation'] }
+        };
+        const FILTRES_GROUPES = [
+            { g: 'joueurs', n: 'Joueurs', unique: true, o: [['salon', '👥 Salon actuel'], ['1', 'Solo'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5 et +']] },
+            { g: 'type', n: 'Type de partie', o: [['coop', '🤝 Coopératif'], ['solo', '🏆 Chacun pour soi'], ['equipes', '🎭 Équipes et rôles cachés'], ['duel', '⚔️ Duel']] },
+            { g: 'duree', n: 'Durée', o: [['courte', '⚡ Courte (≈10 min)'], ['moyenne', '⏱️ Moyenne (10-20 min)'], ['longue', '🕰️ Longue (20 min et +)']] },
+            { g: 'ambiance', n: 'Ambiance', o: [['culture', '📚 Culture'], ['reflexes', '🎯 Réflexes'], ['bluff', '🃏 Bluff et déduction'], ['strategie', '♟️ Stratégie'], ['observation', '🔍 Observation'], ['parole', '💬 Communication et mots']] },
+            { g: 'complexite', n: 'Complexité', o: [['simple', 'Simple'], ['moyen', 'Intermédiaire'], ['avance', 'Avancée']] }
+        ];
+        let filtresProtocoles = { joueurs: [], type: [], duree: [], ambiance: [], complexite: [] };
+        try { const f = JSON.parse(localStorage.getItem('lmlp-filtres-protocoles') || 'null'); if (f) Object.keys(filtresProtocoles).forEach(k => { if (Array.isArray(f[k])) filtresProtocoles[k] = f[k]; }); } catch (e) {}
+
+        function infosFiltreMode(cle) {
+            const d = (typeof protocolData !== 'undefined' && protocolData[cle]) || {}, m = MODE_FILTRES[cle] || { t: 'solo', a: [] };
+            const nb = String(d.players || '1 - 8').match(/\d+/g) || ['1', '8'];
+            const min = +nb[0], max = +(nb[1] || nb[0]);
+            const du = (String(d.duration || '10').match(/\d+/g) || ['10']).map(Number), milieu = (du[0] + (du[1] || du[0])) / 2;
+            const cx = parseInt(d.complexity, 10) || 50;
+            return { min, max, type: m.t, ambiance: m.a,
+                duree: milieu <= 10 ? 'courte' : milieu <= 20 ? 'moyenne' : 'longue',
+                complexite: cx < 50 ? 'simple' : cx <= 75 ? 'moyen' : 'avance' };
         }
+        function nbJoueursSalon() { const p = (window.state && window.state.players) || {}; return Math.max(1, Object.keys(p).length); }
+        function modeCorrespond(cle) {
+            const i = infosFiltreMode(cle), f = filtresProtocoles;
+            if (f.joueurs.length) {
+                const v = f.joueurs[0], n = v === 'salon' ? nbJoueursSalon() : +v;
+                if (v === '5' ? i.max < 5 : (n < i.min || n > i.max)) return false;
+            }
+            if (f.type.length && !f.type.includes(i.type)) return false;
+            if (f.duree.length && !f.duree.includes(i.duree)) return false;
+            if (f.complexite.length && !f.complexite.includes(i.complexite)) return false;
+            if (f.ambiance.length && !f.ambiance.some(a => i.ambiance.includes(a))) return false;
+            return true;
+        }
+        function dessinerFiltresProtocoles() {
+            const el = document.getElementById('protocol-filter-panel'); if (!el) return;
+            el.innerHTML = FILTRES_GROUPES.map(G => `<div><div class="text-cyan-400 font-bold uppercase tracking-wider mb-0.5 text-[9px]">${G.n}${G.g === 'joueurs' ? ` <span class="text-slate-500 normal-case font-normal">(salon : ${nbJoueursSalon()})</span>` : ''}</div><div class="flex flex-wrap gap-1">` +
+                G.o.map(([v, t]) => { const on = filtresProtocoles[G.g].includes(v);
+                    return `<button type="button" onclick="basculerFiltreProtocole('${G.g}','${v}')" class="px-1.5 py-px border rounded-sm transition ${on ? 'bg-cyan-400/20 border-cyan-300 text-cyan-100 shadow-[0_0_6px_rgba(34,211,238,.5)]' : 'bg-black/40 border-cyan-500/25 text-slate-300 hover:border-cyan-400'}">${t}</button>`; }).join('') + `</div></div>`).join('') +
+                `<div class="sticky bottom-0 -mx-2 -mb-1.5 px-2 py-1 flex justify-between items-center border-t border-cyan-500/20 bg-[#04121a]"><span id="protocol-filter-resume" class="text-slate-400"></span><span class="flex gap-3"><button type="button" onclick="reinitialiserFiltresProtocoles()" class="text-amber-300 hover:text-amber-100">↺ Réinitialiser</button><button type="button" onclick="basculerFiltresProtocoles()" class="text-cyan-300 hover:text-cyan-100">Fermer ✕</button></span></div>`;
+        }
+        function basculerFiltresProtocoles() {
+            const el = document.getElementById('protocol-filter-panel'); if (!el) return;
+            const ouvrir = el.classList.contains('hidden');
+            if (ouvrir) dessinerFiltresProtocoles();
+            el.classList.toggle('hidden', !ouvrir);
+            appliquerFiltresProtocoles();
+        }
+        function basculerFiltreProtocole(g, v) {
+            const L = filtresProtocoles[g], grp = FILTRES_GROUPES.find(x => x.g === g);
+            if (L.includes(v)) L.splice(L.indexOf(v), 1); else { if (grp && grp.unique) L.length = 0; L.push(v); }
+            try { localStorage.setItem('lmlp-filtres-protocoles', JSON.stringify(filtresProtocoles)); } catch (e) {}
+            dessinerFiltresProtocoles(); appliquerFiltresProtocoles();
+        }
+        function reinitialiserFiltresProtocoles() {
+            Object.keys(filtresProtocoles).forEach(k => filtresProtocoles[k] = []);
+            try { localStorage.removeItem('lmlp-filtres-protocoles'); } catch (e) {}
+            dessinerFiltresProtocoles(); appliquerFiltresProtocoles();
+        }
+        function appliquerFiltresProtocoles() {
+            const champ = document.getElementById('protocol-search'), q = (champ ? champ.value : '').toLowerCase().trim();
+            const conteneur = document.getElementById('protocols-list-container'); if (!conteneur) return;
+            const items = conteneur.querySelectorAll('[onclick^="selectProtocol"]'); let visibles = 0;
+            items.forEach(item => {
+                const cle = (item.id || '').replace('protocol-btn-', '');
+                const ok = item.innerText.toLowerCase().includes(q) && modeCorrespond(cle);
+                item.style.display = ok ? 'flex' : 'none'; if (ok) visibles++;
+            });
+            conteneur.querySelectorAll(':scope > div:not(#protocol-filter-vide)').forEach(cat => {
+                const n = [...cat.querySelectorAll('[onclick^="selectProtocol"]')].filter(x => x.style.display !== 'none').length;
+                cat.style.display = n ? '' : 'none';
+            });
+            const actifs = Object.values(filtresProtocoles).reduce((t, L) => t + L.length, 0);
+            const badge = document.getElementById('protocol-filter-badge'); if (badge) { badge.textContent = actifs; badge.classList.toggle('hidden', !actifs); }
+            const btn = document.getElementById('protocol-filter-btn'); if (btn) btn.classList.toggle('border-amber-400', !!actifs);
+            const cpt = document.getElementById('protocol-count'); if (cpt) cpt.textContent = (actifs || q) ? `${visibles}/${items.length}` : items.length;
+            const vide = document.getElementById('protocol-filter-vide'); if (vide) vide.classList.toggle('hidden', visibles > 0);
+            const res = document.getElementById('protocol-filter-resume'); if (res) res.textContent = `${visibles} protocole${visibles > 1 ? 's' : ''} sur ${items.length}`;
+        }
+        window.majFiltresProtocoles = function () {   // appelé quand la liste des joueurs du salon change
+            if (filtresProtocoles.joueurs[0] === 'salon') appliquerFiltresProtocoles();
+            const el = document.getElementById('protocol-filter-panel'); if (el && !el.classList.contains('hidden')) dessinerFiltresProtocoles();
+        };
+        function filterProtocols(query) { appliquerFiltresProtocoles(); }
+        document.addEventListener('DOMContentLoaded', appliquerFiltresProtocoles);
+        if (document.readyState !== 'loading') setTimeout(appliquerFiltresProtocoles, 0);
 
 	function toggleVideoAudio(event) {
     // Empêche le clic de déclencher d'autres événements
