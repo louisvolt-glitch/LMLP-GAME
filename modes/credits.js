@@ -39,6 +39,10 @@ const CREDITS_ANOMALIES = [
     ['Lampe en cage, ventilateur de plafond, console, extincteur, cadres, alarme incendie, tuyaux, cabine téléphonique, caméra de surveillance, canapé, chariot à outils, horloge, panneau « sol glissant », fauteuil roulant',
         'Modèles Poly Haven', 'Poly Haven', 'CC0', 'https://polyhaven.com/models']
 ];
+const CREDITS_MACHINES = [
+    ['Astronaute (animation de marche précalculée en images)', 'Little Astronaut', 'Jelle Vermandere', 'CC-BY-4.0', 'https://sketchfab.com/3d-models/little-astronaut-12184db58b1f44c987537b5607c32098'],
+    ['Plans des 18 vaisseaux', 'créés avec Gemini', 'Google', '', 'https://gemini.google.com']
+];
 const CREDITS_DIVERS = [
     ['Illustrations des cartes (Missive Stellaire, Cargaison et Transmission de Magnat)', 'créées avec Gemini', 'Google', '', 'https://gemini.google.com'],
     ['Affiches de films (Archives terrestres)', 'utilisées à titre d’illustration', 'leurs studios et ayants droit', '', ''],
@@ -85,6 +89,7 @@ window.ouvrirCredits = function() {
         <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Ce jeu entre amis utilise le travail de nombreux créateurs. Merci à eux ! Les modèles 3D ont été allégés pour le web (textures réduites, maillages simplifiés).</p>
         ${lots.length ? credSection('Marché noir de la station — les lots 3D', lots, 'Touchez le titre pour dérouler la liste. Modèles publiés sur Sketchfab.') : ''}
         ${credSection('Magnat Galactique — pions et plateau', CREDITS_MAGNAT)}
+        ${credSection('Salle des machines — astronaute et vaisseaux', CREDITS_MACHINES)}
         ${credSection('Anomalies — objets des couloirs', CREDITS_ANOMALIES)}
         ${credSection('Illustrations, outils et services', CREDITS_DIVERS)}`);
 };
