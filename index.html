@@ -282,6 +282,7 @@
     <script src="./modes/magnat.js"></script>
     <script src="./modes/bataille.js"></script>
     <script src="./modes/missive.js"></script>
+    <script src="./modes/machines.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -403,7 +404,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'memoire': { name: 'Code d’accès du sas', icon: '🔐', desc: 'Mémorisez le code qui s’allume sur le clavier du sas et retapez-le sans erreur.' },
                         'magnat': { name: 'Magnat Galactique', icon: '🪐', desc: 'Achetez des colonies, percevez des loyers, construisez et ruinez vos rivaux.' },
                         'bataille': { name: 'Bataille Stellaire', icon: '🛸', desc: 'Duel à 2 joueurs : cachez votre flotte de vaisseaux et détruisez celle de l adversaire.' },
-                        'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' }
+                        'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' },
+                        'machines': { name: 'Salle des machines', icon: '⚙️', desc: 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -505,6 +507,9 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
 		    } else if (selectedMode === 'missive') {
     			if (justStarted) showScreen('screen-generic-game');
     			if (typeof renderMissiveScreen === 'function') renderMissiveScreen(data);
+		    } else if (selectedMode === 'machines') {
+    			if (justStarted) showScreen('screen-generic-game');
+    			if (typeof renderMachinesScreen === 'function') renderMachinesScreen(data);
 		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
@@ -911,6 +916,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-200">Missive Stellaire</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
                     </div>
+                    <div onclick="selectProtocol('Salle des machines', '⚙️', 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.', 'machines')" id="protocol-btn-machines" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Salle des machines</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
                 </div>
             </div>
 
@@ -1170,6 +1179,26 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <input type="number" id="setting-missive-goal" min="1" max="7" value="3" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
                     <div class="text-[10px] text-slate-500">Une manche gagnée = un sceau. Temps par tour : réglez le curseur ci-dessus (15 à 120 s). À partir de 5 joueurs, le paquet de 20 cartes est doublé.</div>
+                </div>
+
+                <!-- Options Salle des machines -->
+                <div id="host-settings-machines" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS SALLE DES MACHINES</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Objectif :</span>
+                            <select id="setting-machines-obj" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                                <option value="3">3 secteurs (≈ 8 min)</option><option value="5" selected>5 secteurs (≈ 15 min)</option><option value="8">8 secteurs (≈ 25 min)</option><option value="0">Survie (jusqu’à la casse)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Vaisseau :</span>
+                            <select id="setting-machines-ship" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                                <option value="0">🎲 Au hasard</option><option value="1">Vaisseau n°1</option><option value="2">Vaisseau n°2</option><option value="3">Vaisseau n°3</option><option value="4">Vaisseau n°4</option><option value="5">Vaisseau n°5</option><option value="6">Vaisseau n°6</option><option value="7">Vaisseau n°7</option><option value="8">Vaisseau n°8</option><option value="9">Vaisseau n°9</option><option value="10">Vaisseau n°10</option><option value="11">Vaisseau n°11</option><option value="12">Vaisseau n°12</option><option value="13">Vaisseau n°13</option><option value="14">Vaisseau n°14</option><option value="15">Vaisseau n°15</option><option value="16">Vaisseau n°16</option><option value="17">Vaisseau n°17</option><option value="18">Vaisseau n°18</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500">1 à 8 joueurs. À moins de 4, des androïdes tiennent les secteurs libres. 10 ordres réussis = un saut hyperespace ; un ordre raté abîme la coque.</div>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -1844,6 +1873,11 @@ if (mode === 'codenames') {
             } else if (mode === 'missive') {
                 displayEl.innerText = `${timer}s/tour | ${s.msGoal || 3} sceaux pour gagner`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (mode === 'machines') {
+                const smObj = parseInt(s.smObj ?? 5, 10), smShip = parseInt(s.smShip || 0, 10);
+                displayEl.innerText = `${smObj > 0 ? smObj + ' secteurs à franchir' : 'survie'} | ${smShip > 0 ? 'vaisseau n°' + smShip : 'vaisseau au hasard'}`;
+                if (typeof smBoutonCouleur === 'function') displayEl.appendChild(smBoutonCouleur());      // chaque joueur choisit la couleur de son astronaute
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'bataille') {
                 displayEl.innerText = `${timer}s/tir | ${s.bsAgain === '0' ? 'un tir par tour' : 'touché = rejoue'} | ${s.bsDuel1 || 'au hasard'} contre ${s.bsDuel2 || 'au hasard'}`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
@@ -2122,6 +2156,8 @@ function launchGame() {
     			if (typeof window.startBatailleGame === 'function') window.startBatailleGame();
 		} else if (state.selectedMode === 'missive') {
     			if (typeof window.startMissiveGame === 'function') window.startMissiveGame();
+		} else if (state.selectedMode === 'machines') {
+    			if (typeof window.startMachinesGame === 'function') window.startMachinesGame();
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -2234,6 +2270,8 @@ function showScreen(id) {
 		const bsDuel1 = document.getElementById('setting-bataille-p1')?.value || '';
 		const bsDuel2 = document.getElementById('setting-bataille-p2')?.value || '';
 		const msGoal = document.getElementById('setting-missive-goal')?.value || 3;
+		const smObj = document.getElementById('setting-machines-obj')?.value ?? 5;
+		const smShip = document.getElementById('setting-machines-ship')?.value || 0;
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
@@ -2253,7 +2291,9 @@ function showScreen(id) {
 			bsAgain: bsAgain,
 			bsDuel1: bsDuel1,
 			bsDuel2: bsDuel2,
-			msGoal: msGoal
+			msGoal: msGoal,
+			smObj: smObj,
+			smShip: smShip
                     }
                 });
             }
@@ -2465,6 +2505,19 @@ const protocolData = {
         complexity: "65%",
         sync: "55%",
         settingsId: "host-settings-missive"
+    },
+    'machines': {
+        rules: [
+            "Chaque membre d'équipage tient un secteur du vaisseau. Déplacez votre astronaute et utilisez les consoles : boutons, interrupteurs et curseurs.",
+            "Votre écran affiche un ordre, mais la console est presque toujours dans le secteur d'un autre : criez-le ! 10 ordres réussis déclenchent un saut hyperespace.",
+            "Un ordre raté abîme la coque. Incendies et pannes de courant compliquent la tâche. Franchissez tous les secteurs avant que le vaisseau ne casse."
+        ],
+        players: "1 - 8 JOUEURS",
+        duration: "8-25 MIN",
+        complexity: "45%",
+        sync: "95%",
+        settingsId: "host-settings-machines",
+        noTimer: true
     }
 };
 
@@ -2532,7 +2585,7 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
