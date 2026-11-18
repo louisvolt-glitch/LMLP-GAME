@@ -1,0 +1,395 @@
+Modèles 3D des lots de Mise Secrète — crédits
+=============================================
+Tous les modèles viennent de Sketchfab. Les licences CC-BY demandent de citer l'auteur ;
+CC-BY-SA : les versions modifiées restent sous la même licence ; CC-BY-NC : pas d'usage commercial ;
+Sketchfab Standard : utilisation dans un projet permise, mais pas de redistribution du modèle seul.
+
+Robot de collection des années 60 (robot-de-collection-des-annees-60.glb)
+  « 1960sRobot_Xiruo_Ma_z5580227 » par XiruoMa — CC-BY-4.0
+  https://sketchfab.com/3d-models/1960srobot-xiruo-ma-z5580227-e803ea97310a405e8e46f10d5dbf9ca3
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Balise extraterrestre (balise-extraterrestre.glb)
+  « Alien Beacon » par Sahir Virmani — CC-BY-4.0
+  https://sketchfab.com/3d-models/alien-beacon-dbf31251971c408d9185a7d034673acd
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Œuf extraterrestre (oeuf-extraterrestre.glb)
+  « Alien egg » par Julio César — CC-BY-4.0
+  https://sketchfab.com/3d-models/alien-egg-4407c29df6e94f2a93334408ba339506
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Plante extraterrestre (plante-extraterrestre.glb)
+  « Alien Plant » par azzajess — CC-BY-NC-4.0
+  https://sketchfab.com/3d-models/alien-plant-d0b102cb3e994ba19325e68c35685d62
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Masque extraterrestre ancien (masque-extraterrestre-ancien.glb)
+  « Ancient Alien Mask » par cyberreno — CC-BY-4.0
+  https://sketchfab.com/3d-models/ancient-alien-mask-2f52b7f3f91443638f99a29a3d5055d4
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Carapace d'un dieu ancien (carapace-d-un-dieu-ancien.glb)
+  « Ancient God » par KaeGeeRow — CC-BY-4.0
+  https://sketchfab.com/3d-models/ancient-god-ec4a8ec3dd7e4601afc1506b14997818
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Burger terrien légendaire (burger-terrien-legendaire.glb)
+  « Back Yard Burgers - Classic Burger » par Ehsan Abbasi — CC-BY-SA-4.0
+  https://sketchfab.com/3d-models/back-yard-burgers-classic-burger-6e13942ff76d4129b06e097cdd060adb
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Bonsaï de la Terre (bonsai-de-la-terre.glb)
+  « Bonsai » par Vermos — CC-BY-4.0
+  https://sketchfab.com/3d-models/bonsai-8b73fd97545b468288cd9ba03c93d358
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Échiquier du capitaine (echiquier-du-capitaine.glb)
+  « CHESS BOARD » par Kmunawwar703 — CC-BY-4.0
+  https://sketchfab.com/3d-models/chess-board-d7c57b9b15e24498973cb2d2dc14cbcf
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Spécimen en bocal (specimen-en-bocal.glb)
+  « Creature Specimen Jar » par Michael V — SKETCHFAB Standard
+  https://sketchfab.com/3d-models/creature-specimen-jar-8254ff1e5aea4c68bafa60feab242726
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Cristal d'énergie (cristal-d-energie.glb)
+  « Crystal » par xNiru — CC-BY-4.0
+  https://sketchfab.com/3d-models/crystal-d963c19d8132441eb0666c513d558583
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Robot de compagnie (robot-de-compagnie.glb)
+  « cute robot » par victory_mirosya — CC-BY-4.0
+  https://sketchfab.com/3d-models/cute-robot-6aadb75f596742ada2814ad4593f0032
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Couronne du dragon (couronne-du-dragon.glb)
+  « Dragon Crown » par CrazyMoralFreak — CC-BY-4.0
+  https://sketchfab.com/3d-models/dragon-crown-1c3e9c10984d43ec82f26bf8f7c08907
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Guitare électrique terrienne (guitare-electrique-terrienne.glb)
+  « Electric guitar (Dragons) v1.2 » par 3DWorkbench — CC-BY-4.0
+  https://sketchfab.com/3d-models/electric-guitar-dragons-v12-3589a97c506e40bcb02d8ce4d8ac29b9
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Aquarium de poche (aquarium-de-poche.glb)
+  « Fish Bowl: Household Props 1 » par Daniel O'Neil — CC-BY-4.0
+  https://sketchfab.com/3d-models/fish-bowl-household-props-1-26c4469c1fd94e899b5ded8b41da0b39
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Fossile d'ammonite (fossile-d-ammonite.glb)
+  « Fossilized Ammonite, Natural History Museum » par Thomas Flynn — CC-BY-4.0
+  https://sketchfab.com/3d-models/fossilized-ammonite-natural-history-museum-5c1280e4c47c45d2bfe59c7e53131834
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Orbes des anciens (orbes-des-anciens.glb)
+  « Futuristic Orbs Set » par zaina — CC-BY-4.0
+  https://sketchfab.com/3d-models/futuristic-orbs-set-d05876578dbe40fab0975bdbdd931877
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Service à thé futuriste (service-a-the-futuriste.glb)
+  « Futuristic Sci-Fi Cup & Plate 3D Model » par Doran — CC-BY-4.0
+  https://sketchfab.com/3d-models/futuristic-sci-fi-cup-plate-3d-model-295512f6131d4ca889fde922ccfeb8d8
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Champignon luminescent (champignon-luminescent.glb)
+  « Glowing Mushroom » par Jakob_Forseth — CC-BY-4.0
+  https://sketchfab.com/3d-models/glowing-mushroom-4d69b432b067413d9d7bac74f02155c0
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Paire de réacteurs dorsaux (paire-de-reacteurs-dorsaux.glb)
+  « Halo Reach Jetpacks » par Elite Big Speakerman — CC-BY-4.0
+  https://sketchfab.com/3d-models/halo-reach-jetpacks-2abf5665d9d7477aae90ffff1e56b22d
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Carte planétaire holographique (carte-planetaire-holographique.glb)
+  « Hologram Planetary Map » par DennisGray — CC-BY-4.0
+  https://sketchfab.com/3d-models/hologram-planetary-map-4e60b10f849241319e6e243482dd1b2b
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Sablier temporel (sablier-temporel.glb)
+  « Hourglass » par • Less • — CC-BY-4.0
+  https://sketchfab.com/3d-models/hourglass-a453e90d47b74260b5e5ccd5a965fe3e
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Moto antigravité (moto-antigravite.glb)
+  « Hoverbike Post apocalypse » par sarayel — CC-BY-SA-4.0
+  https://sketchfab.com/3d-models/hoverbike-post-apocalypse-50f67d1f9e2c43e2b1383f32834a880d
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Tablette gravée (tablette-gravee.glb)
+  « Low Reproduction Tablet » par Corkum — CC-BY-4.0
+  https://sketchfab.com/3d-models/low-reproduction-tablet-3f02ef756b2746de85ad98ed2a9e50f6
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Plante carnivore (plante-carnivore.glb)
+  « #LowPolyPlantChallenge | Carnivorous flower » par Ligul3D — CC-BY-4.0
+  https://sketchfab.com/3d-models/lowpolyplantchallenge-carnivorous-flower-5cb258f984a1449a835875ae278e26e5
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Capsule de survie (capsule-de-survie.glb)
+  « Lucisus Escape Pod - Green Variant » par 3DJam — CC-BY-4.0
+  https://sketchfab.com/3d-models/lucisus-escape-pod-green-variant-2ae46cdf439e4704bb217c1d0411a8ab
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Module lunaire (module-lunaire.glb)
+  « Lunar Ship LK LANDER » par leopro — CC-BY-4.0
+  https://sketchfab.com/3d-models/lunar-ship-lk-lander-e8de5a44582d41e99fb1ebeed6664e4d
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Rover martien (rover-martien.glb)
+  « Mars rover » par Lezalit — CC-BY-4.0
+  https://sketchfab.com/3d-models/mars-rover-28da0a9e0c294be2aa6dfa8dc9b52363
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Trousse médicale (trousse-medicale.glb)
+  « Medkit » par DJMaesen — CC-BY-4.0
+  https://sketchfab.com/3d-models/medkit-bda966f7d9ac42a1bcd6e77481be0897
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Météorite (meteorite.glb)
+  « Meteorite » par laboratorija — CC-BY-NC-SA-4.0
+  https://sketchfab.com/3d-models/meteorite-f649328ea80c426eb500477c6d6e4734
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Puce prototype (puce-prototype.glb)
+  « Microchip - Prototype » par re1monsen — CC-BY-4.0
+  https://sketchfab.com/3d-models/microchip-prototype-7d00abe914664a17b4bf18c6e851e7eb
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Rations de survie (rations-de-survie.glb)
+  « Military Ration Meal Pouch » par Sousinho — CC-BY-4.0
+  https://sketchfab.com/3d-models/military-ration-meal-pouch-4d639ba0289f49739a6dd9e3ec697f7b
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Obélisque noir (obelisque-noir.glb)
+  « Monolith » par RBG_illustrations — CC-BY-4.0
+  https://sketchfab.com/3d-models/monolith-b6bb0cb5f1ed4ffdac959266f03490b8
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Casque d'astronaute (casque-d-astronaute.glb)
+  « NASA Astronaut Helmet » par cyberreno — CC-BY-4.0
+  https://sketchfab.com/3d-models/nasa-astronaut-helmet-679860b28b1746e58f4f2d8b0221c16a
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Montre du capitaine (montre-du-capitaine.glb)
+  « Old pocket watch » par Maxim Lukyanov — CC-BY-4.0
+  https://sketchfab.com/3d-models/old-pocket-watch-3de961297e0d4f228d0f5d01527ee64f
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Bouteille d'oxygène (bouteille-d-oxygene.glb)
+  « Oxygen Cylinder » par Alexander Troianovskyi — CC-BY-4.0
+  https://sketchfab.com/3d-models/oxygen-cylinder-e7419671f8124cab870d7a1a4d68b180
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Réplicateur à café (replicateur-a-cafe.glb)
+  « Portable Replicator - Coffee Selected » par nickheitzman — CC-BY-4.0
+  https://sketchfab.com/3d-models/portable-replicator-coffee-selected-fa53f027fd9142eba76b7cf775102c2d
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Artefact pyramidal (artefact-pyramidal.glb)
+  « Pyramid » par quedlin — CC-BY-4.0
+  https://sketchfab.com/3d-models/pyramid-b47c6d297832428faee5c28a874949b7
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Pistolet à rayons (pistolet-a-rayons.glb)
+  « RAY GUN » par XOIAL — SKETCHFAB Standard
+  https://sketchfab.com/3d-models/ray-gun-fc0703bc4ddc47d8b7098ff3ce5e4bbb
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Lingots d'or (lingots-d-or.glb)
+  « Realistic Gold Bar » par Seth Santos — CC-BY-4.0
+  https://sketchfab.com/3d-models/realistic-gold-bar-194d2227c82549fcba14a37342ea3d08
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Bobine Tesla (bobine-tesla.glb)
+  « Red Alert 2 - Soviet Tesla coil » par Ska-Ara — CC-BY-4.0
+  https://sketchfab.com/3d-models/red-alert-2-soviet-tesla-coil-deffdea10a0b4742bae2d6d16a743c67
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Console de jeu rétro (console-de-jeu-retro.glb)
+  « Retro console Amiga CD32 » par Scar56 — CC-BY-4.0
+  https://sketchfab.com/3d-models/retro-console-amiga-cd32-db60410314e1467381d3751c213c3696
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Fusée vintage (fusee-vintage.glb)
+  « Retro Rocket » par Cristian Brevis Acevedo — CC-BY-SA-4.0
+  https://sketchfab.com/3d-models/retro-rocket-47b4764184cf490da90b6944c6466f90
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Bras robotique (bras-robotique.glb)
+  « Robot arm wip 2 » par 3DHaupt — CC-BY-4.0
+  https://sketchfab.com/3d-models/robot-arm-wip-2-cb006bfafc20421f9f6f674f127f918b
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Canard en caoutchouc d'astronaute (canard-en-caoutchouc-d-astronaute.glb)
+  « Rubber Duck Toy » par Prince Obrymec — SKETCHFAB Standard
+  https://sketchfab.com/3d-models/rubber-duck-toy-2fcdc70227df4aafb1d96be15fa622f0
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Combinaison spatiale (combinaison-spatiale.glb)
+  « Rust Space Suit » par Homless_Models — CC-BY-4.0
+  https://sketchfab.com/3d-models/rust-space-suit-c9b05b4878d64c68945ba8858c523a68
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Satellite d'observation (satellite-d-observation.glb)
+  « Satellite » par Daan van Leeuwen — CC-BY-NC-4.0
+  https://sketchfab.com/3d-models/satellite-d232fe608c874009bad9613c8093a972
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Antenne longue portée (antenne-longue-portee.glb)
+  « Satellite Dish » par MRowa — CC-BY-SA-4.0
+  https://sketchfab.com/3d-models/satellite-dish-7df50342811d44fba81c7e953838d069
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Console de commandement (console-de-commandement.glb)
+  « Sci-Fi Computer Desk Console » par Inditrion Dradnon — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-computer-desk-console-28c67457f2ef4973a0bbc8b667bb183f
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Appareil mystérieux (appareil-mysterieux.glb)
+  « Sci-Fi Device » par klawsklaws — SKETCHFAB Standard
+  https://sketchfab.com/3d-models/sci-fi-device-71e11de3d0a245529c7cc4f831603af6
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Outil de découpe laser (outil-de-decoupe-laser.glb)
+  « Sci-fi Gun / Tool » par Koyshem — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-gun-tool-e04a6cd043d440868c45bd0248e96f0f
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Casque de combat (casque-de-combat.glb)
+  « Sci-Fi Helmet » par Udon-San — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-helmet-785f5cfd848940b1a4a0b8ddeefc9ef1
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Carte d'accès (carte-d-acces.glb)
+  « Sci-fi Key Card » par MattyDMakesGames — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-key-card-dd5733bc673e436590b9186dbbf0f387
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Nacelle spatiale personnelle (nacelle-spatiale-personnelle.glb)
+  « Sci-Fi Personal Space Pod Ship(weekly challenge) » par futaba@blender — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-personal-space-pod-shipweekly-challenge-b158f01dd4a9416fb689ca4401856e7a
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Plateforme de téléportation (plateforme-de-teleportation.glb)
+  « Sci-Fi Platform / Teleporter Pad–Unity & Unreal » par DevPoly3D — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-platform-teleporter-padunity-unreal-ec178b39b6da429ea8d5a26f0981be77
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Générateur de bouclier (generateur-de-bouclier.glb)
+  « Sci-Fi Shield Generator » par Harri Snellman — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-shield-generator-e69f4eeaf4034cd2aee03b89396d1882
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Coffre de pirate spatial (coffre-de-pirate-spatial.glb)
+  « Sci Fi Chest #TreasureChestChallenge. » par Smoggybeard — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-chest-treasurechestchallenge-6c3be42b1f3e4327900edba1475c5311
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Noyau d'énergie (noyau-d-energie.glb)
+  « Sci Fi Energy Core 1 » par FilipZelinka — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-energy-core-1-a5aefe7b281f46529aed2ec9d873bc52
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Cellule de fusion (cellule-de-fusion.glb)
+  « Sci Fi Power Cell » par roger.soucy — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-power-cell-814eedf8b7b345948d733f4f923cbecf
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Conteneur de stockage (conteneur-de-stockage.glb)
+  « Sci Fi Storage » par alekseewa — CC-BY-4.0
+  https://sketchfab.com/3d-models/sci-fi-storage-aca88e6de01140fab3cc51b7814a23a5
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Module de navigation (module-de-navigation.glb)
+  « SciFi Gadget » par re1monsen — CC-BY-4.0
+  https://sketchfab.com/3d-models/scifi-gadget-f5d644350c894f3094786a251267b99e
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Drone éclaireur (drone-eclaireur.glb)
+  « Scouting Drone - Lemon 1 » par Nils Folker — CC-BY-4.0
+  https://sketchfab.com/3d-models/scouting-drone-lemon-1-38c48e9f455a4b92b6b6d7571381c613
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Statue du serpent (statue-du-serpent.glb)
+  « Snake Statue » par Ville Seppänen — CC-BY-4.0
+  https://sketchfab.com/3d-models/snake-statue-794b77a3e4654a669cf259d20dc89ec7
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Chaussette perdue en apesanteur (chaussette-perdue-en-apesanteur.glb)
+  « Sock hung » par RubaQewar — CC-BY-4.0
+  https://sketchfab.com/3d-models/sock-hung-2fdf44f9e3024c8fac2c9c7383bcde79
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Panneau solaire déployable (panneau-solaire-deployable.glb)
+  « Solar Panel » par Edwin — CC-BY-4.0
+  https://sketchfab.com/3d-models/solar-panel-0f444052d1e64ccfb065fb8d00405f19
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Cargo de transport (cargo-de-transport.glb)
+  « Space Cargo Ship Transporter » par Inditrion Dradnon — CC-BY-4.0
+  https://sketchfab.com/3d-models/space-cargo-ship-transporter-76c18dcb6a0043d6ab05ed9f9c26330b
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Station spatiale miniature (station-spatiale-miniature.glb)
+  « Space Station 3 » par re1monsen — CC-BY-4.0
+  https://sketchfab.com/3d-models/space-station-3-a7a6ad10261149cab31aa394bfcf8940
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Vaisseau-crabe (vaisseau-crabe.glb)
+  « SPACESHIP EAV 2 "CRAB" » par Ilya Shevchuk — CC-BY-4.0
+  https://sketchfab.com/3d-models/spaceship-eav-2-crab-f4bfa996007e4a6fbd0f31fa807230ce
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Sphère espion (sphere-espion.glb)
+  « Spy Drone » par MRowa — CC-BY-SA-4.0
+  https://sketchfab.com/3d-models/spy-drone-f3ee55e6cdd94f398ce05b99cc193e11
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Prototype furtif (prototype-furtif.glb)
+  « Stealth Spaceship JJ-1 » par jungle_jim — CC-BY-4.0
+  https://sketchfab.com/3d-models/stealth-spaceship-jj-1-0b15e3c2f7a644c997b066dc569d6fbc
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Lunette de laiton (lunette-de-laiton.glb)
+  « Steampunk Telescope » par Alex P. — CC-BY-4.0
+  https://sketchfab.com/3d-models/steampunk-telescope-eeae8668106246398fc7956d2fb225e5
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Boussole cosmique (boussole-cosmique.glb)
+  « Stylized Magic Compass » par MAR.COS. — CC-BY-4.0
+  https://sketchfab.com/3d-models/stylized-magic-compass-4f935b708d194be5b8a51369756c5caa
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Vaisseau minier (vaisseau-minier.glb)
+  « Termite Mk.I / Space Engineers » par ltanailov — CC-BY-4.0
+  https://sketchfab.com/3d-models/termite-mki-space-engineers-92d92c12a8ff46b486fd44bfc0b58db8
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Grille-pain spatial (grille-pain-spatial.glb)
+  « Toaster » par Artem P — CC-BY-4.0
+  https://sketchfab.com/3d-models/toaster-0dd620043178479db6752ab103b1e04e
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Antimatière instable (antimatiere-instable.glb)
+  « Unstable Antimatter » par tamminen — CC-BY-4.0
+  https://sketchfab.com/3d-models/unstable-antimatter-d057d7fd6d07417fb479934d2bfc1eb4
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Globe terrestre ancien (globe-terrestre-ancien.glb)
+  « Vintage globe » par AnnaBelle Fibonacci — CC-BY-4.0
+  https://sketchfab.com/3d-models/vintage-globe-5ae174f9d26f40b99eebe3427153438f
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Gramophone (gramophone.glb)
+  « Vintage Gramophone » par 3dvachevsky — CC-BY-4.0
+  https://sketchfab.com/3d-models/vintage-gramophone-9a3c1a9c5a3a41f199ac720ece8f8937
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
+
+Méca de combat (meca-de-combat.glb)
+  « ZBrush for Concept - Mech Design D.ver » par Moon dong hwa — SKETCHFAB Standard
+  https://sketchfab.com/3d-models/zbrush-for-concept-mech-design-dver-a421f87ebeb94b6684c28769b028dd4a
+  Modifications : allégé pour le web (textures réduites, maillage simplifié).
