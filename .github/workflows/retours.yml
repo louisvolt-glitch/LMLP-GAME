@@ -1,0 +1,42 @@
+# Recopie toutes les heures les retours des joueurs (bouton 💬 du jeu) de Firebase vers RETOURS.md.
+# On peut aussi la lancer à la main : onglet Actions > « Retours des joueurs » > Run workflow.
+name: Retours des joueurs
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: retours-des-joueurs
+
+jobs:
+  recopier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lire les nouveaux retours dans Firebase
+        env:
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+        run: node outils/recuperer-retours.mjs lire
+
+      - name: Enregistrer RETOURS.md dans le dépôt
+        run: |
+          if [ -z "$(git status --porcelain RETOURS.md)" ]; then echo "Rien de nouveau."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add RETOURS.md
+          git commit -m "Nouveaux retours des joueurs"
+          git push
+
+      - name: Effacer de Firebase les retours recopiés
+        env:
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+        run: node outils/recuperer-retours.mjs effacer
