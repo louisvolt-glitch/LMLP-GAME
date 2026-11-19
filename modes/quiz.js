@@ -67,6 +67,7 @@ window.startQuizMode = function() {
     state.quizGame.currentIndex = 0;
     state.quizGame.answersLog = [];
     state.quizGame.currentRoundAnswers = {};
+    state.quizGame.serie = 0;
 
     // Lance proprement la préparation de la première question et de sa catégorie
     prepareNextQuizQuestion();
@@ -240,6 +241,7 @@ window.startQuizScreen = function() {
             // Sécurité de rattrapage
             if (!state.quizGame.currentRoundAnswers[myKey]) {
                 state.quizGame.currentRoundAnswers[myKey] = { choice: -1, isCorrect: false, pointEarned: 0 };
+                state.quizGame.serie = 0;      // pas de réponse : la série est perdue
             }
             
             let finalChoice = state.quizGame.currentRoundAnswers[myKey].choice;
@@ -268,6 +270,12 @@ window.answerQuizQuestion = function(selIdx) {
     let mult = qobj.difficulty === 'hard' ? 3.5 : (qobj.difficulty === 'medium' ? 2.0 : 1.0);
     let timeLeftVal = typeof state.quizGame.timeleft === 'number' ? state.quizGame.timeleft : 0;
     let earned = selIdx === qobj.correct ? Math.round((1000 + timeLeftVal * 20) * mult) : 0;
+    // 🔥 Série : chaque bonne réponse consécutive rapporte un bonus (+250 par réponse de série, jusqu'à +1250)
+    const serie = selIdx === qobj.correct ? (state.quizGame.serie || 0) + 1 : 0;
+    state.quizGame.serie = serie;
+    const bonusSerie = serie >= 2 ? Math.min(5, serie - 1) * 250 : 0;
+    earned += bonusSerie;
+    if (bonusSerie && typeof showToast === 'function') showToast(`🔥 Série de ${serie} bonnes réponses : +${bonusSerie} pts !`);
 
     let myKey = window.myPlayerKey || state.username;
     if (!state.players) state.players = {};
@@ -281,7 +289,9 @@ window.answerQuizQuestion = function(selIdx) {
         questionObj: qobj,
         choice: selIdx, 
         isCorrect: selIdx === qobj.correct, 
-        pointEarned: earned 
+        pointEarned: earned,
+        serie: serie,
+        bonusSerie: bonusSerie
     };
 
     if (selIdx === qobj.correct) {
@@ -354,7 +364,7 @@ window.showQuizSummaryScreen = function(selIdx, qObj) {
 
     const roundPointsEl = document.getElementById('quiz-round-points');
     if (roundPointsEl) {
-        roundPointsEl.innerText = `+${myAnswer.pointEarned || 0} pts`;
+        roundPointsEl.innerText = `+${myAnswer.pointEarned || 0} pts` + (myAnswer.bonusSerie ? ` (dont 🔥 +${myAnswer.bonusSerie} : série de ${myAnswer.serie})` : '');
         roundPointsEl.className = (myAnswer.pointEarned || 0) > 0 ? "font-mono text-sm text-emerald-400 font-bold" : "font-mono text-sm text-slate-400 font-bold";
     }
 
