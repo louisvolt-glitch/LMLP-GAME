@@ -241,6 +241,7 @@ function smNormaliser(s) {
     Object.values(s.ord).forEach(o => { if (!o.p || typeof o.p !== 'object') o.p = {}; if (!o.k) o.k = 'simple'; if (!o.e) o.e = 0; });
     ['breche', 'gaz', 'verrou'].forEach(k => { if (!s[k] || typeof s[k] !== 'object') s[k] = 0; });
     if (s.verrou && (!s.verrou.p || typeof s.verrou.p !== 'object')) s.verrou.p = {};
+    s.recits = Array.isArray(s.recits) ? s.recits : Object.values(s.recits || {});
     return s;
 }
 function smDire(s, t, c, n) { s.lk = (s.lk || 0) + 1; s.log.push({ k: s.lk, t: t, c: c || '', n: n || '' }); while (s.log.length > 8) s.log.shift(); }
@@ -405,6 +406,34 @@ function smFin(M, victoire, now) {
     smDire(s, victoire ? '🏆 Mission accomplie !' : '💥 Le vaisseau est perdu…', victoire ? 'ok' : 'ko');
 }
 function smScore(s, n) { return (s.fait[n] || 0) * 10 + (s.niveau - 1) * 20 + (s.fin && s.fin.victoire ? 100 : 0); }
+
+// ---- Événements narratifs entre deux secteurs ----
+const SM_RECITS = [
+    { k: 'clandestin', i: '🕵️', t: 'Un passager clandestin à bord !', d: 'Il s’est caché dans les conduits et a saboté une console. Réparez-la !' },
+    { k: 'epave', i: '🛰️', t: 'Épave à la dérive', d: 'L’équipage récupère des plaques de blindage : coque +15 %.' },
+    { k: 'pirates', i: '🏴‍☠️', t: 'Des pirates nous ont repérés !', d: 'Leur tir de semonce entame le bouclier.' },
+    { k: 'station', i: '⛽', t: 'Station de ravitaillement', d: 'Les réservoirs sont pleins : tous les systèmes remontent à 100 %.' },
+    { k: 'tempete', i: '🌩️', t: 'Tempête ionique', d: 'Le réacteur est secoué par les décharges : sa jauge baisse.' },
+    { k: 'detresse', i: '📡', t: 'Signal de détresse capté', d: 'Un cargo en perdition nous transmet ses plans : 2 réparations d’avance sur ce secteur.' },
+    { k: 'meteores', i: '☄️', t: 'Pluie de météores', d: 'Un débris enflamme un couloir. Sortez l’extincteur !' },
+    { k: 'fantome', i: '👻', t: 'Vaisseau fantôme à tribord', d: 'Les capteurs s’affolent un instant… puis plus rien. L’équipage frissonne, mais rien n’est cassé.' }
+];
+function smRecit(M, now) {
+    const s = M.s, G = smGrille(s.ship);
+    const deja = s.recits || (s.recits = []);
+    const liste = SM_RECITS.filter(r => deja.indexOf(r.k) < 0);
+    const r = (liste.length ? liste : SM_RECITS)[Math.floor(Math.random() * (liste.length || SM_RECITS.length))];
+    deja.push(r.k);
+    if (r.k === 'clandestin') { const libres = G.consoles.filter(c => !s.grille[c.id]); if (libres.length) s.grille[libres[Math.floor(Math.random() * libres.length)].id] = now; }
+    if (r.k === 'epave') s.coque = Math.min(100, s.coque + 15);
+    if (r.k === 'pirates' && s.sys.bouclier) s.sys.bouclier.v = Math.max(20, s.sys.bouclier.v - 35);
+    if (r.k === 'station') Object.keys(s.sys).forEach(k => { s.sys[k].v = 100; });
+    if (r.k === 'tempete' && s.sys.reacteur) s.sys.reacteur.v = Math.max(25, s.sys.reacteur.v - 30);
+    if (r.k === 'detresse') s.prog = Math.min(SM.BUT - 1, (s.prog || 0) + 2);
+    if (r.k === 'meteores') smAllumerFeu(M, now);
+    s.recit = { k: r.k, i: r.i, t: r.t, d: r.d, f: now + 6500 };
+    smDire(s, `${r.i} ${r.t} ${r.d}`, r.k === 'epave' || r.k === 'station' || r.k === 'detresse' ? 'ok' : r.k === 'fantome' ? 'info' : 'ko');
+}
 
 // ---- Incidents ----
 function smIncident(M, now) {
@@ -719,6 +748,7 @@ function smEtape(M, now, dt, presents) {
         if (now < s.saut) return change;
         s.saut = 0; s.niveau++; s.prog = 0; s.coque = Math.min(100, s.coque + 10); s.feux = {}; s.noir = 0;
         smDire(s, `Secteur ${s.niveau} : les pannes s’accélèrent. Coque réparée de 10 %.`, 'info');
+        smRecit(M, now);
         Object.keys(s.crew).forEach((n, i) => { M.pend[n] = now + 600 + i * 500; });
         M.prochInc = now + smAlea(12000, 20000);
         change = true;
@@ -1422,6 +1452,14 @@ if (typeof window !== 'undefined') (function () {
         #sm-courir.epuise span{background:rgba(69,10,10,.9)}
         #sm-courir.epuise span em{color:#fca5a5}
         #sm-fin{z-index:6}
+        #sm-recit{position:absolute;left:50%;top:14%;transform:translateX(-50%);z-index:5;display:flex;gap:12px;align-items:center;max-width:min(92%,520px);padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,27,75,.95));border:2px solid #a78bfa;box-shadow:0 0 30px rgba(167,139,250,.45);animation:smRecitIn .7s cubic-bezier(.2,1.4,.4,1) both;pointer-events:none}
+        #sm-recit .ic{font-size:40px;line-height:1;animation:smRecitIc 1.2s ease-in-out infinite alternate}
+        #sm-recit .ti{font-weight:900;color:#ede9fe;letter-spacing:.06em;font-size:16px;text-transform:uppercase}
+        #sm-recit .de{color:#c4b5fd;font-size:13px;margin-top:2px}
+        #sm-recit.part{animation:smRecitOut .6s ease both}
+        @keyframes smRecitIn{from{opacity:0;transform:translate(-50%,-30px) scale(.8)}to{opacity:1;transform:translate(-50%,0)}}
+        @keyframes smRecitOut{to{opacity:0;transform:translate(-50%,-20px) scale(.9)}}
+        @keyframes smRecitIc{from{transform:rotate(-8deg) scale(1)}to{transform:rotate(8deg) scale(1.12)}}
         @media (max-width:760px){
             #sm-root .hud{grid-template-columns:1fr 1fr auto;gap:8px;padding:6px 9px}
             #sm-root .hud .titre{display:none}
@@ -2654,6 +2692,7 @@ if (typeof window !== 'undefined') (function () {
             if (typeof window.sautHyperespace === 'function') window.sautHyperespace(); else son('warp');
             smDireVoix('Moteurs hyperespace chargés. Saut dans trois… deux… un…', 2);
         }
+        if (s.recit && (!av.recit || av.recit.f !== s.recit.f)) smBanniereRecit(s.recit);
         if (s.verrou && !av.verrou) { smDireVoix('Verrouillage des moteurs. Tout l’équipage à son poste.', 2); son('alarme'); }
         if (s.verrou && av.verrou && s.verrou.f !== av.verrou.f) smDireVoix('Verrouillage échoué. Nouvel essai.', 2);
         if (s.niveau > av.niveau) {
@@ -2697,6 +2736,52 @@ if (typeof window !== 'undefined') (function () {
             setTimeout(() => smAfficherFin(s), gagne ? 2400 : 2800);
         }
     }
+    // ---------------- Records par vaisseau et par difficulté (gardés sur cet appareil) ----------------
+    const SM_DIFF_NOM = { facile: 'Facile', normal: 'Normal', difficile: 'Difficile' };
+    function smLireRecords() { try { return JSON.parse(localStorage.getItem('lmlp-sm-records') || '{}') || {}; } catch (e) { return {}; } }
+    function smTrierRecords(a, b) { return (b.v - a.v) || (b.n - a.n) || (b.r - a.r) || (a.d - b.d); }
+    function smEnregistrerRecord(s) {
+        const cle = s.ship + '|' + (s.diff || 'normal'), tout = smLireRecords(), liste = tout[cle] || [];
+        if (liste.some(e => e.id === s.startedAt)) return { liste: liste, rang: liste.findIndex(e => e.id === s.startedAt) };
+        const humains = Object.keys(s.crew).filter(n => !s.crew[n].bot && n.indexOf('bot') !== 0);
+        const e = { id: s.startedAt, v: s.fin && s.fin.victoire ? 1 : 0, n: s.niveau, r: s.total || 0, o: s.obj || 0, d: Math.round(((s.fin && s.fin.t) || Date.now()) - s.startedAt) / 1000, eq: humains.join(', '), dt: new Date().toLocaleDateString('fr-FR') };
+        liste.push(e); liste.sort(smTrierRecords);
+        const rang = liste.indexOf(e);
+        tout[cle] = liste.slice(0, 5);
+        try { localStorage.setItem('lmlp-sm-records', JSON.stringify(tout)); } catch (er) {}
+        return { liste: tout[cle], rang: rang < 5 ? rang : -1 };
+    }
+    function smDuree(sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ' min ' + String(sec % 60).padStart(2, '0'); }
+    function smLigneRecord(e, i, actuel) {
+        return `<div style="display:flex;justify-content:space-between;gap:6px;padding:4px 6px;font-size:12px;border-radius:6px;${actuel ? 'background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.5)' : 'border-bottom:1px solid rgba(148,163,184,.12)'}">
+            <span><b style="color:${['#facc15', '#cbd5e1', '#d97706'][i] || '#64748b'}">${i + 1}.</b> ${e.v ? '🏆' : '💥'} <span style="color:#e2e8f0">secteur ${e.n}${e.o ? '/' + e.o : ' (survie)'}</span> · ${e.r} pannes · ${smDuree(e.d)}</span>
+            <span style="color:#94a3b8;text-align:right">${smEsc(e.eq || '')} <span style="color:#475569">${e.dt || ''}</span></span></div>`;
+    }
+    window.smVoirRecords = function () {
+        const tout = smLireRecords(), cles = Object.keys(tout).sort((a, b) => parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b));
+        const old = document.getElementById('sm-records'); if (old) old.remove();
+        const d = document.createElement('div'); d.id = 'sm-records';
+        d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.85);display:flex;align-items:center;justify-content:center;padding:12px';
+        d.onclick = ev => { if (ev.target === d) d.remove(); };
+        d.innerHTML = `<div style="max-width:620px;width:100%;max-height:90vh;overflow:auto;background:#0b1526;border:1px solid rgba(34,211,238,.5);border-radius:14px;padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b class="sci-font" style="color:#facc15;letter-spacing:.12em">🏆 RECORDS DE LA SALLE DES MACHINES</b><button onclick="document.getElementById('sm-records').remove()" style="color:#94a3b8;font-size:18px;cursor:pointer">✕</button></div>
+            <div style="font-size:11px;color:#64748b;margin-bottom:10px">Les 5 meilleures parties de chaque vaisseau, pour chaque difficulté (enregistrées sur cet appareil).</div>
+            ${cles.length ? cles.map(k => { const [sh, df] = k.split('|');
+                return `<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:#67e8f9;margin-bottom:3px">🚀 Vaisseau n°${parseInt(sh, 10) + 1} · ${SM_DIFF_NOM[df] || df}</div>${tout[k].map((e, i) => smLigneRecord(e, i, false)).join('')}</div>`; }).join('')
+                : '<div style="text-align:center;color:#94a3b8;padding:20px">Aucune partie terminée pour l’instant.</div>'}</div>`;
+        document.body.appendChild(d);
+    };
+
+    function smBanniereRecit(r) {
+        const cadre = document.getElementById('sm-cadre'); if (!cadre) return;
+        const old = document.getElementById('sm-recit'); if (old) old.remove();
+        const d = document.createElement('div'); d.id = 'sm-recit';
+        d.innerHTML = `<div class="ic">${r.i}</div><div><div class="ti">${smEsc(r.t)}</div><div class="de">${smEsc(r.d)}</div></div>`;
+        cadre.appendChild(d);
+        son('alarme');
+        smDireVoix(r.t.replace(/!/g, '.') + ' ' + r.d, 1);
+        setTimeout(() => { d.classList.add('part'); setTimeout(() => d.remove(), 600); }, 6000);
+    }
     function smAfficherFin(s) {
         const cadre = document.getElementById('sm-cadre'); if (!cadre || document.getElementById('sm-fin')) return;
         const gagne = s.fin && s.fin.victoire;
@@ -2711,6 +2796,11 @@ if (typeof window !== 'undefined') (function () {
             <div class="sci-font" style="font-weight:900;letter-spacing:.12em;font-size:18px;color:${gagne ? '#6ee7b7' : '#f87171'};margin:6px 0">${gagne ? 'MISSION ACCOMPLIE' : 'VAISSEAU PERDU'}</div>
             <div style="color:#cbd5e1;font-size:13px;margin-bottom:10px">${gagne ? `L’équipage a franchi les ${s.obj} secteurs` : `L’équipage a tenu jusqu’au secteur ${s.niveau}`} avec <b style="color:#fff">${s.total}</b> pannes réparées.</div>
             <div style="text-align:left;margin-bottom:12px">${lignes}</div>
+            ${(() => { const R = smEnregistrerRecord(s);
+                return `<div style="text-align:left;margin-bottom:12px;padding:8px;border:1px solid rgba(250,204,21,.35);border-radius:10px;background:rgba(250,204,21,.05)">
+                <div style="text-align:center;font-weight:900;font-size:12px;letter-spacing:.1em;color:#facc15;margin-bottom:5px">🏆 RECORDS · VAISSEAU N°${s.ship + 1} · ${(SM_DIFF_NOM[s.diff] || 'Normal').toUpperCase()}</div>
+                ${R.rang === 0 && R.liste.length > 1 ? '<div style="text-align:center;color:#fde047;font-weight:900;margin-bottom:4px;animation:smApparait .6s">✨ NOUVEAU RECORD ! ✨</div>' : R.rang > 0 ? `<div style="text-align:center;color:#fde68a;font-size:12px;margin-bottom:4px">Vous entrez au classement : ${R.rang + 1}ᵉ place !</div>` : ''}
+                ${R.liste.map((e, i) => smLigneRecord(e, i, i === R.rang)).join('')}</div>`; })()}
             <button onclick="backToLobby()" class="neon-glow-btn w-full font-bold py-3 rounded-xl uppercase tracking-wider text-xs cursor-pointer">Retour au salon</button></div>`;
         cadre.appendChild(d);
     }
