@@ -553,6 +553,7 @@ const SYS_RESSOURCES = {
     machines: ['./modes/machines-vaisseaux.js'],
     conseil: ['./modes/conseil-questions.js'],
     dessin: ['./modes/dessin-mots.js'],
+    desamorcage: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', './modes/desamorcage-donnees.js', './modes/desamorcage-3d.js', './modes/desamorcage-modules2.js'],
     anomaly: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
               'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
               './modes/anomaly.js']
@@ -618,7 +619,7 @@ function systemeAvantLancement() {
 // ============================ 9) SPECTATEURS ============================
 // Un joueur qui arrive alors qu'une partie est en cours (et qui n'en fait pas partie) n'entre pas dans la liste
 // des joueurs : il est rangé dans « spectateurs », regarde, puis rejoint les joueurs au retour dans le salon.
-const SYS_VUE_DIRECTE = { magnat: true, bataille: true, missive: true, machines: true };      // jeux qui ont leur propre vue spectateur
+const SYS_VUE_DIRECTE = { magnat: true, bataille: true, missive: true, machines: true, desamorcage: true };      // jeux qui ont leur propre vue spectateur
 function entrerEnSpectateur(dataSalon, roomCode) {
     const nom = state.username, partie = dataSalon.partie;
     if (dataSalon.status !== 'IN_GAME' || !partie || !partie.joueurs || partie.joueurs[nom]) return false;
