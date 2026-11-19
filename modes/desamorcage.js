@@ -51,7 +51,7 @@ function dsStyle() {
     .ds-btn:hover{border-color:#fca5a5}
     .ds-aide{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:8px 14px;border-radius:12px;background:rgba(2,6,23,.75);border:1px solid rgba(148,163,184,.25);font-size:12px;color:#cbd5e1;text-align:center;transition:opacity .6s}
     .ds-fin{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.72);animation:dsIn .6s ease both}
-    .ds-carte{max-width:460px;width:92%;padding:22px;border-radius:20px;text-align:center;border:1px solid rgba(148,163,184,.3);background:linear-gradient(180deg,#0b1222,#050814)}
+    .ds-carte{max-width:500px;width:92%;max-height:92vh;overflow:auto;padding:22px;border-radius:20px;text-align:center;border:1px solid rgba(148,163,184,.3);background:linear-gradient(180deg,#0b1222,#050814)}
     @keyframes dsIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
     @keyframes dsClign{50%{opacity:.35}}
     /* --- manuel --- */
@@ -119,13 +119,77 @@ window.startDesamorcageGame = function() {
     if (!window.DS) { if (typeof showToast === 'function') showToast('⏳ Chargement du manuel en cours…'); return; }
     const choisi = document.getElementById('setting-ds-demineur')?.value;
     const dem = noms.indexOf(choisi) >= 0 ? choisi : noms[Math.floor(Math.random() * noms.length)];
-    const niveau = document.getElementById('setting-ds-niveau')?.value || 'officier';
+    const mode = document.getElementById('setting-ds-mode')?.value || 'normal';
+    let niveau = document.getElementById('setting-ds-niveau')?.value || 'officier';
     const now = Date.now();
-    const g = { v: 1, status: 'PLAYING', startedAt: now, seed: Math.floor(Math.random() * 2e9), niveau: niveau, dem: dem, err: 0, res: null, reste: (window.DS.NIVEAUX[niveau] || window.DS.NIVEAUX.officier).duree };
+    let duree = (window.DS.NIVEAUX[niveau] || window.DS.NIVEAUX.officier).duree;
+    const g = { v: 1, status: 'PLAYING', startedAt: now, seed: Math.floor(Math.random() * 2e9), niveau: niveau, dem: dem, err: 0, res: null };
+    if (mode === 'campagne') { const E = DS_CAMPAGNE[0]; g.niveau = E.n; duree = E.d; g.camp = { id: now, e: 0, score: 0, eq: noms.join(', ') }; }
+    if (mode === 'entrainement') { duree = Math.round(duree * 1.5); g.entr = 1; }
+    g.duree = duree; g.reste = duree;
     const upd = { status: 'IN_GAME', selectedMode: 'desamorcage', dsGame: g };
     Object.values(players).forEach(p => { if (p && p.name) upd[`players/${p.name}/score`] = 0; });
     window.mettreAJourSalonFirebase(code, upd);
 };
+
+// ------------------------------- Campagne -------------------------------
+// 8 charges de plus en plus dures ; l'équipe cumule ses points tant qu'elle survit
+const DS_CAMPAGNE = [
+    { n: 'recrue', d: 300, t: 'Exercice au hangar' }, { n: 'officier', d: 330, t: 'Colis suspect en soute' },
+    { n: 'officier', d: 270, t: 'Sabotage du réacteur' }, { n: 'commandant', d: 420, t: 'Mine orbitale' },
+    { n: 'commandant', d: 360, t: 'Station assiégée' }, { n: 'legende', d: 540, t: 'Le vaisseau amiral' },
+    { n: 'legende', d: 450, t: 'Course contre la montre' }, { n: 'legende', d: 390, t: 'Le cœur de la nébuleuse' }
+];
+window.DS_CAMPAGNE = DS_CAMPAGNE;
+function dsLireClassement() { try { return JSON.parse(localStorage.getItem('lmlp-ds-campagne') || '[]') || []; } catch (e) { return []; } }
+function dsTrierClassement(a, b) { return (b.e - a.e) || (b.score - a.score); }
+function dsEnregistrerCampagne(camp, etapesReussies) {
+    const L = dsLireClassement();
+    let e = L.find(x => x.id === camp.id);
+    if (!e) { e = { id: camp.id }; L.push(e); }
+    Object.assign(e, { eq: camp.eq, e: etapesReussies, score: camp.score, dt: new Date().toLocaleDateString('fr-FR') });
+    L.sort(dsTrierClassement);
+    try { localStorage.setItem('lmlp-ds-campagne', JSON.stringify(L.slice(0, 10))); } catch (er) {}
+    return { L: L.slice(0, 10), rang: L.indexOf(e) };
+}
+function dsHtmlClassement(L, rang) {
+    if (!L.length) return '<div style="color:#94a3b8;font-size:12px;padding:8px">Aucune campagne terminée pour l’instant.</div>';
+    return L.map((e, i) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 8px;font-size:12px;border-radius:8px;${i === rang ? 'background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.5)' : 'border-bottom:1px solid rgba(148,163,184,.12)'}">
+        <span><b style="color:${['#facc15', '#cbd5e1', '#d97706'][i] || '#64748b'}">${i + 1}.</b> ${dsEsc(e.eq)}</span>
+        <span style="white-space:nowrap;color:#cbd5e1">${e.e >= DS_CAMPAGNE.length ? '🏆' : '💣 ' + e.e + '/' + DS_CAMPAGNE.length} · <b style="color:#86efac">${e.score} pts</b> <span style="color:#475569">${e.dt || ''}</span></span></div>`).join('');
+}
+window.dsVoirClassement = function () {
+    const old = document.getElementById('ds-classement'); if (old) old.remove();
+    const d = document.createElement('div'); d.id = 'ds-classement';
+    d.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(2,6,23,.85);display:flex;align-items:center;justify-content:center;padding:12px';
+    d.onclick = ev => { if (ev.target === d) d.remove(); };
+    d.innerHTML = `<div style="max-width:520px;width:100%;max-height:90vh;overflow:auto;background:#0b1222;border:1px solid rgba(250,204,21,.45);border-radius:16px;padding:16px;color:#e2e8f0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font:900 13px ui-monospace,monospace;letter-spacing:.16em;color:#facc15">🏆 CLASSEMENT DES CAMPAGNES</b><button onclick="document.getElementById('ds-classement').remove()" style="color:#94a3b8;font-size:18px;cursor:pointer;background:none;border:0">✕</button></div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px">Les 10 meilleures équipes : charges neutralisées, puis points cumulés (enregistré sur cet appareil).</div>
+        ${dsHtmlClassement(dsLireClassement(), -1)}</div>`;
+    document.body.appendChild(d);
+};
+// l'hôte enchaîne sur la charge suivante (le rôle de démineur tourne dans l'équipe)
+window.dsCampagneSuivante = function () {
+    const data = window.currentRoom || {}, g = data.dsGame; if (!window.isHost || !g || !g.camp || !g.fin || !g.fin.ok) return;
+    const e = g.camp.e + 1, E = DS_CAMPAGNE[e]; if (!E) return;
+    const noms = dsHumains(data).map(p => p.name), k = noms.indexOf(g.dem);
+    const dem = noms.length ? noms[(k + 1) % noms.length] : g.dem;
+    dsEcrire({ dsGame: { v: 1, status: 'PLAYING', startedAt: Date.now(), seed: Math.floor(Math.random() * 2e9), niveau: E.n, dem: dem, err: 0, res: null, duree: E.d, reste: E.d, camp: Object.assign({}, g.camp, { e: e }) } });
+};
+
+// ------------------------------- Aide de l'entraînement -------------------------------
+function dsAideModule(i) {
+    const box = document.getElementById('ds-aide-mod'); if (!box) return;
+    const m = i >= 0 && dsC.charge && dsC.charge.mods[i];
+    const sc = document.getElementById('ds-scene'); if (sc) sc.style.right = m ? 'min(444px,42vw)' : '0';
+    if (!m) { box.style.display = 'none'; return; }
+    const def = window.DS.MODULES.find(d => d.id === m.id);
+    if (!dsC.pages) dsC.pages = window.DS.manuel();
+    const p = dsC.pages.find(x => x.id === m.id);
+    box.innerHTML = `<div class="mn-entete"><h3>🎓 ${dsEsc(def ? def.nom : m.id)}</h3><span>AIDE D’ENTRAÎNEMENT</span></div>${p ? p.html : ''}`;
+    box.style.display = 'block'; box.scrollTop = 0;
+}
 
 // liste « Démineur » des réglages de l'hôte, tenue à jour quand des joueurs arrivent ou partent
 function dsMajListeDemineur() {
@@ -153,6 +217,8 @@ function dsNouvelleSession(g, role) {
     dsArreter();
     dsC.sess = g.startedAt; dsC.role = role; dsC.fini = ''; dsC.err = 0; dsC.res = {}; dsC.ecoule = 0; dsC.der = performance.now(); dsC.tic = -1; dsC.sig = '';
     dsC.charge = window.DS.charge(g.seed, g.niveau);
+    if (g.duree) dsC.charge.N = Object.assign({}, dsC.charge.N, { duree: g.duree });
+    dsC.em = {};
     if (role === 'dem') dsConstruireDemineur(g); else dsConstruireExpert(g);
 }
 
@@ -164,13 +230,14 @@ function dsConstruireDemineur(g) {
     const root = document.createElement('div'); root.id = 'ds-root';
     root.innerHTML = `<div id="ds-scene"></div>
         <div class="ds-hud">
-            <span class="ds-titre">☢ CHARGE INSTABLE</span><span class="ds-pill" style="color:#fde68a">${dsEsc(N.n.toUpperCase())}</span>
+            <span class="ds-titre">☢ CHARGE INSTABLE</span><span class="ds-pill" style="color:#fde68a">${dsEsc(N.n.toUpperCase())}</span>${dsTagMode(g)}
             <span style="flex:1"></span>
             <span class="ds-pill" id="ds-h-mod">MODULES 0/${dsC.charge.mods.filter(m => !window.DS.MODULES.find(d => d.id === m.id).besoin).length}</span>
             <span class="ds-pill" id="ds-h-err" style="color:#f87171">ERREURS 0/${N.erreurs - 1}</span>
             <button class="ds-btn" id="ds-plein" title="Plein écran">⛶</button>
         </div>
-        <div class="ds-aide" id="ds-aide">🖱️ Glissez pour tourner la charge · Touchez un module pour zoomer · Échap ou glisser pour revenir<br><b style="color:#fca5a5">Vous n’avez pas le manuel : décrivez tout ce que vous voyez à vos experts !</b></div>`;
+        ${g.entr ? '<div id="ds-aide-mod" class="mn-page" style="display:none;position:absolute;right:12px;top:64px;bottom:12px;width:min(420px,40vw);overflow:auto;z-index:3;opacity:.96"></div>' : ''}
+        <div class="ds-aide" id="ds-aide">🖱️ Glissez pour tourner la charge · Touchez un module pour zoomer · Échap ou glisser pour revenir<br>${g.entr ? '<b style="color:#67e8f9">🎓 Entraînement : zoomez sur un module pour afficher sa page du manuel.</b>' : '<b style="color:#fca5a5">Vous n’avez pas le manuel : décrivez tout ce que vous voyez à vos experts !</b>'}</div>`;
     document.body.appendChild(root);
     document.getElementById('ds-plein').onclick = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen(); } catch (e) {} };
     try { if (!document.fullscreenElement && root.requestFullscreen) root.requestFullscreen().catch(() => {}); } catch (e) {}
@@ -178,7 +245,8 @@ function dsConstruireDemineur(g) {
     if (!window.DS3D || !window.THREE) { root.insertAdjacentHTML('beforeend', '<div class="ds-fin"><div class="ds-carte">⚠️ Le moteur 3D n’a pas pu être chargé. Vérifiez la connexion puis relancez.</div></div>'); return; }
     dsC.vue = window.DS3D.creer(document.getElementById('ds-scene'), dsC.charge, {
         son: dsSon,
-        onErreur: () => { dsC.err++; dsPublier(true); const N2 = dsC.charge.N; if (dsC.err >= N2.erreurs) dsTerminer(false, 'erreurs'); },
+        onZoom: i => { if (g.entr) dsAideModule(i); },
+        onErreur: i => { dsC.err++; if (i != null && i >= 0) dsC.em[i] = (dsC.em[i] || 0) + 1; dsPublier(true); const N2 = dsC.charge.N; if (dsC.err >= N2.erreurs) dsTerminer(false, 'erreurs'); },
         onResolu: i => { dsC.res[i] = 1; dsPublier(true); const tous = dsC.charge.mods.every((m, k) => window.DS.MODULES.find(d => d.id === m.id).besoin || dsC.res[k]); if (tous) dsTerminer(true, 'neutralisée'); },
         onAlerte: () => {}
     });
@@ -200,7 +268,7 @@ function dsPublier(force) {
     const N = dsC.charge.N, reste = Math.max(0, Math.round((N.duree - dsC.ecoule) * 10) / 10);
     dsC.ecrit = performance.now();
     const upd = { 'dsGame/reste': reste, 'dsGame/vit': 1 + .25 * dsC.err };
-    if (force) { upd['dsGame/err'] = dsC.err; upd['dsGame/res'] = Object.assign({}, dsC.res); }
+    if (force) { upd['dsGame/err'] = dsC.err; upd['dsGame/res'] = Object.assign({}, dsC.res); upd['dsGame/em'] = Object.assign({}, dsC.em); }
     dsEcrire(upd);
     const hm = document.getElementById('ds-h-mod'), he = document.getElementById('ds-h-err');
     if (hm) hm.textContent = `MODULES ${Object.keys(dsC.res).length}/${dsC.charge.mods.filter(m => !window.DS.MODULES.find(d => d.id === m.id).besoin).length}`;
@@ -210,10 +278,12 @@ function dsTerminer(ok, raison) {
     if (dsC.fini) return; dsC.fini = ok ? 'ok' : 'boum';
     const N = dsC.charge.N, reste = Math.max(0, Math.round(N.duree - dsC.ecoule));
     if (ok) { dsC.vue && dsC.vue.desamorcer(); dsSon('victoire'); } else { dsC.vue && dsC.vue.exploser(); }
-    const data = window.currentRoom || {}, upd = { 'dsGame/status': 'FINISHED', 'dsGame/err': dsC.err, 'dsGame/res': Object.assign({}, dsC.res), 'dsGame/reste': reste, 'dsGame/fin': { ok: ok, raison: raison, reste: reste, t: Date.now() } };
-    if (ok) {      // points : neutralisation + temps restant, pour tout l'équipage
-        const bonus = { recrue: 100, officier: 200, commandant: 350, legende: 500 }[(data.dsGame || {}).niveau] || 200;
-        dsHumains(data).forEach(p => { upd[`players/${p.name}/score`] = (p.score || 0) + bonus + reste; });
+    const data = window.currentRoom || {}, g = data.dsGame || {}, upd = { 'dsGame/status': 'FINISHED', 'dsGame/err': dsC.err, 'dsGame/res': Object.assign({}, dsC.res), 'dsGame/em': Object.assign({}, dsC.em), 'dsGame/reste': reste, 'dsGame/fin': { ok: ok, raison: raison, reste: reste, t: Date.now() } };
+    if (ok && !g.entr) {      // points : neutralisation + temps restant, pour tout l'équipage (pas en entraînement)
+        const bonus = { recrue: 100, officier: 200, commandant: 350, legende: 500 }[g.niveau] || 200;
+        const gain = Math.round((bonus + reste) * (g.camp ? 1 + g.camp.e * .15 : 1));
+        dsHumains(data).forEach(p => { upd[`players/${p.name}/score`] = (p.score || 0) + gain; });
+        if (g.camp) upd['dsGame/camp/score'] = (g.camp.score || 0) + gain;
     }
     dsEcrire(upd);
 }
@@ -285,7 +355,7 @@ function dsMajExpert(data, g) {
     el.innerHTML = `<span class="mn-chrono" id="mn-chrono">${dsFmt(g.reste || 0)}</span>
         <span class="ds-pill" style="color:#f87171">✕ ${err}/${N.erreurs - 1}</span>
         <span class="ds-pill" style="color:#86efac">✔ ${res}/${total} modules</span>
-        <span class="ds-pill" style="color:#fde68a">${dsEsc(N.n)}</span>
+        <span class="ds-pill" style="color:#fde68a">${dsEsc(N.n)}</span>${dsTagMode(g)}
         <span style="flex:1"></span>
         <span class="mn-petit">Démineur : <b style="color:#fca5a5">${dsEsc(g.dem)}</b> · vous êtes <b>expert</b></span>`;
 }
@@ -295,14 +365,51 @@ function dsCarteFin(parent, g, demineur) {
     const html = `<div class="ds-carte">
         <div style="font-size:52px">${ok ? '🛡️' : '💥'}</div>
         <div style="font:900 20px ui-monospace,monospace;letter-spacing:.14em;color:${ok ? '#86efac' : '#fca5a5'}">${ok ? 'CHARGE NEUTRALISÉE' : 'EXPLOSION'}</div>
-        <div style="margin:10px 0 14px;color:#cbd5e1;font-size:14px">${raison}<br><span style="font-size:12px;color:#94a3b8">Démineur : ${dsEsc(g.dem)} · erreurs : ${g.err || 0} · modules : ${Object.keys(g.res || {}).length}</span></div>
+        <div style="margin:10px 0 10px;color:#cbd5e1;font-size:14px">${raison}<br><span style="font-size:12px;color:#94a3b8">Démineur : ${dsEsc(g.dem)} · erreurs : ${g.err || 0} · modules : ${Object.keys(g.res || {}).length}${g.entr ? ' · 🎓 entraînement (sans points)' : ''}</span></div>
+        ${dsRecap(g)}
+        ${dsBlocCampagne(g, ok)}
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            ${g.camp && ok && DS_CAMPAGNE[g.camp.e + 1] && window.isHost ? `<button class="ds-btn" style="background:#a16207;border-color:#facc15" onclick="dsCampagneSuivante()">▶ Charge suivante (${g.camp.e + 2}/${DS_CAMPAGNE.length})</button>` : ''}
             <button class="ds-btn" style="background:#0e7490;border-color:#22d3ee" onclick="dsQuitter()">Retour au salon</button>
-            ${window.isHost ? '<button class="ds-btn" onclick="dsRevanche()">🔁 Nouvelle charge</button>' : ''}
+            ${window.isHost && !(g.camp && ok && DS_CAMPAGNE[g.camp.e + 1]) ? '<button class="ds-btn" onclick="dsRevanche()">🔁 Nouvelle charge</button>' : ''}
         </div></div>`;
     if (parent) { if (document.getElementById('ds-fin')) return; const d = document.createElement('div'); d.className = 'ds-fin'; d.id = 'ds-fin'; d.innerHTML = html; parent.appendChild(d); }
     else { const z = document.getElementById('mn-etat'); if (z) { z.style.display = 'block'; z.style.background = ok ? 'rgba(6,78,59,.5)' : 'rgba(69,10,10,.7)'; z.innerHTML = html.replace('class="ds-carte"', 'class="ds-carte" style="margin:0 auto"'); } }
 }
+function dsTagMode(g) {
+    if (g.camp) { const E = DS_CAMPAGNE[g.camp.e] || {}; return `<span class="ds-pill" style="color:#facc15">🎖️ CAMPAGNE ${g.camp.e + 1}/${DS_CAMPAGNE.length} · ${dsEsc(E.t || '')}</span>`; }
+    if (g.entr) return '<span class="ds-pill" style="color:#67e8f9">🎓 ENTRAÎNEMENT</span>';
+    return '';
+}
+// récapitulatif : chaque module de la charge, neutralisé ou non, et les erreurs qu'il a causées
+function dsRecap(g) {
+    const C = dsC.charge; if (!C) return '';
+    const em = g.em || {}, res = g.res || {};
+    const lignes = C.mods.map((m, i) => ({ m, i, def: window.DS.MODULES.find(d => d.id === m.id) || { nom: m.id }, e: Number(em[i]) || 0 }))
+        .sort((a, b) => b.e - a.e || (res[a.i] ? 1 : 0) - (res[b.i] ? 1 : 0));
+    const pire = lignes[0] && lignes[0].e ? lignes[0] : null;
+    return `<div style="text-align:left;margin:0 0 12px;padding:8px 10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.5)">
+        <div style="font:900 11px ui-monospace,monospace;letter-spacing:.16em;color:#fbbf24;margin-bottom:4px;text-align:center">📋 RAPPORT DE NEUTRALISATION</div>
+        ${lignes.map(l => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-top:1px solid rgba(148,163,184,.1)">
+            <span>${l.def.besoin ? '♻' : res[l.i] ? '<span style="color:#86efac">✔</span>' : '<span style="color:#64748b">○</span>'} ${dsEsc(l.def.nom)}</span>
+            <b style="color:${l.e ? '#f87171' : '#475569'};white-space:nowrap">${l.e ? '✕'.repeat(Math.min(l.e, 5)) + ' ' + l.e + ' erreur' + (l.e > 1 ? 's' : '') : '0 erreur'}</b></div>`).join('')}
+        ${pire ? `<div style="margin-top:6px;font-size:12px;color:#fca5a5;text-align:center">Module le plus traître : <b>${dsEsc(pire.def.nom)}</b> — à réviser dans le manuel !</div>` : '<div style="margin-top:6px;font-size:12px;color:#86efac;text-align:center">Aucune erreur : travail d’orfèvre !</div>'}</div>`;
+}
+function dsBlocCampagne(g, ok) {
+    if (!g.camp) return '';
+    const fin = !ok || !DS_CAMPAGNE[g.camp.e + 1], reussies = g.camp.e + (ok ? 1 : 0);
+    const etapes = DS_CAMPAGNE.map((E, k) => `<span title="${dsEsc(E.t)}" style="width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:900;${k < reussies ? 'background:#15803d;color:#fff' : k === g.camp.e && !ok ? 'background:#b91c1c;color:#fff' : 'background:#1e293b;color:#64748b'}">${k + 1}</span>`).join('');
+    let html = `<div style="margin:0 0 12px;padding:8px 10px;border-radius:12px;border:1px solid rgba(250,204,21,.35);background:rgba(250,204,21,.05)">
+        <div style="font:900 11px ui-monospace,monospace;letter-spacing:.16em;color:#facc15;margin-bottom:6px">🎖️ CAMPAGNE · ${g.camp.score || 0} PTS POUR L’ÉQUIPE</div>
+        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">${etapes}</div>`;
+    if (fin) {
+        const R = dsEnregistrerCampagne(g.camp, reussies);
+        html += `<div style="margin:8px 0 4px;font-size:13px;color:${ok ? '#86efac' : '#fca5a5'};font-weight:800">${ok ? '🏆 Campagne terminée : toutes les charges neutralisées !' : `Campagne terminée : ${reussies} charge${reussies > 1 ? 's' : ''} neutralisée${reussies > 1 ? 's' : ''}.`}${R.rang >= 0 && R.rang < 10 ? ` · ${R.rang ? R.rang + 1 + "ᵉ" : "1ʳᵉ"} place au classement` : ''}</div>
+            <div style="text-align:left">${dsHtmlClassement(R.L, R.rang)}</div>`;
+    } else html += `<div style="margin-top:6px;font-size:12px;color:#fde68a">Prochaine charge : <b>${dsEsc(DS_CAMPAGNE[g.camp.e + 1].t)}</b> (${dsEsc((window.DS.NIVEAUX[DS_CAMPAGNE[g.camp.e + 1].n] || {}).n || '')}). Le démineur suivant prend la relève.</div>`;
+    return html + '</div>';
+}
+
 window.dsQuitter = function() {
     const g = window.currentRoom && window.currentRoom.dsGame; dsC.quitte = g ? g.startedAt : 0; dsArreter();
     const z = document.getElementById('generic-game-content'); if (z) z.innerHTML = '<div class="text-center text-slate-300 py-10"><i class="fa-solid fa-hourglass-half animate-spin"></i> En attente des autres joueurs…</div>';
