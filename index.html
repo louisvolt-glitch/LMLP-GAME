@@ -468,6 +468,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         // Pour le quiz, le processus commence par le choix de la difficulté
                         if (justStarted && !window.isHost && typeof prepareNextQuizQuestion === 'function') {
     				state.quizGame.currentIndex = 0;
+    				state.quizGame.serie = 0;
     				state.quizGame.answersLog = [];
     				state.quizGame.currentRoundAnswers = {};
     				prepareNextQuizQuestion();
@@ -1163,6 +1164,17 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <div id="host-settings-manches-hint" class="text-[10px] text-slate-500"></div>
                 </div>
 
+                <!-- Conseil de bord : questions de l'équipage -->
+                <div id="host-settings-conseil" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">✍️ VOS PROPRES QUESTIONS</div>
+                    <textarea id="setting-cdb-perso" rows="4" oninput="cdbMajPerso()" placeholder="Une question par ligne, par exemple :&#10;oublier son casque dans la navette&#10;Pizza / Burger&#10;J'ai déjà dormi au travail" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-200 px-2 py-1 text-xs"></textarea>
+                    <div class="text-[10px] text-slate-500">Situation simple → « Qui est le plus susceptible de… ? » · « A / B » → dilemme · « J'ai… » ou « Je… » → aveu anonyme.</div>
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="flex items-center gap-1.5 text-[11px] text-slate-300"><input type="checkbox" id="setting-cdb-seul" onchange="cdbMajPerso()"> Seulement mes questions</label>
+                        <span id="setting-cdb-compte" class="text-[10px] text-amber-300"></span>
+                    </div>
+                </div>
+
                 <!-- Options Magnat Galactique -->
                 <div id="host-settings-magnat" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS MAGNAT GALACTIQUE</div>
@@ -1226,6 +1238,12 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                 <!-- Options Transmission visuelle -->
                 <div id="host-settings-dessin" class="hidden space-y-1 text-xs shrink-0">
                     <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS TRANSMISSION VISUELLE</div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Mode :</span>
+                        <select id="setting-dessin-mode" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            <option value="classique" selected>🎨 Classique : un dessine, les autres devinent</option><option value="tele">📺 Télé-dessin : tout le monde dessine le même mot, on vote</option>
+                        </select>
+                    </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <span class="text-slate-300 text-[11px]">Passages par joueur :</span>
@@ -1240,7 +1258,13 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             </select>
                         </div>
                     </div>
-                    <div class="text-[10px] text-slate-500">Temps de dessin : réglez le curseur ci-dessus (40 à 150 s).</div>
+                    <div class="text-[10px] text-slate-500">Temps de dessin : réglez le curseur ci-dessus (40 à 150 s). En Télé-dessin, « passages » = 3, 5 ou 7 manches.</div>
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide pt-1">✍️ VOS PROPRES MOTS</div>
+                    <textarea id="setting-dessin-perso" rows="3" oninput="dvMajPerso()" placeholder="Un mot par ligne (blagues internes, prénoms, souvenirs…)" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-200 px-2 py-1 text-xs"></textarea>
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="flex items-center gap-1.5 text-[11px] text-slate-300"><input type="checkbox" id="setting-dessin-seul" onchange="dvMajPerso()"> Seulement mes mots</label>
+                        <span id="setting-dessin-compte" class="text-[10px] text-amber-300"></span>
+                    </div>
                 </div>
 
                 <!-- Options Charge instable -->
@@ -1258,7 +1282,14 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             <select id="setting-ds-demineur" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5"><option value="">🎲 Au hasard</option></select>
                         </div>
                     </div>
+                    <div>
+                        <span class="text-slate-300 text-[11px]">Mode :</span>
+                        <select id="setting-ds-mode" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                            <option value="normal" selected>Charge unique (niveau ci-dessus)</option><option value="campagne">🎖️ Campagne · 8 charges de plus en plus dures</option><option value="entrainement">🎓 Entraînement · aide sur chaque module, +50 % de temps, sans points</option>
+                        </select>
+                    </div>
                     <div class="text-[10px] text-slate-500">Le démineur joue sur grand écran (ordinateur ou télé) ; les experts lisent le manuel sur leur téléphone. Un appel vocal ou la même pièce est indispensable.</div>
+                    <button onclick="window.dsVoirClassement && dsVoirClassement()" class="w-full mt-1 px-2 py-1 bg-amber-500/10 border border-amber-500/50 text-amber-300 hover:bg-amber-500/25 transition rounded text-[11px] cursor-pointer">🏆 Classement des campagnes</button>
                 </div>
 
                 <!-- Options Salle des machines -->
@@ -1284,7 +1315,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                             <option value="facile">Facile (jauges lentes, une panne de moins)</option><option value="normal" selected>Normal</option><option value="difficile">Difficile (jauges rapides, une panne de plus)</option>
                         </select>
                     </div>
-                    <div class="text-[10px] text-slate-500">1 à 8 joueurs. À moins de 4, des androïdes tiennent les secteurs libres. La difficulté s’ajuste aussi au nombre de joueurs. 5 pannes réparées = verrouillage des moteurs puis saut hyperespace.</div>
+                    <div class="text-[10px] text-slate-500">1 à 8 joueurs. À moins de 4, des androïdes tiennent les secteurs libres. La difficulté s’ajuste aussi au nombre de joueurs. 5 pannes réparées = verrouillage des moteurs puis saut hyperespace. Un événement surprise survient à chaque nouveau secteur.</div>
+                    <button onclick="window.smVoirRecords && smVoirRecords()" class="w-full mt-1 px-2 py-1 bg-amber-500/10 border border-amber-500/50 text-amber-300 hover:bg-amber-500/25 transition rounded text-[11px] cursor-pointer">🏆 Records par vaisseau et difficulté</button>
                 </div>
 
                 <!-- OPTIONS CODENAMES -->
@@ -1967,11 +1999,13 @@ if (mode === 'codenames') {
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'desamorcage') {
                 const nv = ({ recrue: 'Recrue (3 modules)', officier: 'Officier (5 modules)', commandant: 'Commandant (7 modules)', legende: 'Légende (9 modules)' })[s.dsNiveau] || 'Officier (5 modules)';
-                displayEl.innerText = `${nv} | démineur : ${s.dsDem || 'au hasard'}`;
+                displayEl.innerText = s.dsMode === 'campagne' ? `Campagne : 8 charges | démineur : ${s.dsDem || 'au hasard'}` : `${nv}${s.dsMode === 'entrainement' ? ' · entraînement' : ''} | démineur : ${s.dsDem || 'au hasard'}`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'dessin') {
                 const th = (window.DV_THEMES || {})[s.dvTheme] || '🎲 Mixte';
-                displayEl.innerText = `${timer}s/dessin | ${s.dvTours || 2} passage${(s.dvTours || 2) > 1 ? 's' : ''} par joueur | mots : ${th.replace(/^\S+\s/, '').toLowerCase()}`;
+                displayEl.innerText = s.dvMode === 'tele'
+                    ? `📺 Télé-dessin | ${timer}s/dessin | ${(parseInt(s.dvTours, 10) || 2) * 2 + 1} manches | mots : ${th.replace(/^\S+\s/, '').toLowerCase()}`
+                    : `${timer}s/dessin | ${s.dvTours || 2} passage${(s.dvTours || 2) > 1 ? 's' : ''} par joueur | mots : ${th.replace(/^\S+\s/, '').toLowerCase()}`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'bataille') {
                 displayEl.innerText = `${timer}s/tir | ${s.bsAgain === '0' ? 'un tir par tour' : 'touché = rejoue'} | ${s.bsDuel1 || 'au hasard'} contre ${s.bsDuel2 || 'au hasard'}`;
@@ -2375,7 +2409,9 @@ function showScreen(id) {
 		const smDiff = document.getElementById('setting-machines-diff')?.value || 'normal';
 		const dvTours = document.getElementById('setting-dessin-tours')?.value || 2;
 		const dvTheme = document.getElementById('setting-dessin-theme')?.value || 'mixte';
+		const dvMode = document.getElementById('setting-dessin-mode')?.value || 'classique';
 		const dsNiveau = document.getElementById('setting-ds-niveau')?.value || 'officier';
+		const dsMode = document.getElementById('setting-ds-mode')?.value || 'normal';
 		const dsDem = document.getElementById('setting-ds-demineur')?.value || '';
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
@@ -2402,7 +2438,9 @@ function showScreen(id) {
 			smDiff: smDiff,
 			dvTours: dvTours,
 			dvTheme: dvTheme,
+			dvMode: dvMode,
 			dsNiveau: dsNiveau,
+			dsMode: dsMode,
 			dsDem: dsDem
                     }
                 });
@@ -2415,7 +2453,7 @@ const protocolData = {
         rules: [
             "Chaque candidat choisit son grade (Cadet, Officier, Commandant) selon la catégorie tirée.",
             "Sélectionnez la bonne réponse avant l'expiration du délai.",
-            "Les points dépendent de votre rapidité de réponse."
+            "Les points dépendent de votre rapidité de réponse. 🔥 Enchaînez les bonnes réponses : chaque réponse de série rapporte un bonus (+250, +500… jusqu'à +1250)."
         ],
         players: "1 - 8 JOUEURS",
         duration: "10-15 MIN",
@@ -2543,7 +2581,8 @@ const protocolData = {
         rules: [
             "Bienvenue au marché noir de la station : chaque joueur dispose de 100 crédits pour toute la partie, et un objet rare est mis en vente à chaque manche.",
             "Tout le monde mise en secret. La mise la plus haute ET unique remporte le lot et paie sa mise.",
-            "Les mises identiques s'annulent. Les crédits non dépensés ne rapportent rien à la fin. Chaque lot réserve une surprise quand il est adjugé !"
+            "Les mises identiques s'annulent. Les crédits non dépensés ne rapportent rien à la fin. Chaque lot réserve une surprise quand il est adjugé !",
+            "Des événements secouent le marché (descente de police, enchère inversée, lot maudit…) et chacun reçoit un objectif secret (collection, radin, flambeur…) révélé et payé à la fin."
         ],
         players: "2 - 8 JOUEURS",
         duration: "5-10 MIN",
@@ -2660,7 +2699,8 @@ const protocolData = {
         rules: [
             "Un membre d'équipage, le démineur, est seul face à la charge instable affichée en 3D sur grand écran. Il la fait tourner, zoome sur les modules et les manipule, mais n'a aucune instruction.",
             "Tous les autres sont experts : ils ont le manuel de neutralisation sur leur téléphone (40 modules, de ★ à ★★★★) mais ne voient pas la charge. Il faut tout se dire à voix haute !",
-            "Neutralisez tous les modules avant la fin du minuteur. Chaque erreur accélère le compte à rebours ; à la troisième, c'est l'explosion."
+            "Neutralisez tous les modules avant la fin du minuteur. Chaque erreur accélère le compte à rebours ; à la troisième, c'est l'explosion.",
+            "Modes : charge unique, campagne de 8 charges (le démineur change à chaque étape, classement des équipes) ou entraînement avec l'aide du manuel sur l'écran du démineur. Un rapport de fin montre les modules qui ont causé les erreurs."
         ],
         players: "2 - 8 JOUEURS",
         duration: "5-12 MIN",
@@ -2738,7 +2778,7 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines', 'host-settings-dessin', 'host-settings-desamorcage'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines', 'host-settings-dessin', 'host-settings-desamorcage', 'host-settings-conseil'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
@@ -2749,6 +2789,8 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
         const activeSettings = document.getElementById(data.settingsId);
         if (activeSettings) activeSettings.classList.remove('hidden');
     }
+    if (modeKey === 'dessin' && typeof dvChargerPerso === 'function') dvChargerPerso();
+    if (modeKey === 'conseil') { const pc = document.getElementById('host-settings-conseil'); if (pc) pc.classList.remove('hidden'); if (typeof cdbChargerPerso === 'function') cdbChargerPerso(); }
 
     const nonHostModeText = document.getElementById('non-host-target-mode');
     if (nonHostModeText) nonHostModeText.innerText = name;
