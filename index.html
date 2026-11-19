@@ -722,7 +722,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
         <div id="active-protocol-video-container" class="hidden absolute inset-0 w-full h-full z-10">
             <!-- Retour à object-cover : le parent étant en 16:9, il n'y a ni crop ni bandes noires -->
             <video id="active-protocol-video" autoplay loop muted playsinline class="w-full h-full object-cover">
-                <source src="./videos/codenames-simulation.mp4" type="video/mp4">
+                <source src="./videos/nomsdecode-simulation.mp4" type="video/mp4">
             </video>
             
             <!-- Bouton Audio -->
@@ -2499,7 +2499,7 @@ const protocolData = {
         complexity: "78%",
         sync: "94%",
         settingsId: "host-settings-codenames",
-	video: "./videos/codenames-simulation.mp4"
+	video: "./videos/nomsdecode-simulation.mp4"
     },
     'petitsbac': {
         rules: [
@@ -2549,8 +2549,9 @@ const protocolData = {
     players: "1 - 8 JOUEURS",
     duration: "5-10 MIN",
     complexity: "60%",
-    sync: "70%"
-},
+    sync: "70%",
+        video: "./videos/reliquesterrestres-simulation.mp4"
+    },
     'estimation': {
         rules: [
             "L'ordinateur de bord demande une valeur : hauteur, année, quantité...",
@@ -2562,7 +2563,8 @@ const protocolData = {
         complexity: "45%",
         sync: "80%",
         settingsId: "host-settings-manches",
-        hint: "Temps par question : réglez le curseur ci-dessus (5 à 60 s)."
+        hint: "Temps par question : réglez le curseur ci-dessus (5 à 60 s).",
+        video: "./videos/calculdetrajectoire-simulation.mp4"
     },
     'telepathie': {
         rules: [
@@ -2575,7 +2577,8 @@ const protocolData = {
         complexity: "35%",
         sync: "98%",
         settingsId: "host-settings-manches",
-        hint: "Temps par consigne : réglez le curseur ci-dessus (5 à 60 s)."
+        hint: "Temps par consigne : réglez le curseur ci-dessus (5 à 60 s).",
+        video: "./videos/liaisonpsychique-simulation.mp4"
     },
     'encheres': {
         rules: [
@@ -2589,7 +2592,8 @@ const protocolData = {
         complexity: "80%",
         sync: "65%",
         settingsId: "host-settings-manches",
-        hint: "Temps pour miser : réglez le curseur ci-dessus (5 à 60 s)."
+        hint: "Temps pour miser : réglez le curseur ci-dessus (5 à 60 s).",
+        video: "./videos/marchénoir-simulation.mp4"
     },
     'reflexes': {
         rules: [
@@ -2603,7 +2607,8 @@ const protocolData = {
         sync: "75%",
         settingsId: "host-settings-manches",
         noTimer: true,
-        hint: "Chaque manœuvre dure 30 secondes au maximum."
+        hint: "Chaque manœuvre dure 30 secondes au maximum.",
+        video: "./videos/simulateurdepilotage-simulation.mp4"
     },
     'memoire': {
         rules: [
@@ -2617,7 +2622,8 @@ const protocolData = {
         sync: "70%",
         settingsId: "host-settings-manches",
         noTimer: true,
-        hint: "Le code commence à 4 touches et gagne une touche par manche."
+        hint: "Le code commence à 4 touches et gagne une touche par manche.",
+        video: "./videos/codeaccèssas-simulation.mp4"
     },
     'magnat': {
         rules: [
@@ -2629,7 +2635,8 @@ const protocolData = {
         duration: "20-90 MIN",
         complexity: "90%",
         sync: "70%",
-        settingsId: "host-settings-magnat"
+        settingsId: "host-settings-magnat",
+        video: "./videos/magnatgalactique-simulation.mp4"
     },
     'bataille': {
         rules: [
@@ -2641,7 +2648,8 @@ const protocolData = {
         duration: "10-20 MIN",
         complexity: "55%",
         sync: "60%",
-        settingsId: "host-settings-bataille"
+        settingsId: "host-settings-bataille",
+        video: "./videos/bataillestellaire-simulation.mp4"
     },
     'missive': {
         rules: [
@@ -2653,7 +2661,8 @@ const protocolData = {
         duration: "10-25 MIN",
         complexity: "65%",
         sync: "55%",
-        settingsId: "host-settings-missive"
+        settingsId: "host-settings-missive",
+        video: "./videos/missivestellaire-simulation.mp4"
     },
     'machines': {
         rules: [
@@ -2666,7 +2675,8 @@ const protocolData = {
         complexity: "45%",
         sync: "95%",
         settingsId: "host-settings-machines",
-        noTimer: true
+        noTimer: true,
+        video: "./videos/salledesmachines-simulation.mp4"
     },
     'dessin': {
         rules: [
@@ -2693,7 +2703,8 @@ const protocolData = {
         sync: "97%",
         settingsId: "host-settings-manches",
         noTimer: true,
-        hint: "Le temps de vote s'adapte à chaque type de motion. 5 joueurs ou plus : c'est encore plus drôle !"
+        hint: "Le temps de vote s'adapte à chaque type de motion. 5 joueurs ou plus : c'est encore plus drôle !",
+        video: "./videos/conseildebord-simulation.mp4"
     },
     'desamorcage': {
         rules: [
@@ -2707,7 +2718,8 @@ const protocolData = {
         complexity: "75%",
         sync: "99%",
         settingsId: "host-settings-desamorcage",
-        noTimer: true
+        noTimer: true,
+        video: "./videos/chargeinstable-simulation.mp4"
     }
 };
 
