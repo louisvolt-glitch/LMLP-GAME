@@ -14,13 +14,13 @@
 //                                  repli sur salons/<code>/dvTraits si les règles Firebase le refusent)
 // =====================================================================
 
-const DV = { W: 1000, H: 750, CHOIX: 12, REVELE: 7, MULT: [1, 1.25, 1.5], NIV: ['FACILE', 'MOYEN', 'DIFFICILE'] };
+const DV = { W: 1000, H: 750, CHOIX: 12, REVELE: 7, VOTE: 25, TREVELE: 9, MULT: [1, 1.25, 1.5], NIV: ['FACILE', 'MOYEN', 'DIFFICILE'] };
 const DV_COULEURS = ['#ffffff', '#94a3b8', '#1e293b', '#f43f5e', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#60a5fa', '#a78bfa', '#f472b6', '#a16207'];
 const DV_TAILLES = [4, 10, 20, 40];
 const DV_REACTIONS = ['😂', '😮', '👏', '🔥', '🤔', '💀'];
 
 const dvC = { sess: 0, g: null, data: null, vu: {}, traits: {}, local: {}, chemin: '', ecoute: null, tr: '', cv: null, cx: null, sale: true,
-    outil: { c: '#ffffff', w: 10, e: 0 }, seq: 0, cur: null, flush: 0, chatVu: {}, trouveVu: {}, reacVu: {}, tic: 0, fini: '', galerieEcrite: {}, ticker: null, raf: 0 };
+    outil: { c: '#ffffff', w: 10, e: 0, f: 0 }, envoye: {}, seq: 0, cur: null, flush: 0, chatVu: {}, trouveVu: {}, reacVu: {}, tic: 0, fini: '', galerieEcrite: {}, ticker: null, raf: 0 };
 const dvH = { lock: '', utilises: new Set() };
 
 function dvMe() { return window.myPlayerKey || (window.state && state.username); }
@@ -150,15 +150,40 @@ function dvStyle() {
 }
 
 // ------------------------------- Lancement (hôte) -------------------------------
-function dvTirerChoix(theme) {
-    const themes = theme && window.DV_MOTS[theme] ? [theme] : Object.keys(window.DV_MOTS);
+// mots de l'hôte : un par ligne ; leur niveau dépend de leur longueur
+function dvLirePerso() {
+    let txt = ''; const el = document.getElementById('setting-dessin-perso');
+    if (el) txt = el.value; else { try { txt = localStorage.getItem('lmlp-dv-perso') || ''; } catch (e) {} }
+    return [...new Set(String(txt).split(/\r?\n|,/).map(x => x.trim()).filter(x => x && x.length <= 40))];
+}
+function dvSeulementPerso() { const el = document.getElementById('setting-dessin-seul'); if (el) return !!el.checked; try { return localStorage.getItem('lmlp-dv-seul') === '1'; } catch (e) { return false; } }
+window.dvMajPerso = function() {
+    const el = document.getElementById('setting-dessin-perso'), seul = document.getElementById('setting-dessin-seul');
+    try { if (el) localStorage.setItem('lmlp-dv-perso', el.value); if (seul) localStorage.setItem('lmlp-dv-seul', seul.checked ? '1' : '0'); } catch (e) {}
+    const c = document.getElementById('setting-dessin-compte'); if (c) { const n = dvLirePerso().length; c.textContent = n ? `${n} mot${n > 1 ? 's' : ''} personnalisé${n > 1 ? 's' : ''}` : ''; }
+};
+window.dvChargerPerso = function() {
+    const el = document.getElementById('setting-dessin-perso'), seul = document.getElementById('setting-dessin-seul');
+    try { if (el && !el.value) el.value = localStorage.getItem('lmlp-dv-perso') || ''; if (seul) seul.checked = localStorage.getItem('lmlp-dv-seul') === '1'; } catch (e) {}
+    window.dvMajPerso();
+};
+const dvNivPerso = m => m.length <= 6 ? 0 : m.length <= 10 ? 1 : 2;
+function dvTirerChoix(theme, perso, seul) {
+    const themes = theme && window.DV_MOTS && window.DV_MOTS[theme] ? [theme] : Object.keys(window.DV_MOTS || {});
+    perso = perso || []; if (seul && !perso.length) seul = false;
     let recents = []; try { recents = JSON.parse(localStorage.getItem('lmlp-dv-recents') || '[]'); } catch (e) {}
+    const pris = new Set();
     return [0, 1, 2].map(niv => {
-        const pool = []; themes.forEach(t => (window.DV_MOTS[t][niv] || []).forEach(m => pool.push(m)));
+        let pool = [];
+        const mesMots = perso.filter(m => dvNivPerso(m) === niv && !pris.has(m));
+        if (seul) pool = mesMots.length ? mesMots : perso.filter(m => !pris.has(m));
+        else if (mesMots.length && Math.random() < .5) pool = mesMots;
+        else themes.forEach(t => (window.DV_MOTS[t][niv] || []).forEach(m => pool.push(m)));
+        if (!pool.length) pool = perso.length ? perso.slice() : ['fusée'];
         let libres = pool.filter(m => !dvH.utilises.has(m) && recents.indexOf(m) < 0);
         if (!libres.length) libres = pool.filter(m => !dvH.utilises.has(m));
         if (!libres.length) libres = pool;
-        const m = libres[Math.floor(Math.random() * libres.length)]; dvH.utilises.add(m);
+        const m = libres[Math.floor(Math.random() * libres.length)]; dvH.utilises.add(m); pris.add(m);
         return { m: m, n: niv };
     });
 }
@@ -173,11 +198,16 @@ window.startDessinGame = function() {
     const tpj = Math.max(1, Math.min(3, parseInt(document.getElementById('setting-dessin-tours')?.value, 10) || 2));
     const theme = document.getElementById('setting-dessin-theme')?.value || 'mixte';
     const duree = Math.max(40, Math.min(150, parseInt(document.getElementById('input-host-timer')?.value, 10) || 80));
+    const mode = document.getElementById('setting-dessin-mode')?.value === 'tele' ? 'tele' : 'classique';
+    const perso = dvLirePerso(), seul = dvSeulementPerso() && perso.length > 0;
     dvH.utilises = new Set();
     const go = pos => {
         const now = Date.now(), ordre = dvMelange(noms);
         const g = { v: 1, status: 'PLAYING', startedAt: now, ordre: ordre, tpj: tpj, total: ordre.length * tpj, theme: theme, duree: duree, pos: pos,
-            tour: 0, phase: 'CHOIX', d: ordre[0], choix: dvTirerChoix(theme) };
+            tour: 0, phase: 'CHOIX', d: ordre[0], choix: dvTirerChoix(theme, perso, seul), perso: perso.length ? perso : null, seul: seul ? 1 : 0, mode: mode };
+        if (mode === 'tele') {      // Télé-dessin : tout le monde dessine le même mot, puis vote
+            const c = g.choix; Object.assign(g, { total: tpj * 2 + 1, phase: 'T_DESSIN', d: '', mot: c[Math.floor(Math.random() * 3)].m, niv: null, choix: null });
+        }
         const updates = { status: 'IN_GAME', selectedMode: 'dessin', dvGame: g, dvTraits: null };
         Object.values(players).forEach(p => { if (p && p.name) updates[`players/${p.name}/score`] = 0; });
         window.set(window.ref(window.db, dvCheminTraits(code, pos)), { tr: dvJeton(g) }).catch(() => {});
@@ -192,6 +222,7 @@ function dvHote() {
     const data = window.currentRoom || dvC.data, g = data && data.dvGame;
     if (!window.isHost || !g || g.status !== 'PLAYING' || data.status !== 'IN_GAME' || data.selectedMode !== 'dessin') return;
     const d = dvDessinateur(g), t = dvEcoule(g), cle = dvJeton(g) + ':' + g.phase;
+    if (g.mode === 'tele') { dvHoteTele(data, g, t, cle); return; }
     if (g.phase === 'CHOIX') {
         if (!dvPresent(data, d)) { if (t > 1.5) dvAvancer(g, cle + ':absent'); return; }
         if (t > DV.CHOIX + 1.5 && dvH.lock !== cle) {          // le dessinateur n'a pas choisi : mot moyen
@@ -205,6 +236,44 @@ function dvHote() {
         if (tous || t > (g.duree || 80) + 1 || (!dvPresent(data, d) && t > 3)) dvTerminer(data, g, cle);
     } else if (g.phase === 'REVELE') {
         if (t > DV.REVELE) dvAvancer(g, cle);
+    }
+}
+// ---- Télé-dessin : T_DESSIN (tous dessinent) → T_VOTE → T_REVELE ----
+function dvTeleImages(g) { return (g.td && g.td['r' + (g.tour || 0)]) || {}; }
+function dvTeleVotes(g) { return (g.tv && g.tv['r' + (g.tour || 0)]) || {}; }
+function dvHoteTele(data, g, t, cle) {
+    const presents = dvHumains(data).map(p => p.name);
+    if (g.phase === 'T_DESSIN') {
+        const im = dvTeleImages(g);
+        if ((presents.length && presents.every(n => im[n])) || t > (g.duree || 80) + 2) {
+            if (dvH.lock === cle) return; dvH.lock = cle; dvEcrire({ 'dvGame/phase': 'T_VOTE' }).catch(() => { dvH.lock = ''; });
+        }
+    } else if (g.phase === 'T_VOTE') {
+        const im = dvTeleImages(g), v = dvTeleVotes(g), auteurs = Object.keys(im);
+        const votants = presents.filter(n => auteurs.some(a => a !== n));
+        if ((votants.length && votants.every(n => v[n])) || t > DV.VOTE + 2 || auteurs.length < 2 && t > 4) {
+            if (dvH.lock === cle) return; dvH.lock = cle;
+            const voix = {}; Object.keys(v).forEach(n => { if (im[v[n]] && v[n] !== n) voix[v[n]] = (voix[v[n]] || 0) + 1; });
+            const max = Math.max(0, ...Object.values(voix)), gagnants = Object.keys(voix).filter(a => voix[a] === max && max > 0);
+            const pts = {};
+            Object.keys(voix).forEach(a => { pts[a] = (pts[a] || 0) + voix[a] * 100 + (gagnants.indexOf(a) >= 0 ? 50 : 0); });
+            Object.keys(v).forEach(n => { if (gagnants.indexOf(v[n]) >= 0 && v[n] !== n) pts[n] = (pts[n] || 0) + 25; });
+            const upd = { 'dvGame/phase': 'T_REVELE', 'dvGame/pts': pts, 'dvGame/voix': voix };
+            dvHumains(data).forEach(p => { if (pts[p.name]) upd[`players/${p.name}/score`] = (p.score || 0) + pts[p.name]; });
+            const g0 = gagnants[0] || auteurs[0];
+            if (g0 && im[g0]) upd[`dvGame/galerie/t${g.tour || 0}`] = { d: g0, m: g.mot || '', img: im[g0].img, v: voix[g0] || 0 };
+            if (g.mot) dvMemoriserMot(g.mot);
+            dvEcrire(upd).catch(() => { dvH.lock = ''; });
+        }
+    } else if (g.phase === 'T_REVELE') {
+        if (t > DV.TREVELE) {
+            if (dvH.lock === cle) return; dvH.lock = cle;
+            const t2 = (g.tour || 0) + 1;
+            if (t2 >= (g.total || 3)) { dvEcrire({ 'dvGame/status': 'FINISHED', 'dvGame/phase': 'FIN', 'dvGame/td': null }); return; }
+            const c = dvTirerChoix(g.theme, g.perso, g.seul);
+            dvEcrire({ 'dvGame/tour': t2, 'dvGame/phase': 'T_DESSIN', 'dvGame/mot': c[Math.floor(Math.random() * 3)].m, 'dvGame/td': null, 'dvGame/tv': null,
+                'dvGame/pts': null, 'dvGame/voix': null, 'dvGame/chat': null, 'dvGame/react': null }).catch(() => { dvH.lock = ''; });
+        }
     }
 }
 function dvTerminer(data, g, cle) {
@@ -231,7 +300,7 @@ function dvAvancer(g, cle) {
     while (t < (g.total || 0) && !dvPresent(data, (g.ordre || [])[t % (g.ordre || [1]).length])) t++;
     if (t >= (g.total || 0)) { dvEcrire({ 'dvGame/status': 'FINISHED', 'dvGame/phase': 'FIN' }); return; }
     const ng = Object.assign({}, g, { tour: t });
-    const upd = { 'dvGame/tour': t, 'dvGame/phase': 'CHOIX', 'dvGame/d': dvDessinateur(ng), 'dvGame/choix': dvTirerChoix(g.theme),
+    const upd = { 'dvGame/tour': t, 'dvGame/phase': 'CHOIX', 'dvGame/d': dvDessinateur(ng), 'dvGame/choix': dvTirerChoix(g.theme, g.perso, g.seul),
         'dvGame/mot': null, 'dvGame/niv': null, 'dvGame/trouves': null, 'dvGame/chat': null, 'dvGame/react': null, 'dvGame/pts': null };
     window.set(window.ref(window.db, dvCheminTraits(dvSalon(), g.pos)), { tr: dvJeton(ng) }).catch(() => {});
     dvEcrire(upd).catch(() => { dvH.lock = ''; });
@@ -305,6 +374,7 @@ function dvEcouterTraits(g) {
 
 // ------------------------------- Mise à jour de l'interface -------------------------------
 function dvMaj(data, g) {
+    if (g.mode === 'tele') { dvMajTele(data, g); return; }
     const me = dvMe(), d = dvDessinateur(g), moiDess = me === d, jeton = dvJeton(g);
     dvDebutPhase(g);
     if (dvC.jeton !== jeton) {                     // nouveau tour
@@ -326,7 +396,7 @@ function dvMaj(data, g) {
     const ecran = document.getElementById('dv-ecran'); if (ecran) ecran.classList.toggle('dessine', moiDess && g.phase === 'DESSIN');
     dvMajMot(g, moiDess);
     dvMajVoile(data, g, moiDess);
-    dvMajOutils(g, moiDess);
+    dvMajOutils(g, moiDess && g.phase === 'DESSIN');
     dvMajJoueurs(data, g);
     dvMajChat(g, me, d);
     dvMajReactions(g);
@@ -337,6 +407,78 @@ function dvMaj(data, g) {
         inp.disabled = !actif; if (btn) btn.disabled = !actif;
         inp.placeholder = moiDess ? 'Vous êtes l’émetteur : dessinez !' : g.phase !== 'DESSIN' ? 'En attente de la transmission…' : trouve ? 'Décodé ✓ — discutez avec les décodeurs' : 'Votre proposition…';
     }
+}
+
+// ===================== Télé-dessin (côté joueur) =====================
+function dvMajTele(data, g) {
+    const me = dvMe(), jeton = dvJeton(g), im = dvTeleImages(g), votes = dvTeleVotes(g);
+    dvDebutPhase(g);
+    if (dvC.jeton !== jeton) {
+        dvC.jeton = jeton; dvC.local = {}; dvC.cur = null; dvC.sale = true; dvC.cacheSig = '';
+        const ch = document.getElementById('dv-chat'); if (ch) ch.innerHTML = '';
+        dvSysMsg(`📺 Manche ${(g.tour || 0) + 1} : tout le monde dessine <b>${dvEsc(String(g.mot || '').toUpperCase())}</b> !`);
+    }
+    if (dvC.phaseVue !== jeton + g.phase) {
+        dvC.phaseVue = jeton + g.phase;
+        if (g.phase === 'T_DESSIN') dvSon('debut');
+        if (g.phase === 'T_VOTE') { dvEnvoyerDessinTele(g); dvSon('choix'); }
+        if (g.phase === 'T_REVELE') dvSon('revele');
+    }
+    const qui = document.getElementById('dv-qui');
+    if (qui) qui.innerHTML = `<span style="font-size:22px">📺</span><div style="min-width:0"><div style="font:800 9px ui-monospace,monospace;letter-spacing:.18em;color:#a78bfa">TÉLÉ-DESSIN</div><b style="font-size:12px">${g.phase === 'T_DESSIN' ? 'Tout le monde dessine' : g.phase === 'T_VOTE' ? 'Votez pour le meilleur' : 'Résultat du vote'}</b></div>`;
+    const tour = document.getElementById('dv-tour'); if (tour) tour.textContent = `MANCHE ${(g.tour || 0) + 1}/${g.total || 1}`;
+    const coin = document.getElementById('dv-coin'); if (coin) coin.textContent = g.phase === 'T_DESSIN' ? (dvC.envoye[jeton] ? 'DESSIN ENVOYÉ ✓' : 'VOTRE ÉCRAN') : '';
+    const mot = document.getElementById('dv-mot'); if (mot) { const h = `<span style="font-size:11px;letter-spacing:.2em;color:#94a3b8">DESSINEZ</span> <span style="color:#fde68a">${dvEsc(String(g.mot || '').toUpperCase())}</span>`; if (mot.dataset.sig !== h) { mot.dataset.sig = h; mot.innerHTML = h; } }
+    const ecran = document.getElementById('dv-ecran'); if (ecran) ecran.classList.toggle('dessine', dvPeutDessiner());
+    dvMajOutils(g, dvPeutDessiner());
+    // voile : galerie de vote ou révélation
+    const v = document.getElementById('dv-voile');
+    if (v) {
+        const auteurs = Object.keys(im).sort((a, b) => (dvNorm(a + g.startedAt) < dvNorm(b + g.startedAt) ? -1 : 1));
+        const sig = g.phase + ':' + jeton + ':' + auteurs.join(',') + ':' + (votes[me] || '') + ':' + JSON.stringify(g.voix || {});
+        if (v.dataset.cle !== sig) {
+            v.dataset.cle = sig;
+            if (g.phase === 'T_DESSIN') v.innerHTML = dvC.envoye[jeton] ? `<div class="dv-voile" style="background:rgba(3,8,20,.55)"><div class="dv-glitch">DESSIN TRANSMIS ✓</div><div style="font-size:13px;color:#cbd5e1">En attente des autres artistes… (${auteurs.length}/${dvHumains(data).length})</div></div>` : '';
+            else {
+                const voix = g.voix || {}, max = Math.max(0, ...Object.values(voix)), pts = g.pts || {};
+                const cartes = auteurs.map((a, k) => {
+                    const moi = a === me, vote = votes[me] === a, gagne = g.phase === 'T_REVELE' && voix[a] === max && max > 0;
+                    return `<button class="dv-tvote" data-a="${dvEsc(a)}" ${g.phase !== 'T_VOTE' || moi || votes[me] ? 'disabled' : ''} style="position:relative;border-radius:10px;overflow:hidden;padding:0;cursor:${g.phase === 'T_VOTE' && !moi && !votes[me] ? 'pointer' : 'default'};
+                        border:2px solid ${gagne ? '#fbbf24' : vote ? '#f0abfc' : 'rgba(103,232,249,.3)'};background:#081424;box-shadow:${gagne ? '0 0 22px rgba(251,191,36,.6)' : 'none'};animation:dvIn .4s ease both;animation-delay:${k * .06}s">
+                        <img src="${dvEsc(im[a].img)}" style="width:100%;display:block;aspect-ratio:4/3;object-fit:cover" alt="">
+                        <div style="padding:3px 6px;font-size:11px;text-align:left;color:#e2e8f0;display:flex;justify-content:space-between;gap:4px">
+                            <span>${g.phase === 'T_REVELE' ? (gagne ? '👑 ' : '') + dvEsc(a) : moi ? 'Votre dessin' : 'N°' + (k + 1)}</span>
+                            <span style="color:#fde68a">${g.phase === 'T_REVELE' ? (voix[a] || 0) + ' ★' + (pts[a] ? ' · +' + pts[a] : '') : vote ? 'Votre vote ✓' : ''}</span></div></button>`;
+                }).join('');
+                v.innerHTML = `<div class="dv-voile" style="justify-content:flex-start;overflow:auto;background:rgba(3,8,20,.94)">
+                    <div class="dv-glitch">${g.phase === 'T_VOTE' ? (votes[me] ? 'VOTE ENREGISTRÉ ✓' : 'VOTEZ POUR LE MEILLEUR DESSIN') : 'VERDICT DE L’ÉQUIPAGE'}</div>
+                    <div style="display:grid;grid-template-columns:repeat(${auteurs.length > 2 ? 3 : 2},1fr);gap:8px;width:100%">${cartes || '<div style="color:#94a3b8">Aucun dessin reçu…</div>'}</div></div>`;
+                v.querySelectorAll('.dv-tvote').forEach(b => b.onclick = () => {
+                    const gg = dvC.g; if (!gg || gg.phase !== 'T_VOTE' || b.dataset.a === dvMe() || dvTeleVotes(gg)[dvMe()]) return;
+                    dvSon('choix'); dvEcrire({ [`dvGame/tv/r${gg.tour || 0}/${dvMe()}`]: b.dataset.a });
+                });
+            }
+        }
+    }
+    dvMajJoueurs(data, g);
+    dvMajChat(g, me, '');
+    dvMajReactions(g);
+    const inp = document.getElementById('dv-essai'), btn = document.getElementById('dv-envoyer');
+    if (inp) { inp.disabled = false; if (btn) btn.disabled = false; inp.placeholder = 'Discutez avec l’équipage…'; }
+}
+// envoie son dessin (image réduite) pour le vote
+function dvEnvoyerDessinTele(g) {
+    if (!g || g.mode !== 'tele') return;
+    const jeton = dvJeton(g); if (dvC.envoye[jeton]) return; dvC.envoye[jeton] = 1;
+    try {
+        const c = document.createElement('canvas'); c.width = 480; c.height = 360;
+        const x = c.getContext('2d'), calque = document.createElement('canvas'); calque.width = 480; calque.height = 360;
+        const xc = calque.getContext('2d'); Object.keys(dvC.local).sort().forEach(k => dvTracer(xc, dvC.local[k], .48)); xc.globalCompositeOperation = 'source-over';
+        x.fillStyle = '#0b1a2c'; x.fillRect(0, 0, 480, 360); x.drawImage(calque, 0, 0);
+        dvEcrire({ [`dvGame/td/r${g.tour || 0}/${dvMe()}`]: { img: c.toDataURL('image/jpeg', .7) } });
+    } catch (e) { console.error(e); }
+    dvC.vu[jeton + ':cle'] = 0; const v = document.getElementById('dv-voile'); if (v) v.dataset.cle = '';
+    dvSon('trouve'); dvMajOutils(g, false);
 }
 
 function dvIndices(g) {      // positions des lettres dévoilées
@@ -397,9 +539,9 @@ function dvMajVoile(data, g, moiDess) {
             </div></div>`;
     } else v.innerHTML = '';
 }
-function dvMajOutils(g, moiDess) {
+function dvMajOutils(g, actif) {
     const el = document.getElementById('dv-outils'); if (!el) return;
-    const cle = (moiDess && g.phase === 'DESSIN') ? 'on:' + dvC.outil.c + dvC.outil.w + dvC.outil.e : 'off';
+    const cle = actif ? 'on:' + dvC.outil.c + dvC.outil.w + dvC.outil.e + dvC.outil.f + (g.mode || '') : 'off';
     if (el.dataset.cle === cle) return; el.dataset.cle = cle;
     if (cle === 'off') { el.innerHTML = ''; return; }
     const o = dvC.outil;
@@ -407,18 +549,23 @@ function dvMajOutils(g, moiDess) {
         ${DV_COULEURS.map(c => `<span class="dv-pastel ${!o.e && o.c === c ? 'on' : ''}" data-c="${c}" style="background:${c};color:${c}"></span>`).join('')}
         <span style="width:1px;height:26px;background:#334155;margin:0 2px"></span>
         ${DV_TAILLES.map(w => `<button class="dv-tool ${o.w === w ? 'on' : ''}" data-w="${w}" title="Épaisseur"><span class="pt" style="width:${Math.max(4, w / 2)}px;height:${Math.max(4, w / 2)}px"></span></button>`).join('')}
+        <button class="dv-tool ${o.f ? 'on' : ''}" data-pot="1" title="Pot de peinture : remplit une zone">🪣</button>
         <button class="dv-tool ${o.e ? 'on' : ''}" data-gomme="1" title="Gomme">🧽</button>
         <button class="dv-tool" data-annuler="1" title="Annuler le dernier trait">↶</button>
-        <button class="dv-tool" data-effacer="1" title="Tout effacer">🗑️</button></div>`;
+        <button class="dv-tool" data-effacer="1" title="Tout effacer">🗑️</button>
+        ${g.mode === 'tele' ? '<button class="dv-tool" data-fini="1" style="border-color:#34d399;color:#6ee7b7">✔ J’ai terminé</button>' : ''}</div>`;
     el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { dvC.outil.c = b.dataset.c; dvC.outil.e = 0; dvMajOutils(dvC.g, true); });
+    el.querySelector('[data-pot]').onclick = () => { dvC.outil.f = dvC.outil.f ? 0 : 1; if (dvC.outil.f) dvC.outil.e = 0; dvMajOutils(dvC.g, true); };
+    const fini = el.querySelector('[data-fini]'); if (fini) fini.onclick = () => dvEnvoyerDessinTele(dvC.g);
     el.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { dvC.outil.w = +b.dataset.w; dvMajOutils(dvC.g, true); });
-    el.querySelector('[data-gomme]').onclick = () => { dvC.outil.e = dvC.outil.e ? 0 : 1; dvMajOutils(dvC.g, true); };
+    el.querySelector('[data-gomme]').onclick = () => { dvC.outil.e = dvC.outil.e ? 0 : 1; if (dvC.outil.e) dvC.outil.f = 0; dvMajOutils(dvC.g, true); };
     el.querySelector('[data-annuler]').onclick = () => dvAnnuler();
     el.querySelector('[data-effacer]').onclick = () => dvEffacer();
 }
 function dvMajJoueurs(data, g) {
     const el = document.getElementById('dv-joueurs'); if (!el) return;
-    const d = dvDessinateur(g), tr = g.trouves || {}, pts = g.pts || {}, me = dvMe();
+    const d = g.mode === 'tele' ? '' : dvDessinateur(g), pts = g.pts || {}, me = dvMe();
+    const tr = g.mode === 'tele' ? (g.phase === 'T_DESSIN' ? dvTeleImages(g) : g.phase === 'T_VOTE' ? dvTeleVotes(g) : {}) : (g.trouves || {});
     const L = dvHumains(data).sort((a, b) => (b.score || 0) - (a.score || 0));
     el.innerHTML = L.map((p, k) => `<div class="dv-joueur ${p.name === d ? 'dess' : tr[p.name] ? 'ok' : ''}">
         <span style="width:14px;font:800 10px ui-monospace,monospace;color:#64748b">${k + 1}</span>${dvPastille(p.name, 22)}
@@ -471,6 +618,10 @@ function dvMajReactions(g) {
 function dvProposer() {
     const g = dvC.g, inp = document.getElementById('dv-essai'); if (!g || !inp) return;
     const me = dvMe(), d = dvDessinateur(g), v = inp.value.trim().slice(0, 40);
+    if (g.mode === 'tele') {
+        if (!v) return; const now = Date.now(); if (dvC.dernierEssai && now - dvC.dernierEssai < 500) return; dvC.dernierEssai = now; inp.value = '';
+        dvEcrire({ [`dvGame/chat/${now}_${dvNorm(me).slice(0, 10)}`]: { n: me, m: v, f: 0 } }); return;
+    }
     if (!v || me === d || g.phase !== 'DESSIN') return;
     const now = Date.now(); if (dvC.dernierEssai && now - dvC.dernierEssai < 500) return; dvC.dernierEssai = now;
     inp.value = '';
@@ -485,19 +636,26 @@ function dvProposer() {
     dvEcrire({ [`dvGame/chat/${now}_${dvNorm(me).slice(0, 10)}`]: { n: me, m: v, f: trouve ? 1 : 0 } });
 }
 function dvReagir(em) {
-    const g = dvC.g; if (!g || (g.phase !== 'DESSIN' && g.phase !== 'REVELE')) return;
+    const g = dvC.g; if (!g || ['DESSIN', 'REVELE', 'T_DESSIN', 'T_VOTE', 'T_REVELE'].indexOf(g.phase) < 0) return;
     const now = Date.now(); if (dvC.derReac && now - dvC.derReac < 600) return; dvC.derReac = now;
     dvEcrire({ [`dvGame/react/${now}_${dvNorm(dvMe()).slice(0, 10)}`]: { e: em, n: dvMe() } });
 }
 
 // ------------------------------- Dessin -------------------------------
-function dvPeutDessiner() { const g = dvC.g; return g && g.phase === 'DESSIN' && dvMe() === dvDessinateur(g) && dvC.tr === dvJeton(g); }
+function dvPeutDessiner() {
+    const g = dvC.g; if (!g) return false;
+    if (g.mode === 'tele') return g.phase === 'T_DESSIN' && !dvC.envoye[dvJeton(g)];
+    return g.phase === 'DESSIN' && dvMe() === dvDessinateur(g) && dvC.tr === dvJeton(g);
+}
+const dvLocal = () => dvC.g && dvC.g.mode === 'tele';
 function dvPoint(e) { const r = dvC.cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * DV.W), Math.round((e.clientY - r.top) / r.height * DV.H)]; }
 function dvBrancherDessin() {
     const cv = dvC.cv;
     cv.onpointerdown = e => {
         if (!dvPeutDessiner()) return;
-        e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+        e.preventDefault();
+        if (dvC.outil.f) { dvRemplissage(dvPoint(e)); return; }
+        try { cv.setPointerCapture(e.pointerId); } catch (x) {}
         dvNouveauTrait(dvPoint(e));
     };
     cv.onpointermove = e => {
@@ -507,6 +665,13 @@ function dvBrancherDessin() {
     };
     const fin = () => { if (dvC.cur) { dvEnvoyerTrait(true); dvC.cur = null; } };
     cv.onpointerup = fin; cv.onpointercancel = fin; cv.onlostpointercapture = fin;
+}
+function dvRemplissage(p) {
+    dvC.seq++;
+    const id = 'k' + String(Date.now() % 1e9).padStart(9, '0') + String(dvC.seq % 100).padStart(2, '0');
+    const op = { id: id, f: 1, c: dvC.outil.c, p: [p[0], p[1]] };
+    dvC.local[id] = op; dvC.sale = true; dvSon('pop');
+    if (!dvLocal() && dvC.chemin) window.update(window.ref(window.db, dvC.chemin + '/s'), { [id]: { f: 1, c: op.c, p: op.p.join(',') } }).catch(() => {});
 }
 function dvNouveauTrait(p) {
     dvC.seq++;
@@ -522,7 +687,7 @@ function dvAjouterPoint(p) {
     if (!dvC.flush) dvC.flush = setTimeout(() => { dvC.flush = 0; if (dvC.cur) dvEnvoyerTrait(false); }, 90);
 }
 function dvEnvoyerTrait(final) {
-    const c = dvC.cur; if (!c || !dvC.chemin) return;
+    const c = dvC.cur; if (!c || !dvC.chemin || dvLocal()) return;
     if (final && dvC.flush) { clearTimeout(dvC.flush); dvC.flush = 0; }
     const v = { c: c.c, w: c.w, p: c.p.join(',') }; if (c.e) v.e = 1;
     window.update(window.ref(window.db, dvC.chemin + '/s'), { [c.id]: v }).catch(() => {});
@@ -530,19 +695,49 @@ function dvEnvoyerTrait(final) {
 function dvAnnuler() {
     const ids = Object.keys(Object.assign({}, dvC.traits, dvC.local)).sort(); const id = ids[ids.length - 1]; if (!id) return;
     delete dvC.local[id]; dvC.traits[id] = undefined; delete dvC.traits[id]; dvC.sale = true;
+    if (dvLocal()) return;
     window.update(window.ref(window.db, dvC.chemin + '/s'), { [id]: null }).catch(() => {});
 }
 function dvEffacer() {
     dvC.local = {}; dvC.traits = {}; dvC.cur = null; dvC.sale = true;
+    if (dvLocal()) return;
     window.set(window.ref(window.db, dvC.chemin + '/s'), null).catch(() => {});
 }
 function dvTousLesTraits() {
     const g = dvC.g, moiDess = g && dvMe() === dvDessinateur(g);
+    if (g && g.mode === 'tele') return dvC.local;
     const base = dvC.tr === (g ? dvJeton(g) : '') ? dvC.traits : {};
     return moiDess ? Object.assign({}, base, dvC.local) : base;
 }
+// pot de peinture : remplissage par diffusion à partir du point touché (même résultat chez tous les joueurs)
+function dvRemplir(cx, x, y, coul) {
+    const W = cx.canvas.width, H = cx.canvas.height; x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const im = cx.getImageData(0, 0, W, H), d = im.data, i0 = (y * W + x) * 4;
+    const cible = [d[i0], d[i0 + 1], d[i0 + 2], d[i0 + 3]];
+    const h = String(coul || '#ffffff').replace('#', ''), r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    if (Math.abs(cible[0] - r) < 8 && Math.abs(cible[1] - g) < 8 && Math.abs(cible[2] - b) < 8 && cible[3] > 247) return;
+    const TOL = 70, proche = j => cible[3] < 40 ? d[j + 3] < 110 : (Math.abs(d[j] - cible[0]) + Math.abs(d[j + 1] - cible[1]) + Math.abs(d[j + 2] - cible[2]) + Math.abs(d[j + 3] - cible[3]) <= TOL);
+    const vu = new Uint8Array(W * H), pile = [x, y];
+    while (pile.length) {
+        let py = pile.pop(), px = pile.pop(), j = py * W + px;
+        while (px >= 0 && !vu[j] && proche(j * 4)) { px--; j--; }
+        px++; j++; let haut = false, bas = false;
+        while (px < W && !vu[j] && proche(j * 4)) {
+            vu[j] = 1; const k = j * 4; d[k] = r; d[k + 1] = g; d[k + 2] = b; d[k + 3] = 255;
+            if (py > 0) { const u = j - W; if (!vu[u] && proche(u * 4)) { if (!haut) { pile.push(px, py - 1); haut = true; } } else haut = false; }
+            if (py < H - 1) { const u = j + W; if (!vu[u] && proche(u * 4)) { if (!bas) { pile.push(px, py + 1); bas = true; } } else bas = false; }
+            px++; j++;
+        }
+    }
+    // on déborde d'un pixel sur le contour lissé des traits pour ne pas laisser de liseré
+    const D = new Uint8Array(vu);
+    for (let yy = 1; yy < H - 1; yy++) for (let xx = 1; xx < W - 1; xx++) { const j = yy * W + xx; if (!vu[j] && (D[j - 1] || D[j + 1] || D[j - W] || D[j + W])) { const k = j * 4; if (d[k + 3] < 250) { d[k] = r; d[k + 1] = g; d[k + 2] = b; d[k + 3] = 255; } } }
+    cx.putImageData(im, 0, 0);
+}
 function dvTracer(cx, t, ech) {
     const pts = typeof t.p === 'string' ? t.p.split(',').map(Number) : (t.p || []);
+    if (t.f) { cx.globalCompositeOperation = 'source-over'; if (pts.length >= 2) dvRemplir(cx, pts[0] * ech, pts[1] * ech, t.c); return; }
     if (pts.length < 2) return;
     cx.globalCompositeOperation = t.e ? 'destination-out' : 'source-over';
     cx.strokeStyle = t.c || '#fff'; cx.fillStyle = t.c || '#fff'; cx.lineWidth = (t.w || 10) * ech;
@@ -558,7 +753,16 @@ function dvTracer(cx, t, ech) {
 function dvRedessiner() {
     dvC.sale = false; const cx = dvC.cx; if (!cx) return;
     cx.clearRect(0, 0, DV.W, DV.H);
-    const T = dvTousLesTraits(); Object.keys(T).sort().forEach(k => { if (T[k]) dvTracer(cx, T[k], 1); });
+    const T = dvTousLesTraits(), cles = Object.keys(T).filter(k => T[k]).sort();
+    // cache : tous les traits sauf le dernier (celui en cours) sont dessinés une fois pour toutes
+    const base = cles.slice(0, -1), sig = dvC.jeton + '|' + base.join(',') + '|' + base.reduce((n, k) => n + String(T[k].p).length, 0);
+    if (!dvC.cache) { dvC.cache = document.createElement('canvas'); dvC.cache.width = DV.W; dvC.cache.height = DV.H; }
+    if (dvC.cacheSig !== sig) {
+        const cc = dvC.cache.getContext('2d'); cc.clearRect(0, 0, DV.W, DV.H);
+        base.forEach(k => dvTracer(cc, T[k], 1)); cc.globalCompositeOperation = 'source-over'; dvC.cacheSig = sig;
+    }
+    cx.drawImage(dvC.cache, 0, 0);
+    if (cles.length) dvTracer(cx, T[cles[cles.length - 1]], 1);
     cx.globalCompositeOperation = 'source-over';
 }
 function dvEcrireGalerie(g) {
@@ -579,11 +783,13 @@ function dvBoucle() {
     if (!g || data.status !== 'IN_GAME' || data.selectedMode !== 'dessin') { dvArreter(); return; }
     if (g.status !== 'PLAYING' || !document.getElementById('dv-root')) return;
     if (window.isHost) dvHote();
-    const t = dvEcoule(g), tot = g.phase === 'CHOIX' ? DV.CHOIX : g.phase === 'DESSIN' ? (g.duree || 80) : DV.REVELE;
+    const t = dvEcoule(g), tot = g.phase === 'CHOIX' ? DV.CHOIX : (g.phase === 'DESSIN' || g.phase === 'T_DESSIN') ? (g.duree || 80) : g.phase === 'T_VOTE' ? DV.VOTE : g.phase === 'T_REVELE' ? DV.TREVELE : DV.REVELE;
+    if (g.phase === 'T_DESSIN' && t >= (g.duree || 80)) dvEnvoyerDessinTele(g);
     const reste = Math.max(0, Math.ceil(tot - t));
     const tm = document.getElementById('dv-temps'); if (tm) { tm.textContent = reste + 's'; tm.style.color = g.phase === 'DESSIN' && reste <= 10 ? '#f87171' : '#fbbf24'; }
-    const gt = document.getElementById('generic-game-timer'); if (gt) gt.innerText = g.phase === 'DESSIN' ? reste + 's' : g.phase === 'CHOIX' ? 'Choix du mot' : 'Résultat';
+    const gt = document.getElementById('generic-game-timer'); if (gt) gt.innerText = (g.phase === 'DESSIN' || g.phase === 'T_DESSIN' || g.phase === 'T_VOTE') ? reste + 's' : g.phase === 'CHOIX' ? 'Choix du mot' : 'Résultat';
     const sg = document.getElementById('dv-signal'); if (sg) { sg.style.width = Math.max(0, 100 * (1 - t / tot)) + '%'; sg.style.background = g.phase === 'DESSIN' && reste <= 10 ? 'linear-gradient(90deg,#f43f5e,#fb923c)' : ''; }
+    if ((g.phase === 'T_DESSIN' && !dvC.envoye[dvJeton(g)]) || g.phase === 'T_VOTE') { if (reste <= 10 && reste > 0 && dvC.tic !== reste) { dvC.tic = reste; dvSon('tic'); } }
     if (g.phase === 'DESSIN') {
         if (reste <= 10 && reste > 0 && dvC.tic !== reste) { dvC.tic = reste; dvSon('tic'); }
         dvMajMot(g, dvMe() === dvDessinateur(g));       // dévoile les lettres au fil du temps
