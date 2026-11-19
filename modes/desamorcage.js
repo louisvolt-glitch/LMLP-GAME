@@ -245,6 +245,7 @@ function dsConstruireDemineur(g) {
     if (!window.DS3D || !window.THREE) { root.insertAdjacentHTML('beforeend', '<div class="ds-fin"><div class="ds-carte">⚠️ Le moteur 3D n’a pas pu être chargé. Vérifiez la connexion puis relancez.</div></div>'); return; }
     dsC.vue = window.DS3D.creer(document.getElementById('ds-scene'), dsC.charge, {
         son: dsSon,
+        decor: (window.DS_DECORS && window.DS_DECORS.noms || [])[Math.abs(g.seed || 0) % 4],
         onZoom: i => { if (g.entr) dsAideModule(i); },
         onErreur: i => { dsC.err++; if (i != null && i >= 0) dsC.em[i] = (dsC.em[i] || 0) + 1; dsPublier(true); const N2 = dsC.charge.N; if (dsC.err >= N2.erreurs) dsTerminer(false, 'erreurs'); },
         onResolu: i => { dsC.res[i] = 1; dsPublier(true); const tous = dsC.charge.mods.every((m, k) => window.DS.MODULES.find(d => d.id === m.id).besoin || dsC.res[k]); if (tous) dsTerminer(true, 'neutralisée'); },
