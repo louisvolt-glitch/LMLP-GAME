@@ -553,7 +553,7 @@ const SYS_RESSOURCES = {
     machines: ['./modes/machines-vaisseaux.js'],
     conseil: ['./modes/conseil-questions.js'],
     dessin: ['./modes/dessin-mots.js'],
-    desamorcage: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', './modes/desamorcage-donnees.js', './modes/desamorcage-3d.js', './modes/desamorcage-modules2.js'],
+    desamorcage: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', './bibliotheques/GLTFLoader.js', './modes/desamorcage-donnees.js', './modes/desamorcage-3d.js', './modes/desamorcage-modules2.js'],
     anomaly: ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
               'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
               './modes/anomaly.js']
