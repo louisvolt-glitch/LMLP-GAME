@@ -138,7 +138,7 @@ function cdbTexte(rd, fort) {
 function cdbEntete(rd) {
     const F = CDB_FORMATS[rd.f] || {};
     return `<div class="text-center space-y-3">
-        <div class="cdb-chip">${F.i || ''} ${F.n || ''}</div>
+        <div class="cdb-chip">${F.i || ''} ${F.n || ''}</div>${rd.perso ? ' <div class="cdb-chip" style="border-color:#fbbf24;color:#fde68a;background:rgba(120,53,15,.35)">✍️ QUESTION DE L’ÉQUIPAGE</div>' : ''}
         <div class="cdb-q">${cdbTexte(rd, true)}</div>
     </div>`;
 }
@@ -202,6 +202,42 @@ window.cdbReagir = function(em) {
     window.update(window.ref(window.db, `salons/${mchRoom()}`), { [`mancheGame/react/r${g.round}/${now}_${mchNorm(me).slice(0, 12)}`]: { e: em, n: me } }).catch(() => {});
 };
 
+// ------------------------------- Questions personnalisées de l'hôte -------------------------------
+// Une question par ligne :
+//   « se perdre dans la station »            → situation (« Qui est le plus susceptible de… »)
+//   « Pizza / Burger »                        → dilemme (« Tu préfères… »)
+//   « J'ai déjà… » ou « Je… »                 → aveu anonyme
+window.cdbLirePerso = function() {
+    let txt = '';
+    const el = document.getElementById('setting-cdb-perso');
+    if (el) txt = el.value; else { try { txt = localStorage.getItem('lmlp-cdb-perso') || ''; } catch (e) {} }
+    const out = { s: [], d: [], a: [] };
+    String(txt).split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach(l => {
+        if (l.indexOf('/') > 0) { const [x, y] = l.split('/').map(v => v.trim()); if (x && y) out.d.push([x, y]); return; }
+        if (/^(j['’]|je\s)/i.test(l)) { out.a.push(l.replace(/[.?!]+$/, '')); return; }
+        let q = l.replace(/^qui (à bord )?est (le|la) plus susceptible d['e]\s*/i, '').replace(/[?.!]+$/, '').trim();
+        if (q) out.s.push(q);
+    });
+    return out;
+};
+window.cdbSeulementPerso = function() {
+    const el = document.getElementById('setting-cdb-seul');
+    if (el) return !!el.checked;
+    try { return localStorage.getItem('lmlp-cdb-seul') === '1'; } catch (e) { return false; }
+};
+// enregistre la saisie de l'hôte et met à jour le compteur
+window.cdbMajPerso = function() {
+    const el = document.getElementById('setting-cdb-perso'), seul = document.getElementById('setting-cdb-seul');
+    try { if (el) localStorage.setItem('lmlp-cdb-perso', el.value); if (seul) localStorage.setItem('lmlp-cdb-seul', seul.checked ? '1' : '0'); } catch (e) {}
+    const p = window.cdbLirePerso(), c = document.getElementById('setting-cdb-compte');
+    if (c) c.textContent = `${p.s.length} situation${p.s.length > 1 ? 's' : ''} · ${p.d.length} dilemme${p.d.length > 1 ? 's' : ''} · ${p.a.length} aveu${p.a.length > 1 ? 'x' : ''}`;
+};
+window.cdbChargerPerso = function() {
+    const el = document.getElementById('setting-cdb-perso'), seul = document.getElementById('setting-cdb-seul');
+    try { if (el && !el.value) el.value = localStorage.getItem('lmlp-cdb-perso') || ''; if (seul) seul.checked = localStorage.getItem('lmlp-cdb-seul') === '1'; } catch (e) {}
+    window.cdbMajPerso();
+};
+
 // ------------------------------- Mode -------------------------------
 window.MANCHES_MODES.conseil = {
     title: 'Conseil de bord',
@@ -209,12 +245,30 @@ window.MANCHES_MODES.conseil = {
 
     prepare(count, names) {
         const n = names.length, vus = cdbVus(), pris = new Set(), rounds = [];
-        const dispo = Object.keys(CDB_FORMATS).filter(f => n >= CDB_FORMATS[f].min).map(f => [f, CDB_FORMATS[f].poids]);
+        // questions personnalisées de l'hôte : utilisées en priorité (et seules si « seulement mes questions »)
+        const perso = window.cdbLirePerso ? window.cdbLirePerso() : { s: [], d: [], a: [] }, seul = window.cdbSeulementPerso && window.cdbSeulementPerso();
+        const P = { s: mchShuffle(perso.s), d: mchShuffle(perso.d), a: mchShuffle(perso.a) };
+        const typeDe = f => (f === 'dilemme' ? 'd' : f === 'aveu' ? 'a' : (f === 'tier' || f === 'ordre') ? 'x' : 's');
+        let dispo = Object.keys(CDB_FORMATS).filter(f => n >= CDB_FORMATS[f].min).map(f => [f, CDB_FORMATS[f].poids]);
+        const nbPerso = perso.s.length + perso.d.length + perso.a.length;
+        if (seul && nbPerso) dispo = dispo.filter(x => { const t = typeDe(x[0]); return t !== 'x' && perso[t].length; });
         let prec = '';
         for (let r = 0; r < count; r++) {
-            let f = r === 0 ? 'joueur' : cdbPoidsAleatoire(dispo.filter(x => x[0] !== prec));
+            let choix = dispo.filter(x => x[0] !== prec); if (!choix.length) choix = dispo;
+            // tant qu'il reste des questions personnalisées, on favorise leurs formats
+            const avecPerso = choix.filter(x => { const t = typeDe(x[0]); return t !== 'x' && P[t].length; });
+            if (avecPerso.length && (seul || Math.random() < .7)) choix = avecPerso;
+            let f = r === 0 && (!seul || perso.s.length) && choix.some(x => x[0] === 'joueur') ? 'joueur' : cdbPoidsAleatoire(choix);
             prec = f;
             const rd = { f: f, t: CDB_FORMATS[f].t };
+            const t = typeDe(f), pq = t !== 'x' && P[t].length ? P[t].shift() : null;
+            if (pq != null) {          // question personnalisée
+                if (t === 's') { rd.q = pq; rd.perso = 1; if (f === 'duel') rd.duo = mchShuffle(names).slice(0, 2); if (f === 'ordreEq' || f === 'tierEq') { rd.i = mchShuffle(names).slice(0, 8); rd.t += rd.i.length * 3; } }
+                else if (t === 'd') { rd.o = Math.random() < .5 ? pq.slice() : pq.slice().reverse(); rd.perso = 1; }
+                else { rd.q = pq; rd.perso = 1; }
+                rounds.push(rd); continue;
+            }
+            if (seul && nbPerso) { P.s = mchShuffle(perso.s); P.d = mchShuffle(perso.d); P.a = mchShuffle(perso.a); r--; if (rounds.length >= count) break; continue; }   // on recycle les questions personnalisées
             if (f === 'joueur' || f === 'duel' || f === 'ordreEq' || f === 'tierEq') {
                 rd.q = window.CDB_SUSCEPTIBLE[cdbTirer(window.CDB_SUSCEPTIBLE, 's', pris, vus)];
                 if (f === 'duel') rd.duo = mchShuffle(names).slice(0, 2);
