@@ -26,46 +26,6 @@ function mono(ctx, t, x, y, taille, coul, align) {
 
 W.DS3D = { creer: creer };
 
-// Décor : mur du fond, console, chariot d'outils, extincteur, tuyaux, caméra, horloge et alarme.
-// Les modèles sont des versions allégées (textures 512 px) ; s'ils ne chargent pas, la scène reste jouable.
-const DECOR = [
-    { m: 'tuyaux', h: 3.2, p: [-1.5, -1.6, -9.6], r: 0 },
-    { m: 'tuyaux', h: 3.2, p: [5.5, -1.6, -9.6], r: 0 },
-    { m: 'tuyaux', h: 2.6, p: [-7.2, -1.6, -6.5], r: .9 },
-    { m: 'chariot', h: 2.1, p: [6.4, -1.6, -4.2], r: -.7 },
-    { m: 'extincteur', h: 1.5, p: [-5.4, -1.6, -1.2], r: .9 },
-    { m: 'horloge', h: 1.1, p: [2.6, 3.0, -9.75], r: 0, mur: 1 },
-    { m: 'alarme', h: .7, p: [-4.6, 2.2, -9.75], r: 0, mur: 1 },
-    { m: 'camera', h: .9, p: [7.8, 4.3, -9.2], r: -.6 }
-];
-function decor(THREE, scene) {
-    // mur du fond (texture dessinée : panneaux et bandes de danger)
-    const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d');
-    x.fillStyle = '#121826'; x.fillRect(0, 0, 1024, 512);
-    for (let i = 0; i < 1024; i += 128) { x.fillStyle = i % 256 ? '#151d2e' : '#111827'; x.fillRect(i + 3, 40, 122, 400); x.strokeStyle = 'rgba(148,163,184,.15)'; x.strokeRect(i + 3.5, 40.5, 121, 399); }
-    for (let i = -40; i < 1080; i += 40) { x.fillStyle = (i / 40) % 2 ? '#f59e0b' : '#111'; x.beginPath(); x.moveTo(i, 512); x.lineTo(i + 20, 470); x.lineTo(i + 40, 470); x.lineTo(i + 20, 512); x.fill(); }
-    x.fillStyle = 'rgba(248,113,113,.7)'; x.font = '900 34px monospace'; x.fillText('☢  ZONE DE NEUTRALISATION  ☢', 300, 30);
-    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
-    const mur = new THREE.Mesh(new THREE.PlaneGeometry(30, 15), new THREE.MeshStandardMaterial({ map: t, metalness: .3, roughness: .8 }));
-    mur.position.set(0, 5.9, -10); mur.receiveShadow = true; scene.add(mur);
-    const neon = new THREE.PointLight(0xf59e0b, .8, 10); neon.position.set(0, 4.5, -8.5); scene.add(neon);
-    if (!THREE.GLTFLoader) return;
-    const L = new THREE.GLTFLoader(), cache = {};
-    DECOR.forEach(d => {
-        const charger = cache[d.m] || (cache[d.m] = new Promise((ok, ko) => L.load('./models/decor/' + d.m + '/scene.gltf', g => ok(g.scene), undefined, ko)));
-        charger.then(modele => {
-            const o = modele.clone(true), b = new THREE.Box3().setFromObject(o), taille = b.getSize(new THREE.Vector3());
-            const k = d.h / (taille.y || 1); o.scale.setScalar(k);
-            const b2 = new THREE.Box3().setFromObject(o), centre = b2.getCenter(new THREE.Vector3());
-            o.position.set(d.p[0] - centre.x, d.mur ? d.p[1] - centre.y : d.p[1] - b2.min.y, d.mur ? d.p[2] - b2.min.z : d.p[2] - centre.z);
-            const pivot = new THREE.Group(); pivot.add(o); pivot.rotation.y = d.r;
-            if (d.r) { o.position.x -= d.p[0]; o.position.z -= d.p[2]; pivot.position.set(d.p[0], 0, d.p[2]); }
-            o.traverse(n => { if (n.isMesh) { n.castShadow = !d.mur; n.receiveShadow = true; } });
-            scene.add(pivot);
-        }).catch(() => {});
-    });
-}
-
 function creer(el, charge, opts) {
     const THREE = T(), DS = W.DS, E = charge.E;
     const son = n => { try { opts.son && opts.son(n); } catch (e) {} };
@@ -97,9 +57,6 @@ function creer(el, charge, opts) {
     const ttex = new THREE.CanvasTexture(tc); ttex.wrapS = ttex.wrapT = THREE.RepeatWrapping; ttex.repeat.set(6, 6); ttex.encoding = THREE.sRGBEncoding;
     const table = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: ttex, metalness: .4, roughness: .7 }));
     table.rotation.x = -Math.PI / 2; table.position.y = -1.6; table.receiveShadow = true; scene.add(table);
-
-    // ---- décor : la salle autour de la table (modèles 3D de models/decor) ----
-    decor(THREE, scene);
 
     // ---- la charge ----
     const pivot = new THREE.Group(); scene.add(pivot);
@@ -252,6 +209,8 @@ function creer(el, charge, opts) {
 
     // minuteur
     const chronoEtat = { s: 0, err: 0, max: 3, fini: '' };
+    // ---- décor de la salle (voir desamorcage-decors.js), tiré au hasard à chaque partie ----
+    const decorNom = W.DS_DECORS ? W.DS_DECORS(THREE, scene, { anims: anims, chrono: chronoEtat, sol: table, nom: opts.decor }) : '';
     const minuteur = (() => {
         const g = new THREE.Group(); g.position.set(0, .55, PROF / 2 + .012); corps.add(g);
         const pl = new THREE.Mesh(new THREE.BoxGeometry(1, 1, .05), mat(0x1a1d24, { metalness: .6 })); g.add(pl);
@@ -386,6 +345,7 @@ function creer(el, charge, opts) {
         desamorcer() { if (fin) return; fin = 'ok'; chronoEtat.fini = 'ok'; charge.fini = true; viser(null); rot.tx = .15; rot.ty = 0; lueur.color.setHex(0x22c55e); lueur.intensity = 2.5; },
         detruire() { cancelAnimationFrame(raf); W.removeEventListener('keydown', clavier); if (ro) ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); if (dom.parentNode) dom.parentNode.removeChild(dom); },
         viser: i => viser(i == null ? null : mods[i]), // pour les tests
+        decor: () => decorNom,
         projeter: o => { const v = new THREE.Vector3(); o.getWorldPosition(v); v.project(camera); const r = dom.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; },
         tourner: (ry, rx) => { rot.ty = ry; rot.tx = rx; },
         cliquer: (i, f) => f(mods[i])
