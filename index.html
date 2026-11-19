@@ -285,6 +285,7 @@
     <script src="./modes/machines.js"></script>
     <script src="./modes/conseil.js"></script>
     <script src="./modes/dessin.js"></script>
+    <script src="./modes/desamorcage.js"></script>
 
     <!-- Importation des SDK Firebase -->
     <script type="module">
@@ -409,7 +410,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         'missive': { name: 'Missive Stellaire', icon: '✉️', desc: 'Jeu de cartes de bluff et de déduction : éliminez vos rivaux ou gardez la carte la plus forte.' },
                         'machines': { name: 'Salle des machines', icon: '⚙️', desc: 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.' },
                         'dessin': { name: 'Transmission visuelle', icon: '🎨', desc: 'Un membre d’équipage dessine un mot sur son écran, les autres décodent la transmission en direct.' },
-                        'conseil': { name: 'Conseil de bord', icon: '🗳️', desc: '« Qui à bord est le plus susceptible de… ? » Votez en secret, puis découvrez le verdict de l’équipage.' }
+                        'conseil': { name: 'Conseil de bord', icon: '🗳️', desc: '« Qui à bord est le plus susceptible de… ? » Votez en secret, puis découvrez le verdict de l’équipage.' },
+                        'desamorcage': { name: 'Charge instable', icon: '☢️', desc: 'Coopératif : un démineur face à la charge en 3D, les experts guident avec le manuel de neutralisation.' }
                     };
                     
                     const mInfo = modeMap[data.selectedMode] || modeMap['quiz'];
@@ -516,6 +518,8 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     			if (typeof renderMachinesScreen === 'function') renderMachinesScreen(data);
 		    } else if (selectedMode === 'dessin') {
     			if (typeof renderDessinScreen === 'function') renderDessinScreen(data);
+		    } else if (selectedMode === 'desamorcage') {
+    			if (typeof renderDesamorcageScreen === 'function') renderDesamorcageScreen(data);
 		    }
                 } else if (data.status === 'LOBBY') {
     			if (prevStatus === 'IN_GAME') resetReadyState();   // fin de partie → plus prêt
@@ -846,7 +850,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
     <div class="absolute inset-0 p-3 flex flex-col">
         <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2 mb-2 shrink-0">
             <div class="sci-font font-semibold text-xs tracking-wider text-slate-300">
-                BIBLIOTHÈQUE DE PROTOCOLES (<span id="protocol-count">19</span>)
+                BIBLIOTHÈQUE DE PROTOCOLES (<span id="protocol-count">20</span>)
             </div>
             <div class="text-[10px] text-cyan-400">INDEXÉ</div>
         </div>
@@ -977,9 +981,13 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
             <!-- Catégorie : ACTION & RÉFLEXES -->
             <div>
                 <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1 mt-2">
-                    <i class="fa-solid fa-folder"></i> [ACTION &amp; RÉFLEXES] (<span class="protocol-cat-count">3</span>)
+                    <i class="fa-solid fa-folder"></i> [ACTION &amp; RÉFLEXES] (<span class="protocol-cat-count">4</span>)
                 </div>
                 <div class="space-y-1 pl-2 border-l border-emerald-500/20">
+                    <div onclick="selectProtocol('Charge instable', '☢️', 'Coopératif : un démineur face à la charge en 3D, les experts guident avec le manuel de neutralisation.', 'desamorcage')" id="protocol-btn-desamorcage" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
+                        <span class="text-slate-200">Charge instable</span>
+                        <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
+                    </div>
                     <div onclick="selectProtocol('Salle des machines', '⚙️', 'Coopératif : déplacez votre astronaute dans le vaisseau, criez les ordres et réparez les pannes avant la casse.', 'machines')" id="protocol-btn-machines" class="p-1 bg-black/40 border border-cyan-500/25 hover:border-cyan-400 cursor-pointer transition flex items-center justify-between rounded-sm">
                         <span class="text-slate-200">Salle des machines</span>
                         <span class="text-[9px] text-cyan-400 flex items-center gap-1.5">Activer <span class="dot-indicator hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span></span>
@@ -1233,6 +1241,24 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         </div>
                     </div>
                     <div class="text-[10px] text-slate-500">Temps de dessin : réglez le curseur ci-dessus (40 à 150 s).</div>
+                </div>
+
+                <!-- Options Charge instable -->
+                <div id="host-settings-desamorcage" class="hidden space-y-1 text-xs shrink-0">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wide">OPTIONS CHARGE INSTABLE</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Niveau :</span>
+                            <select id="setting-ds-niveau" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
+                                <option value="recrue">Recrue · 3 modules · 5 min</option><option value="officier" selected>Officier · 5 modules · 5 min 30</option><option value="commandant">Commandant · 7 modules · 7 min</option><option value="legende">Légende · 9 modules · 9 min</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-slate-300 text-[11px]">Démineur :</span>
+                            <select id="setting-ds-demineur" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5"><option value="">🎲 Au hasard</option></select>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500">Le démineur joue sur grand écran (ordinateur ou télé) ; les experts lisent le manuel sur leur téléphone. Un appel vocal ou la même pièce est indispensable.</div>
                 </div>
 
                 <!-- Options Salle des machines -->
@@ -1939,6 +1965,10 @@ if (mode === 'codenames') {
                 displayEl.innerText = `${smObj > 0 ? smObj + ' secteurs à franchir' : 'survie'} | ${smShip > 0 ? 'vaisseau n°' + smShip : 'vaisseau au hasard'} | ${smDiff}`;
                 if (typeof smBoutonCouleur === 'function') displayEl.appendChild(smBoutonCouleur());      // chaque joueur choisit la couleur de son astronaute
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
+            } else if (mode === 'desamorcage') {
+                const nv = ({ recrue: 'Recrue (3 modules)', officier: 'Officier (5 modules)', commandant: 'Commandant (7 modules)', legende: 'Légende (9 modules)' })[s.dsNiveau] || 'Officier (5 modules)';
+                displayEl.innerText = `${nv} | démineur : ${s.dsDem || 'au hasard'}`;
+                if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'dessin') {
                 const th = (window.DV_THEMES || {})[s.dvTheme] || '🎲 Mixte';
                 displayEl.innerText = `${timer}s/dessin | ${s.dvTours || 2} passage${(s.dvTours || 2) > 1 ? 's' : ''} par joueur | mots : ${th.replace(/^\S+\s/, '').toLowerCase()}`;
@@ -2036,6 +2066,7 @@ function updateLobbyUI() {
     grid.innerHTML = slotsHTML;
     renderCodenamesTeams();
     if (typeof bsRefreshDuelSelects === 'function') bsRefreshDuelSelects();
+    if (typeof dsMajListeDemineur === 'function') dsMajListeDemineur();
 }
 
 // Transfère le rôle d'Hôte à un autre joueur du salon (un seul écrit atomique : jamais 0 ou 2 hôtes).
@@ -2225,6 +2256,8 @@ function launchGame() {
     			if (typeof window.startMachinesGame === 'function') window.startMachinesGame();
 		} else if (state.selectedMode === 'dessin') {
     			if (typeof window.startDessinGame === 'function') window.startDessinGame();
+		} else if (state.selectedMode === 'desamorcage') {
+    			if (typeof window.startDesamorcageGame === 'function') window.startDesamorcageGame();
                 } else {
                     // Pour les autres jeux, on pousse directement le statut
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, { status: 'IN_GAME' });
@@ -2342,6 +2375,8 @@ function showScreen(id) {
 		const smDiff = document.getElementById('setting-machines-diff')?.value || 'normal';
 		const dvTours = document.getElementById('setting-dessin-tours')?.value || 2;
 		const dvTheme = document.getElementById('setting-dessin-theme')?.value || 'mixte';
+		const dsNiveau = document.getElementById('setting-ds-niveau')?.value || 'officier';
+		const dsDem = document.getElementById('setting-ds-demineur')?.value || '';
 
                 window.mettreAJourSalonFirebase(window.currentCodeSalon, { 
                     settings: {
@@ -2366,7 +2401,9 @@ function showScreen(id) {
 			smShip: smShip,
 			smDiff: smDiff,
 			dvTours: dvTours,
-			dvTheme: dvTheme
+			dvTheme: dvTheme,
+			dsNiveau: dsNiveau,
+			dsDem: dsDem
                     }
                 });
             }
@@ -2618,6 +2655,19 @@ const protocolData = {
         settingsId: "host-settings-manches",
         noTimer: true,
         hint: "Le temps de vote s'adapte à chaque type de motion. 5 joueurs ou plus : c'est encore plus drôle !"
+    },
+    'desamorcage': {
+        rules: [
+            "Un membre d'équipage, le démineur, est seul face à la charge instable affichée en 3D sur grand écran. Il la fait tourner, zoome sur les modules et les manipule, mais n'a aucune instruction.",
+            "Tous les autres sont experts : ils ont le manuel de neutralisation sur leur téléphone (40 modules, de ★ à ★★★★) mais ne voient pas la charge. Il faut tout se dire à voix haute !",
+            "Neutralisez tous les modules avant la fin du minuteur. Chaque erreur accélère le compte à rebours ; à la troisième, c'est l'explosion."
+        ],
+        players: "2 - 8 JOUEURS",
+        duration: "5-12 MIN",
+        complexity: "75%",
+        sync: "99%",
+        settingsId: "host-settings-desamorcage",
+        noTimer: true
     }
 };
 
@@ -2688,7 +2738,7 @@ function appliquerChangementProtocole(name, icon, desc, modeKey) {
     const allSettings = [
         'host-settings-quiz', 'host-settings-geo', 'host-settings-cine', 
         'host-settings-codenames', 'host-settings-petitsbac', 
-        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines', 'host-settings-dessin'
+        'host-settings-impostor', 'host-settings-anomaly', 'host-settings-manches', 'host-settings-magnat', 'host-settings-bataille', 'host-settings-missive', 'host-settings-machines', 'host-settings-dessin', 'host-settings-desamorcage'
     ];
     allSettings.forEach(id => {
         const el = document.getElementById(id);
@@ -2788,7 +2838,8 @@ if (timerSection) timerSection.classList.toggle('hidden', modeKey === 'codenames
             reflexes:   { t: 'solo',    a: ['reflexes'] },
             memoire:    { t: 'solo',    a: ['reflexes', 'observation'] },
             dessin:     { t: 'solo',    a: ['creatif', 'rire', 'parole'] },
-            conseil:    { t: 'solo',    a: ['rire', 'parole'] }
+            conseil:    { t: 'solo',    a: ['rire', 'parole'] },
+            desamorcage: { t: 'coop',   a: ['parole', 'observation', 'reflexes'] }
         };
         const FILTRES_GROUPES = [
             { g: 'joueurs', n: 'Joueurs', unique: true, o: [['salon', '👥 Salon actuel'], ['1', 'Solo'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5 et +']] },
