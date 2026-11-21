@@ -74,7 +74,7 @@ window.startNextRound = function() {
             // SÉCURITÉ : Récupération des paramètres de manches et de temps
             if (window.currentRoom && window.currentRoom.settings) {
                 state.settings.rounds = window.currentRoom.settings.geoRounds || window.currentRoom.settings.rounds || 5;
-                state.settings.timer = window.currentRoom.settings.geoTimer || window.currentRoom.settings.timer || 45;
+                state.settings.timer = parseInt(window.currentRoom.settings.geoTimer || window.currentRoom.settings.timer, 10) || 45;
             }
 
             if (!state.activeLocations || state.activeLocations.length === 0) {
@@ -192,15 +192,43 @@ window.startNextRound = function() {
             const timerEl = document.getElementById('geo-timer');
             if (timerEl) timerEl.innerText = `${state.geoTimer}s`;
 
+            geoTicRouge(timerEl, false);
             state.geoTimerInterval = setInterval(() => {
                 state.geoTimer--;
                 if (timerEl) timerEl.innerText = `${state.geoTimer}s`;
+                // tic-tac dans les 10 dernières secondes (plus fort sur les 3 dernières)
+                if (state.geoTimer > 0 && state.geoTimer <= 10) { geoTic(state.geoTimer); geoTicRouge(timerEl, true); }
                 if (state.geoTimer <= 0) { 
                     clearInterval(state.geoTimerInterval); 
                     submitGeoGuess(); 
                 }
             }, 1000);
         }
+
+// ---- tic-tac de fin de manche
+function geoTic(reste) {
+    const vol = reste <= 3 ? 1 : .65;
+    try {
+        if (!geoTic.son) geoTic.son = new Audio('./expedition-web/sons/tic.mp3');
+        const a = geoTic.son.cloneNode(); a.volume = vol;
+        const p = a.play(); if (p && p.catch) p.catch(() => geoTicSynthese(vol));
+    } catch (e) { geoTicSynthese(vol); }
+}
+function geoTicSynthese(vol) {   // repli si le fichier ne peut pas être joué
+    try {
+        const C = geoTicSynthese.c || (geoTicSynthese.c = new (window.AudioContext || window.webkitAudioContext)());
+        const o = C.createOscillator(), g = C.createGain(), t = C.currentTime;
+        o.type = 'square'; o.frequency.value = 1700; g.gain.setValueAtTime(.12 * vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05);
+        o.connect(g); g.connect(C.destination); o.start(t); o.stop(t + .06);
+    } catch (e) {}
+}
+// le chrono passe au rouge et pulse dans les 10 dernières secondes
+function geoTicRouge(el, actif) {
+    if (!el) return;
+    el.classList.toggle('text-amber-400', !actif); el.classList.toggle('text-red-400', actif);
+    el.style.borderColor = actif ? 'rgba(248,113,113,.8)' : '';
+    if (actif && el.animate) el.animate([{ transform: 'scale(1.18)' }, { transform: 'scale(1)' }], { duration: 350, easing: 'ease-out' });
+}
 
 window.returnToGeoSpawn = function() {
     if (!state.nativePano) return;
