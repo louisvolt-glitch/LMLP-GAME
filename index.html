@@ -1111,6 +1111,7 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                         <span class="text-slate-300 text-[11px]">Manches :</span>
                         <input type="number" id="setting-rounds" min="1" max="10" value="5" oninput="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
                     </div>
+                    <div class="text-[10px] text-slate-500">Temps par manche : réglez le curseur ci-dessus (15 s à 5 min).</div>
                 </div>
 
                 <!-- Options CINE -->
@@ -2254,7 +2255,7 @@ function launchGame() {
                     }
 		} else if (state.selectedMode === 'geoguessr') {
                     const rounds = parseInt(document.getElementById('setting-rounds')?.value, 10) || 5;
-                    const timer = document.getElementById('input-host-timer')?.value || 45;
+                    const timer = Math.min(300, Math.max(15, parseInt(document.getElementById('input-host-timer')?.value, 10) || 60));
                     window.mettreAJourSalonFirebase(window.currentCodeSalon, {
                         status: 'IN_GAME',
                         'settings/geoRounds': rounds,
@@ -2862,6 +2863,7 @@ if (timerSlider) {
     missive: { min: 15, max: 120, step: 5, value: 45 },
     dessin: { min: 40, max: 150, step: 10, value: 80 },
     expedition: { min: 8, max: 30, step: 1, value: 15 },
+    geoguessr: { min: 15, max: 300, step: 5, value: 60 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
 const cfgKey = sliderConfigs[modeKey] ? modeKey : 'default';
