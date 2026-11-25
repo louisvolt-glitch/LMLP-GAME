@@ -19,7 +19,10 @@
 // =====================================================================
 
 // durées (s) ; REVELE : couloir + ouverture du sas avant de découvrir la salle ; COMPTE : compte à rebours avant de révéler les choix
-const EX = { SALLE: 5.6, REVELE: 2.1, DECISION: 6.4, COMPTE: 3, DESASTRE: 9.2, BILAN: 7, DEPART: 6.6, CHOIX_DEF: 15 };
+const EX = { SALLE: 5.6, REVELE: 2.1, DECISION: 6.4, COMPTE: 3, DESASTRE: 9.2, BILAN: 7, DEPART: 21.8, CHOIX_DEF: 15 };
+// intro plein écran de chaque expédition : vidéo de l'épave (10 s) + règle spéciale, amarrage (10 s), couloir et sas.
+// La porte s'ouvre au moment où la salle 1 est révélée (fin de DEPART) et dévoile la salle en plein écran.
+const EX_INTRO = { EPAVE: 10, AMARRAGE: 20, FERME: 20.4, FONDU: 1.4 };
 const EX_PORTE = { FERME: 1.0, OUVRE: 1.35 };        // instants (s) : la porte apparaît, puis s'ouvre
 const EX_OBJETS = {
     scanner:    { i: '📡', n: 'Scanner', d: 'À utiliser pendant le choix : montre en secret si la salle suivante est dangereuse.' },
@@ -577,6 +580,35 @@ function exStyle() {
     .ex-tuile.actif{border-color:#22d3ee;cursor:pointer;animation:exObj 1.3s infinite}
     .ex-tuile.arme{border-color:#f43f5e;background:#4c0519;box-shadow:0 0 12px #f43f5e;cursor:pointer}
     .ex-tuile[aria-disabled]{cursor:help}
+    #ex-cine{position:fixed;inset:0;z-index:10020;background:#000;overflow:hidden;transition:opacity .6s ease}
+    #ex-cine.fondu,#ex-cine.fin{opacity:0;pointer-events:none}
+    #ex-cine video{position:absolute;inset:0;width:100%;height:100%}
+    #ex-cine video.flou{object-fit:cover;filter:blur(26px) brightness(.45);transform:scale(1.12)}
+    #ex-cine video.av{object-fit:contain}
+    #ex-cine .txt{position:absolute;left:0;right:0;bottom:0;padding:clamp(18px,5vh,56px) clamp(16px,5vw,64px);background:linear-gradient(0deg,rgba(2,6,23,.92),rgba(2,6,23,.55) 60%,transparent);color:#e2e8f0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+    #ex-cine .haut{font:800 clamp(11px,1.4vw,15px) ui-monospace,monospace;letter-spacing:.34em;color:#67e8f9;animation:exCineIn .8s .3s ease both}
+    #ex-cine .nom{font:900 clamp(30px,6vw,76px)/1 system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#fff;text-shadow:0 0 30px rgba(103,232,249,.55);animation:exCineIn 1s .7s ease both}
+    #ex-cine .nom.petit{font-size:clamp(22px,3.4vw,44px)}
+    #ex-cine .regle{display:flex;align-items:center;gap:16px;max-width:760px;margin-top:8px;padding:14px 20px;border-radius:16px;background:rgba(15,23,42,.86);border:2px solid #fbbf24;box-shadow:0 0 34px rgba(251,191,36,.35);text-align:left;animation:exCineIn .9s 2.2s ease both}
+    #ex-cine .regle .i{font-size:clamp(34px,4.5vw,56px)}
+    #ex-cine .regle small{display:block;font:800 11px ui-monospace,monospace;letter-spacing:.24em;color:#fbbf24}
+    #ex-cine .regle b{display:block;font-size:clamp(20px,2.6vw,32px);color:#fde68a;margin:2px 0}
+    #ex-cine .regle em{display:block;font-style:normal;font-size:clamp(14px,1.6vw,19px);color:#e2e8f0}
+    #ex-cine .rappel{font-size:clamp(13px,1.5vw,17px);color:#fde68a;padding:6px 14px;border-radius:999px;background:rgba(15,23,42,.8);border:1px solid rgba(251,191,36,.5);animation:exCineIn .8s .6s ease both}
+    #ex-cine .porte{position:absolute;inset:0;display:none}
+    #ex-cine.seg-couloir .porte,#ex-cine.seg-salle .porte{display:block}
+    #ex-cine .porte .v{position:absolute;top:0;bottom:0;width:50.5%;background:linear-gradient(90deg,#2c323c,#59606b 45%,#3b4250);transition:transform 1s cubic-bezier(.65,0,.3,1)}
+    #ex-cine .porte .v::before{content:'';position:absolute;left:0;right:0;top:44%;height:9%;background:repeating-linear-gradient(-45deg,#e8b400 0 22px,#16181c 22px 44px);opacity:.9}
+    #ex-cine .porte .v::after{content:'';position:absolute;top:0;bottom:0;width:5px;background:#f59e0b;box-shadow:0 0 30px 6px #f59e0b}
+    #ex-cine .porte .v.g{left:0;transform:translateX(-101%)}#ex-cine .porte .v.d{right:0;transform:translateX(101%)}
+    #ex-cine .porte .v.g::after{right:0}#ex-cine .porte .v.d::after{left:0}
+    #ex-cine .porte.ferme .v{transform:none;transition:transform .45s ease-out}
+    #ex-cine .porte.ouvre .v.g{transform:translateX(-103%)}#ex-cine .porte.ouvre .v.d{transform:translateX(103%)}
+    #ex-cine .porte .plaque{position:absolute;left:50%;top:20%;transform:translateX(-50%);font:900 clamp(14px,2vw,22px) ui-monospace,monospace;letter-spacing:.26em;color:#fde68a;background:#16181c;border:3px solid #e8b400;padding:10px 18px;border-radius:8px;z-index:2;opacity:0;transition:opacity .3s}
+    #ex-cine .porte.ferme .plaque{opacity:1}
+    #ex-cine .passer{position:absolute;top:16px;right:16px;padding:9px 16px;border-radius:10px;border:1px solid rgba(148,163,184,.6);background:rgba(2,6,23,.7);color:#e2e8f0;font:700 13px system-ui,sans-serif;cursor:pointer}
+    #ex-cine .passer:hover{border-color:#67e8f9;color:#67e8f9}
+    @keyframes exCineIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
     #ex-aide{position:fixed;z-index:10000;max-width:270px;padding:8px 11px;border-radius:10px;background:rgba(2,6,23,.96);border:1px solid #a78bfa;color:#e2e8f0;font:13px/1.4 system-ui,sans-serif;pointer-events:none;display:none;box-shadow:0 10px 28px rgba(0,0,0,.55)}
     #ex-aide b{color:#fff}
     .ex-enchere{margin-top:8px;padding:9px 11px;border-radius:12px;border:1px solid #a78bfa;background:linear-gradient(90deg,rgba(46,16,101,.55),rgba(15,23,42,.85))}
@@ -654,8 +686,10 @@ window.renderExpeditionScreen = function (data) {
     const g = data && data.exGame; if (!g) return;
     exStyle();
     if (g.status === 'FINISHED') { exFin(data, g); return; }
-    if (exC.sess !== g.startedAt || !document.getElementById('ex-root')) exConstruire(g);
-    exMaj(data, g);
+    try {
+        if (exC.sess !== g.startedAt || !document.getElementById('ex-root')) exConstruire(g);
+        exMaj(data, g);
+    } catch (e) { console.error('Expédition (affichage) :', e); }
     if (!exC.ticker) exC.ticker = setInterval(exBoucle, 120);
 };
 
@@ -782,7 +816,7 @@ function exEtatVue(g) {
     let chemin = exArr(g.chemin), dedans = exDedans(g), paquet = exArr(g.paquet);
     const sac = Object.assign({}, g.sac || {}), coffre = Object.assign({}, g.coffre || {}), vus = Object.assign({}, g.vus || {});
     let objets = g.objets || {};
-    if ((g.phase === 'SALLE' || g.phase === 'DESASTRE') && t < EX.REVELE && chemin.length) {
+    if ((g.phase === 'SALLE' || g.phase === 'DESASTRE') && t < EX.REVELE && chemin.length && !(g.phase === 'SALLE' && chemin.length === 1)) {
         phase = 'PORTE';
         const der = chemin[chemin.length - 1];
         chemin = chemin.slice(0, -1); paquet = [der].concat(paquet);
@@ -1067,14 +1101,73 @@ function exVue(clip, large) {
 }
 function exVueSelonTemps(g, E) {
     const chemin = exArr(g.chemin), t = E.t, der = chemin[chemin.length - 1];
-    if (g.phase === 'DEPART') exVue(t < 3.3 ? 'épaves/' + EX_FICHIERS_EPAVES[(g.epaveId || 0) % EX_FICHIERS_EPAVES.length] : 'bonus/transition-amarrage', true);
+    if (g.phase === 'DEPART') exVue('bonus/transition-couloir', false);      // caché derrière l'intro plein écran
     else if (E.phase === 'PORTE') exVue(t < EX_PORTE.OUVRE ? 'bonus/transition-couloir' : exClipSalle(g, der, g.phase === 'DESASTRE'), false);
     else if (g.phase === 'DESASTRE') exVue(t < 3.4 + EX.REVELE ? exClipSalle(g, der, true) : 'bonus/transition-evacuation', t >= 3.4 + EX.REVELE);
     else if (g.phase === 'BILAN') exVue('bonus/transition-retour', true);
     else if (der) exVue(exClipSalle(g, der, false), false);
 }
+// ---- intro plein écran : épave + règle spéciale, amarrage, ouverture du sas sur la salle 1
+function exCinemaTemps(g, E) {
+    if (g.phase === 'DEPART') return E.t;
+    if (g.phase === 'SALLE' && exArr(g.chemin).length === 1 && E.t < EX_INTRO.FONDU + .7) return EX.DEPART + E.t;
+    return -1;
+}
+function exCinema(g, E) {
+    let ov = document.getElementById('ex-cine');
+    const T = exCinemaTemps(g, E);
+    if (T < 0) { if (ov && !ov.classList.contains('fin')) { ov.classList.add('fin'); setTimeout(() => ov.remove(), 700); } exC.cineCle = ''; return; }
+    if (!ov || ov.classList.contains('fin')) {
+        if (ov) ov.remove();
+        ov = document.createElement('div'); ov.id = 'ex-cine';
+        ov.innerHTML = `<video class="flou" muted playsinline preload="auto"></video><video class="av" muted playsinline preload="auto"></video>
+            <div class="porte"><div class="v g"></div><div class="v d"></div><div class="plaque">SAS · SALLE 1</div></div>
+            <div class="txt"></div>${window.isHost ? '<button class="passer" onclick="exPasserIntro()">Passer ⏭</button>' : ''}`;
+        document.body.appendChild(ov); exC.cineCle = ''; exC.cinePorte = '';
+    }
+    const seg = T < EX_INTRO.EPAVE ? 'epave' : T < EX_INTRO.AMARRAGE ? 'amarrage' : g.phase === 'DEPART' ? 'couloir' : 'salle';
+    const debut = { epave: 0, amarrage: EX_INTRO.EPAVE, couloir: EX_INTRO.AMARRAGE, salle: EX.DEPART }[seg];
+    const clip = seg === 'epave' ? 'épaves/' + EX_FICHIERS_EPAVES[(g.epaveId || 0) % EX_FICHIERS_EPAVES.length] : seg === 'amarrage' ? 'bonus/transition-amarrage'
+        : seg === 'couloir' ? 'bonus/transition-couloir' : exClipSalle(g, exArr(g.chemin)[0], false);
+    const cle = g.expe + ':' + seg;
+    if (exC.cineCle !== cle) {
+        exC.cineCle = cle;
+        const src = encodeURI(EX_MEDIA + clip + '.mp4'), boucle = seg === 'couloir' || seg === 'salle', decal = Math.max(0, T - debut);
+        ov.querySelectorAll('video').forEach(v => {
+            v.src = src; v.loop = boucle;
+            const go = () => { try { if (decal > .4 && v.duration && decal < v.duration) v.currentTime = decal; } catch (e) {} const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+            if (v.readyState >= 1) go(); else v.addEventListener('loadedmetadata', go, { once: true });
+        });
+        const Ef = exEffet(g), txt = ov.querySelector('.txt');
+        if (seg === 'epave') txt.innerHTML = `<div class="haut">EXPÉDITION ${g.expe}/${g.nb}</div><div class="nom">${exEsc(g.epave)}</div>
+            <div class="regle"><span class="i">${Ef.i || '🛰️'}</span><span><small>RÈGLE SPÉCIALE DE L’ÉPAVE</small><b>${exEsc(Ef.t || 'Aucune')}</b><em>${exEsc(Ef.d || 'Cette épave suit les règles normales.')}</em></span></div>`;
+        else if (seg === 'amarrage') txt.innerHTML = `<div class="haut">AMARRAGE EN COURS</div><div class="nom petit">${exEsc(g.epave)}</div>
+            <div class="rappel">${Ef.i || ''} ${exEsc(Ef.t || '')}${Ef.d ? ' : ' + exEsc(Ef.d) : ''}</div>`;
+        else txt.innerHTML = '';
+        ov.className = 'seg-' + seg;
+        if (seg === 'amarrage') exC.cineAmarre = '';
+    }
+    // sons et porte du sas
+    if (seg === 'amarrage' && T > EX_INTRO.AMARRAGE - 1.6 && exC.cineAmarre !== cle) { exC.cineAmarre = cle; exFichier('amarrage', .8).catch(() => exSonSynthese('depart')); }
+    const porte = seg === 'couloir' ? (T >= EX_INTRO.FERME ? 'ferme' : '') : seg === 'salle' ? 'ouvre' : '';
+    const pe = ov.querySelector('.porte');
+    if (pe && exC.cinePorte !== g.expe + porte) {
+        exC.cinePorte = g.expe + porte; pe.className = 'porte ' + porte;
+        if (porte === 'ferme') exFichier('pas', .5).catch(() => {});
+        if (porte === 'ouvre') exFichier('sas-ouverture', .85).catch(() => exSonSynthese('salle'));
+    }
+    ov.classList.toggle('fondu', seg === 'salle' && T >= EX.DEPART + EX_INTRO.FONDU);
+    const b = ov.querySelector('.passer'); if (b) b.style.display = g.phase === 'DEPART' && T < EX_INTRO.AMARRAGE ? '' : 'none';
+}
+// l'hôte peut passer à l'étape suivante de l'intro
+window.exPasserIntro = function () {
+    const g = window.currentRoom && window.currentRoom.exGame; if (!window.isHost || !g || g.phase !== 'DEPART') return;
+    const t = exEcoule(g), cible = t < EX_INTRO.EPAVE ? EX_INTRO.EPAVE : EX_INTRO.AMARRAGE;
+    exEcrire({ 'exGame/t0': Date.now() - cible * 1000 });
+};
 // porte du sas (vue + 3D), compte à rebours, chronomètre : animés par la boucle
 function exAnimer(g, E) {
+    exCinema(g, E);
     const porte = document.getElementById('ex-porte'), sc = document.getElementById('ex-scene');
     if (porte) {
         const etat = E.phase !== 'PORTE' ? '' : E.t < EX_PORTE.FERME ? '' : E.t < EX_PORTE.OUVRE ? 'ferme' : 'ouvre';
@@ -1166,13 +1259,23 @@ function exAmbianceMaj(g, E) {
         'tension': aBord && (menace || alarme || E.phase === 'COMPTE') ? (alarme || E.phase === 'COMPTE' ? .5 : .28) : 0, 'ambiance-vaisseau': g.phase === 'BILAN' ? .3 : 0 });
 }
 
-function exBoucle() {
+function exBoucle() { try { exBoucle0(); } catch (e) { if (exC.err !== String(e)) { exC.err = String(e); console.error('Expédition (boucle) :', e); } } }
+// filet de sécurité (joueurs non hôtes) : si l'étape en cours dépasse largement sa durée, on relit le salon sur le serveur
+function exSonde(g, t) {
+    if (window.isHost || !window.get || !window.ref || !window._surSalon) return;
+    const dur = { DEPART: EX.DEPART, SALLE: EX.SALLE, CHOIX: exDuree(g) + 1, DECISION: EX.DECISION, DESASTRE: EX.DESASTRE, BILAN: EX.BILAN }[g.phase];
+    if (!dur || t < dur + 5 || Date.now() - (exC.sonde || 0) < 4000) return;
+    exC.sonde = Date.now();
+    window.get(window.ref(window.db, 'salons/' + exSalon())).then(s => { const d = s && s.val && s.val(); if (d && d.exGame && JSON.stringify(d.exGame) !== JSON.stringify(g)) window._surSalon(s); }).catch(() => {});
+}
+function exBoucle0() {
     const data = window.currentRoom, g = data && data.exGame;
     if (!g || data.status !== 'IN_GAME' || data.selectedMode !== 'expedition') { exArreter(); return; }
     if (g.status !== 'PLAYING' || !document.getElementById('ex-root')) return;
     if (window.isHost) exHote();
     exAjuster();
     const E = exEtatVue(g);
+    exSonde(g, E.t);
     // passage d'une étape visuelle à l'autre (ouverture du sas, fin du compte à rebours)
     if (g.expe + ':' + exArr(g.chemin).length + ':' + E.phase !== exC.clePhase) { exMaj(data, g); return; }
     exVueSelonTemps(g, E); exAnimer(g, E); exAmbianceFondu();
@@ -1185,7 +1288,7 @@ function exBoucle() {
 }
 function exArreter() {
     if (exC.ticker) { clearInterval(exC.ticker); exC.ticker = null; }
-    exAmbianceStop(); exDetruire3D(); exC.vue = '';
+    exAmbianceStop(); exDetruire3D(); exC.vue = ''; const ci = document.getElementById('ex-cine'); if (ci) ci.remove(); exC.cineCle = '';
     const ecran = document.getElementById('screen-generic-game'); if (ecran) ecran.classList.remove('ex-large');
 }
 
