@@ -209,9 +209,11 @@ window.startNextRound = function() {
 function geoTic(reste) {
     const vol = reste <= 3 ? 1 : .65;
     try {
-        if (!geoTic.son) geoTic.son = new Audio('./expedition-web/sons/tic.mp3');
-        const a = geoTic.son.cloneNode(); a.volume = vol;
+        // un seul « tic » extrait du son d'horloge d'origine (dossier expedition-visuel/sound)
+        if (!geoTic.son) geoTic.son = new Audio('./expedition-visuel/sound/11325622-clock-ticking-sound-effect-240503.mp3');
+        const a = geoTic.son.cloneNode(); a.volume = vol; a.currentTime = .25;
         const p = a.play(); if (p && p.catch) p.catch(() => geoTicSynthese(vol));
+        setTimeout(() => a.pause(), 550);
     } catch (e) { geoTicSynthese(vol); }
 }
 function geoTicSynthese(vol) {   // repli si le fichier ne peut pas être joué
