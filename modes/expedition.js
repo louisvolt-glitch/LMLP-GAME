@@ -25,9 +25,21 @@ const EX_OBJETS = {
     scanner:    { i: '📡', n: 'Scanner', d: 'À utiliser pendant le choix : montre en secret si la salle suivante est dangereuse.' },
     extincteur: { i: '🧯', n: 'Extincteur', d: 'Automatique : éteint le prochain incendie tant que vous êtes dans l’épave.' },
     grappin:    { i: '🪝', n: 'Grappin', d: 'Armez-le pendant le choix : si vous continuez, il vole des cristaux au plus riche de ceux qui rentrent.' },
-    bouclier:   { i: '🛡️', n: 'Bouclier', d: 'Automatique : si une évacuation vous surprend dans l’épave, vous sauvez la moitié de votre sac.' }
+    bouclier:   { i: '🛡️', n: 'Bouclier', d: 'Automatique : si une évacuation vous surprend dans l’épave, vous sauvez la moitié de votre sac.' },
+    balise:     { i: '📍', n: 'Balise de rappel', d: 'Armez-la pendant le choix : vous rentrez au vaisseau (même si vous aviez choisi de continuer) et vous raflez tous les cristaux au sol avant les autres.' },
+    drone:      { i: '🛸', n: 'Drone éclaireur', d: 'À utiliser pendant le choix : montre à tout le monde ce que contient la salle suivante.' },
+    lunette:    { i: '🥽', n: 'Vision nocturne', d: 'Automatique : vous voyez tout dans le noir (épave Nyx) : quantités de cristaux et risque.' },
+    scellant:   { i: '🧪', n: 'Mousse scellante', d: 'Automatique : colmate la prochaine fuite d’oxygène tant que vous êtes dans l’épave.' },
+    combinaison:{ i: '☢️', n: 'Kit anti-radiations', d: 'Automatique : vous protège des prochaines radiations tant que vous êtes dans l’épave.' },
+    leurre:     { i: '🔊', n: 'Leurre sonore', d: 'Automatique : fait fuir la prochaine créature tant que vous êtes dans l’épave.' },
+    foreuse:    { i: '⛏️', n: 'Foreuse à cristaux', d: 'Automatique : quand vous rentrez au vaisseau, vous forez 3 cristaux de plus.' }
 };
-const EX_SALLES_OBJETS = ['scanner', 'extincteur', 'grappin'];   // objets qui ont leur propre vidéo de salle
+const EX_SALLES_OBJETS = Object.keys(EX_OBJETS);      // chaque objet a sa vidéo de salle
+// objet qui annule un danger quand son porteur est dans l'épave
+const EX_PROTECTION = { feu: 'extincteur', oxy: 'scellant', rad: 'combinaison', xeno: 'leurre' };
+const EX_FOREUSE = 3;
+// enchère secrète : une mise payée avec le sac ne compte que pour la moitié (2 💎 du sac = 1 point d'enchère)
+const EX_SAC_DIVISE = 2;
 const EX_GRAPPIN = 3;                                 // cristaux volés par le grappin
 // effet de chaque épave (même ordre que EX_NOMS_EPAVES)
 const EX_EFFETS = [
@@ -53,7 +65,7 @@ const EX_DANGERS = {
     elec: { i: '⚡', n: 'Court-circuit', c: '#c084fc', d: 'Des arcs électriques jaillissent des murs.' }
 };
 const EX_RELIQUES = [5, 5, 5, 10, 10];
-const EX_FICHIERS_EPAVES = ['leviathan', 'ombre7', 'prospecteur', 'kerberos', 'vagabond', 'aurore', 'orion', 'atlas', 'albatros', 'nyx'];   // même ordre que les noms
+const EX_FICHIERS_EPAVES = ['epave-leviathan', 'epave-station-ombre7', 'epave-prospecteur', 'epave-cargo-kerberos', 'epave-vagabond', 'epave-fregate-aurore', 'epave-silence-orion', 'epave-atlas', 'epave-albatros', 'epave-croiseur-nyx'];   // même ordre que les noms
 const EX_NOMS_EPAVES = ['Le Léviathan', 'Station Ombre-7', 'Le Prospecteur', 'Cargo Kerberos', 'Le Vagabond', 'Frégate Aurore', 'Le Silence d’Orion', 'Minéralier Atlas', 'L’Albatros', 'Croiseur Nyx'];
 
 const exC = { sess: null, cleSalle: '', clePhase: '', fini: '', ticker: null, tic: -1, vue: '', vitrine: null, vitrineNom: '', stage: null, moi: null, moiNom: '', grince: 0, vusAvant: '', compte: -1, scan: null, alarmeJusqua: 0 };
@@ -80,7 +92,22 @@ function exPastille(n, s) {
 
 // ------------------------------- Sons -------------------------------
 // ------------------------------- Médias : sons, ambiances, vidéos (expedition-visuel/) -------------------------------
-const EX_MEDIA = './expedition-web/';
+const EX_MEDIA = './expedition-visuel/';
+// sons d'origine (dossier expedition-visuel/sound) : [fichier, début (s), durée max (s)]
+const EX_SON = {
+    tic: ['11325622-clock-ticking-sound-effect-240503', .25, .55], alarme: ['jeremayjimenez-bermuda-eas-alarm-2025-my-own-alarm-441470', 0, 3],
+    evacuation: ['soundreality-explosion-fx-343683'], relique: ['freesound_community-mystic-whistle-105455', .25, 5],
+    'danger-rad': ['alex_jauk-geiger-counter-sound-effect-187940', .6, 3.5], 'danger-xeno': ['flutie8211-low-pitch-alien-noise-person-screaming-499466', .95, 3.5],
+    'danger-elec': ['freesound_community-electric-90746'], 'danger-oxy': ['freesound_community-short-gas-leak-98286'], 'danger-feu': ['gregorquendel-designed-fire-winds-swoosh-04-116788', 0, 3.5],
+    amarrage: ['universfield-sharp-metallic-punch-124466', .2, 2.5], retour: ['dragon-studio-sci-fi-portal-jump-05-416165'], decollage: ['freesound_community-alien-ship-takeoff-28339', .15, 4.5],
+    victoire: ['emand_edroff-victory-bell-success-fanfare-576275'], pas: ['freesound_community-pasos-sobre-metal-36986', .5, 2.8],
+    lampe: ['lesiakower-torch-turned-on-flashlight-click-457506'], ramasse: ['freesound_community-snd_fragment_retrievewav-14728'], sac: ['freeeverythingxx-object-fall-soft-275694'],
+    coffre: ['u_ys7j2hx6e9-safe-open-close-443345'], cristaux: ['universfield-magic-twinkle-244951'], clic: ['soundshelfstudio-sci-fi-ui-click-sound-596258'],
+    'sas-ouverture': ['sas-ouverture'], 'sas-fermeture': ['sas-fermeture'],
+    'grince-1': ['audiopapkin-squeak-metal-ps-016-389413'], 'grince-2': ['audiopapkin-squeak-metal-ps-027-389425'], 'grince-3': ['dragon-studio-groaning-metal-511322', 0, 5],
+    'ambiance-epave': ['ambiance-epave'], 'ambiance-vaisseau': ['ambiance-vaisseau'], tension: ['tension'], respiration: ['respiration-casque']
+};
+function exSonURL(nom) { const f = EX_SON[nom]; return EX_MEDIA + 'sound/' + (f ? f[0] : nom) + '.mp3'; }
 const EX_SONS_FICHIERS = { salle: ['lampe', 'pas'], gemmes: ['cristaux'], desastre: ['evacuation', 'alarme'], relique: ['relique'], choix: ['clic'],
     retour: ['retour', 'sas-fermeture'], continuer: ['pas'], tic: ['tic'], depart: ['amarrage', 'sas-ouverture'], fin: ['victoire'], danger: ['alarme'] };
 const exAudios = {};
@@ -90,7 +117,9 @@ function exFichier(nom, vol, delai) {
     if (!exSonActif()) return Promise.resolve();
     return new Promise((ok, ko) => setTimeout(() => {
         try {
-            const a = new Audio(EX_MEDIA + 'sons/' + nom + '.mp3'); a.volume = vol == null ? .8 : vol;
+            const f = EX_SON[nom] || [], a = new Audio(exSonURL(nom)), v = vol == null ? .8 : vol; a.volume = v;
+            if (f[1]) a.currentTime = f[1];
+            if (f[2]) setTimeout(() => { const t0 = Date.now(), fond = setInterval(() => { const k = 1 - (Date.now() - t0) / 250; if (k <= 0) { clearInterval(fond); a.pause(); } else a.volume = v * k; }, 30); }, f[2] * 1000);
             a.onerror = ko; const p = a.play(); if (p && p.catch) p.then(ok, ko); else ok();
         } catch (e) { ko(e); }
     }, delai || 0));
@@ -100,7 +129,7 @@ function exAmbianceCible(cibles) {
     ['ambiance-epave', 'ambiance-vaisseau', 'tension', 'respiration'].forEach(n => {
         let a = exAudios[n];
         const v = exSonActif() ? (cibles[n] || 0) : 0;
-        if (!a && v > 0) { try { a = exAudios[n] = new Audio(EX_MEDIA + 'sons/' + n + '.mp3'); a.loop = true; a.volume = 0; a.cible = 0; } catch (e) { return; } }
+        if (!a && v > 0) { try { a = exAudios[n] = new Audio(exSonURL(n)); a.loop = true; a.volume = 0; a.cible = 0; } catch (e) { return; } }
         if (!a) return;
         a.cible = v;
         if (v > 0 && a.paused) { const p = a.play(); if (p && p.catch) p.catch(() => {}); }
@@ -178,7 +207,7 @@ function exPreparerExpedition(g) {
     g.paquet = exMelange(paquet);
     g.chemin = []; g.sac = {}; g.dedans = {};
     exArr(g.joueurs).forEach(n => { g.dedans[n] = 1; g.sac[n] = 0; });
-    g.vus = {}; g.choix = null; g.dec = null; g.desastre = null; g.gainExpe = {}; g.grappin = null;
+    g.vus = {}; g.choix = null; g.dec = null; g.desastre = null; g.gainExpe = {}; g.grappin = null; g.balise = null; g.drone = null;
     g.phase = 'DEPART'; g.t0 = Date.now();
 }
 
@@ -208,7 +237,7 @@ function exHote() {
 // copie de travail : Firebase supprime les objets vides, on remet les valeurs par défaut
 function exCopie(g0) {
     const g = JSON.parse(JSON.stringify(g0));
-    ['coffre', 'sac', 'dedans', 'vus', 'gainExpe', 'stats', 'reliques', 'choix', 'objets', 'grappin'].forEach(k => { if (!g[k] || typeof g[k] !== 'object') g[k] = {}; });
+    ['coffre', 'sac', 'dedans', 'vus', 'gainExpe', 'stats', 'reliques', 'choix', 'objets', 'grappin', 'balise', 'mises'].forEach(k => { if (!g[k] || typeof g[k] !== 'object') g[k] = {}; });
     return g;
 }
 // Firebase n'accepte pas undefined
@@ -223,8 +252,9 @@ function exRevelerSalle(g0) {
         const part = Math.floor(carte.v / dedans.length); salle.r = carte.v - part * dedans.length; salle.part = part;
         dedans.forEach(n => { g.sac[n] = (g.sac[n] || 0) + part; });
     } else if (carte.k === 'h') {
-        // l'extincteur d'un explorateur à bord éteint l'incendie
-        if (carte.h === 'feu') { const p = dedans.find(n => ((g.objets[n] || {}).extincteur || 0) > 0); if (p) { g.objets[p].extincteur--; salle.eteint = p; } }
+        // un objet de protection porté par un explorateur à bord annule le danger
+        const prot = EX_PROTECTION[carte.h];
+        if (prot) { const p = dedans.find(n => ((g.objets[n] || {})[prot] || 0) > 0); if (p) { g.objets[p][prot]--; salle.eteint = p; salle.prot = prot; } }
         if (!salle.eteint) g.vus[carte.h] = (g.vus[carte.h] || 0) + 1;
         if (!salle.eteint && g.vus[carte.h] >= 2) {      // évacuation : les sacs de ceux qui sont à bord sont perdus
             phase = 'DESASTRE';
@@ -241,12 +271,9 @@ function exRevelerSalle(g0) {
             g.stats.desastres = (g.stats.desastres || 0) + 1;
         }
     } else if (carte.k === 'a') salle.pris = 0;
-    else if (carte.k === 'o' && dedans.length) {      // objet : ramassé par un explorateur au hasard
-        const qui = dedans[Math.floor(Math.random() * dedans.length)]; salle.qui = qui;
-        g.objets[qui] = g.objets[qui] || {}; g.objets[qui][carte.o] = (g.objets[qui][carte.o] || 0) + 1;
-    }
+    // objet : mis aux enchères secrètes pendant le choix (attribué à la révélation des choix)
     chemin.push(salle);
-    g.paquet = paquet; g.chemin = chemin; g.phase = phase; g.t0 = Date.now(); g.choix = null;
+    g.paquet = paquet; g.chemin = chemin; g.phase = phase; g.t0 = Date.now(); g.choix = null; g.drone = null; g.mises = null;
     exEcrire({ exGame: exNettoyer(g) });
 }
 function exDecider(g0) {
@@ -254,11 +281,35 @@ function exDecider(g0) {
     const presents = new Set(exHumains(data).map(p => p.name));
     const dedans = exDedans(g), ch = g.choix || {};
     // un joueur absent ou qui n'a pas répondu rentre au vaisseau (choix prudent)
-    const rentrent = dedans.filter(n => ch[n] !== 'c' || !presents.has(n)), continuent = dedans.filter(n => rentrent.indexOf(n) < 0);
-    const chemin = exArr(g.chemin), gains = {}, rel = {};
+    // balise de rappel armée : son porteur rentre quoi qu'il ait choisi
+    const balises = dedans.filter(n => g.balise[n] && ((g.objets[n] || {}).balise || 0) > 0);
+    const rentrent = dedans.filter(n => ch[n] !== 'c' || !presents.has(n) || balises.indexOf(n) >= 0), continuent = dedans.filter(n => rentrent.indexOf(n) < 0);
+    const chemin = exArr(g.chemin), gains = {}, rel = {}, bonus = [];
     // état d'avant la décision : affiché pendant le compte à rebours
     const avant = { dedans: dedans.slice(), sac: Object.assign({}, g.sac), coffre: Object.assign({}, g.coffre), sol: chemin.map(s => [s.r || 0, s.pris || 0]) };
+    // enchère secrète de l'objet de la salle : la plus forte mise l'emporte, seul le gagnant paie
+    let enchere = null; const der = chemin[chemin.length - 1];
+    if (der && der.k === 'o' && der.qui == null) {
+        const offres = dedans.map(n => {
+            const m = g.mises[n]; if (!m || !(m.n > 0)) return null;
+            const src = m.src === 's' ? 's' : 'c', dispo = src === 's' ? (g.sac[n] || 0) : (g.coffre[n] || 0), k = Math.min(Math.floor(m.n), dispo);
+            return k > 0 ? { n: n, k: k, src: src, val: src === 's' ? k / EX_SAC_DIVISE : k } : null;
+        }).filter(Boolean);
+        if (offres.length) {
+            const max = Math.max.apply(null, offres.map(o => o.val)), top = offres.filter(o => o.val === max), w = top[Math.floor(Math.random() * top.length)];
+            if (w.src === 's') g.sac[w.n] -= w.k; else g.coffre[w.n] -= w.k;
+            g.objets[w.n] = g.objets[w.n] || {}; g.objets[w.n][der.o] = (g.objets[w.n][der.o] || 0) + 1;
+            der.qui = w.n; enchere = { o: der.o, qui: w.n, k: w.k, src: w.src, offres: offres, egalite: top.length > 1 };
+        } else { der.qui = ''; enchere = { o: der.o, qui: '', offres: [] }; }
+    }
     rentrent.forEach(n => gains[n] = 0);
+    // la balise rafle d'abord tout le sol (partagé entre les porteurs de balise)
+    if (balises.length) {
+        chemin.forEach(s => { if (s.k === 't' && s.r > 0) { const p = Math.floor(s.r / balises.length); if (p) { balises.forEach(n => gains[n] += p); s.r -= p * balises.length; } } });
+        balises.forEach(n => { g.objets[n].balise--; bonus.push({ n: n, o: 'balise' }); });
+    }
+    // la foreuse ajoute des cristaux à qui rentre
+    rentrent.forEach(n => { const ob = g.objets[n] || {}; if ((ob.foreuse || 0) > 0) { ob.foreuse--; g.objets[n] = ob; gains[n] += EX_FOREUSE; bonus.push({ n: n, o: 'foreuse', k: EX_FOREUSE }); } });
     if (rentrent.length) {
         chemin.forEach(s => {
             if (s.k === 't' && s.r > 0) { const p = Math.floor(s.r / rentrent.length); if (p) { rentrent.forEach(n => gains[n] += p); s.r -= p * rentrent.length; } }
@@ -290,8 +341,8 @@ function exDecider(g0) {
         const types = Object.keys(EX_DANGERS); alarme = types[Math.floor(Math.random() * types.length)];
         const p = exArr(g.paquet); p.splice(Math.min(p.length, 1 + Math.floor(Math.random() * 3)), 0, { k: 'h', h: alarme }); g.paquet = p;
     }
-    g.chemin = chemin; g.grappin = null;
-    g.dec = { r: rentrent, c: continuent, gains: gains, rel: rel, vols: vols, alarme: alarme, avant: avant };
+    g.chemin = chemin; g.grappin = null; g.balise = null; g.drone = null; g.mises = null;
+    g.dec = { r: rentrent, c: continuent, gains: gains, rel: rel, vols: vols, alarme: alarme, avant: avant, bonus: bonus, enchere: enchere };
     g.phase = 'DECISION'; g.t0 = Date.now();
     exEcrire({ exGame: exNettoyer(g) });
 }
@@ -331,6 +382,40 @@ window.exScanner = function () {
     exC.scan = { cle: cle, txt: txt, ok: ok };
     exFichier('tic', .6).catch(() => {}); exFichier(ok ? 'clic' : 'alarme', .35, 300).catch(() => {});
     exEcrire({ [`exGame/objets/${me}/scanner`]: n - 1 });
+};
+// enchère secrète : réglage local de la mise, puis envoi
+function exSalleEnVente(g) { const d = exArr(g && g.chemin).slice(-1)[0]; return d && d.k === 'o' && d.qui == null ? d : null; }
+function exMiseMax(g, src) { const me = exMe(); return src === 's' ? ((g.sac || {})[me] || 0) : ((g.coffre || {})[me] || 0); }
+function exMiseLocale(g) {
+    const cle = g.expe + ':' + exArr(g.chemin).length, envoyee = (g.mises || {})[exMe()];
+    if (!exC.mise || exC.mise.cle !== cle) exC.mise = { cle: cle, n: envoyee ? envoyee.n : 0, src: envoyee ? envoyee.src : 'c' };
+    exC.mise.n = Math.max(0, Math.min(exC.mise.n, exMiseMax(g, exC.mise.src)));
+    return exC.mise;
+}
+window.exMiseAjuste = function (d) { const R = window.currentRoom, g = R && R.exGame; if (!g) return; const m = exMiseLocale(g); m.n += d; exMiseLocale(g); exFichier('clic', .4).catch(() => {}); exMaj(R, g); };
+window.exMiseSource = function (src) { const R = window.currentRoom, g = R && R.exGame; if (!g) return; const m = exMiseLocale(g); m.src = src; exMiseLocale(g); exMaj(R, g); };
+window.exMiser = function () {
+    const R = window.currentRoom, g = R && R.exGame, me = exMe();
+    if (!g || g.phase !== 'CHOIX' || !(g.dedans || {})[me] || !exSalleEnVente(g)) return;
+    const m = exMiseLocale(g);
+    exFichier(m.n > 0 ? 'coffre' : 'clic', .6).catch(() => {});
+    exEcrire({ [`exGame/mises/${me}`]: m.n > 0 ? { n: m.n, src: m.src } : null });
+};
+// balise : armée ou désarmée pendant le choix
+window.exBalise = function () {
+    const g = window.currentRoom && window.currentRoom.exGame, me = exMe();
+    if (!g || g.phase !== 'CHOIX' || !(g.dedans || {})[me] || !(((g.objets || {})[me] || {}).balise > 0)) return;
+    exFichier('clic', .6).catch(() => {});
+    exEcrire({ [`exGame/balise/${me}`]: (g.balise || {})[me] ? null : 1 });
+};
+// drone : montre à tous la salle suivante
+window.exDrone = function () {
+    const g = window.currentRoom && window.currentRoom.exGame, me = exMe();
+    if (!g || g.phase !== 'CHOIX' || !(g.dedans || {})[me] || g.drone) return;
+    const n = ((g.objets || {})[me] || {}).drone || 0; if (n <= 0) return;
+    const p = exArr(g.paquet)[0] || { k: 'fin' };
+    exFichier('decollage', .5).catch(() => {});
+    exEcrire({ [`exGame/objets/${me}/drone`]: n - 1, 'exGame/drone': { qui: me, k: p.k, h: p.h || '', o: p.o || '', v: p.v || 0 } });
 };
 // grappin : armé ou désarmé pendant le choix
 window.exGrappin = function () {
@@ -376,22 +461,29 @@ function exStyle() {
     .ex-progres{height:5px;border-radius:9px;background:#1e293b;overflow:hidden}.ex-progres i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a78bfa);transition:width .25s linear}
     .ex-corps{display:flex;flex-direction:column;gap:10px}
     .ex-gauche,.ex-droite{display:contents}
-    .ex-vue{order:1}.ex-bande{order:2}#ex-zone-action{order:3}.ex-stage{order:4}.ex-eq{order:5}.ex-moi{order:6}
+    .ex-bas{display:contents}
+    .ex-vue{order:1}#ex-zone-action{order:2}.ex-cartes{order:3}.ex-bande{order:4}.ex-moi{order:5}
     #ex-root.ex-pc{overflow:hidden}
-    .ex-pc .ex-corps{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(340px,30vw,470px)}
+    .ex-pc .ex-corps{flex:1;min-height:0;display:flex;flex-direction:row;gap:12px}
     .ex-pc .ex-gauche,.ex-pc .ex-droite{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+    .ex-pc .ex-gauche{flex:0 0 auto;height:100%;aspect-ratio:9/16;max-width:46%}
+    .ex-pc .ex-droite{flex:1}
     .ex-pc .ex-vue{flex:1;min-height:0;height:auto}
+    .ex-pc .ex-cartes{flex:1;min-height:0;grid-auto-rows:minmax(0,1fr)}
+    .ex-pc .ex-bas{display:flex;gap:10px;align-items:stretch;flex:0 0 auto}
+    .ex-pc .ex-bas #ex-zone-action{flex:1 1 60%;min-width:0;display:flex;flex-direction:column;justify-content:center}
+    .ex-pc .ex-bas .ex-moi{flex:1 1 40%;min-width:0}
     .ex-pc .ex-stage{flex:1;min-height:150px;height:auto}
     .ex-pc .ex-salle{width:80px;min-height:96px;padding:6px 4px}.ex-pc .ex-salle .ic{font-size:24px}.ex-pc .ex-salle .val{font-size:17px}.ex-pc .ex-vaisseau{width:94px;padding:6px}
     .ex-pc .ex-btn{min-height:62px}
-    .ex-vue{position:relative;height:clamp(260px,48vh,500px);border-radius:16px;overflow:hidden;background:#000;border:1px solid rgba(148,163,184,.25)}
+    .ex-vue{position:relative;height:clamp(320px,64vh,720px);border-radius:16px;overflow:hidden;background:#000;border:1px solid rgba(148,163,184,.25)}
     .ex-vue video{position:absolute;display:block}
     #ex-vid-flou{inset:-30px;width:calc(100% + 60px);height:calc(100% + 60px);object-fit:cover;filter:blur(22px) brightness(.45) saturate(1.2)}
     #ex-vid{inset:0;width:100%;height:100%;object-fit:contain}
     .ex-vue.large #ex-vid{object-fit:cover}
     .ex-vue.large #ex-vid-flou{display:none}
     .ex-vue-bas{position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(0deg,rgba(2,6,23,.85),transparent);pointer-events:none;z-index:2}
-    #ex-legende{position:absolute;left:14px;bottom:12px;right:190px;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:6}
+    #ex-legende{position:absolute;left:14px;bottom:12px;right:calc(min(32%,200px) + 8px);color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:6}
     #ex-legende .t{font:900 11px ui-monospace,monospace;letter-spacing:.22em;color:#67e8f9}
     #ex-legende .g{font:900 clamp(18px,2.6vw,32px) system-ui,sans-serif;letter-spacing:.02em;animation:exArrive .6s ease both}
     #ex-legende .p{font-size:13px;color:#e2e8f0;opacity:.92}
@@ -451,14 +543,56 @@ function exStyle() {
     .ex-salle.a.pris{opacity:.45}
     .ex-salle.o{border-color:#a78bfa;background:linear-gradient(180deg,#2e1065,#0f0a1f)}
     .ex-salle.photo{background-size:cover;background-position:center;text-shadow:0 1px 6px #000}
-    .ex-salle.photo::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(2,6,23,.15),rgba(2,6,23,.78));z-index:0}
-    .ex-salle.photo>*{position:relative;z-index:1}
+    .ex-salle.photo::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(2,6,23,.15),rgba(2,6,23,.78));z-index:1}
+    .ex-salle.photo>*{position:relative;z-index:2}
+    .ex-salle.photo>.vign{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;z-index:0;pointer-events:none}
     .ex-sol{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;min-height:10px;max-width:86px}
     .ex-sol i{width:7px;height:7px;transform:rotate(45deg);background:#22d3ee;box-shadow:0 0 6px #22d3ee}
     .ex-stage{position:relative;height:clamp(210px,34vh,300px);border-radius:16px;overflow:hidden;border:1px solid rgba(148,163,184,.22);background:#05080f}
     .ex-stage-t{position:absolute;left:10px;top:8px;z-index:3;font:800 9px ui-monospace,monospace;letter-spacing:.2em;color:#94a3b8;pointer-events:none;display:flex;gap:6px;align-items:center}
     .ex-stage-t i{width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:exLed 1.2s infinite}
     .ex-stage::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.55));z-index:2}
+    .ex-cartes{display:grid;grid-template-columns:repeat(var(--nc,2),minmax(0,1fr));gap:10px}
+    .ex-carte{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border-radius:14px;border:1px solid var(--c);background:linear-gradient(180deg,rgba(8,47,73,.45),rgba(15,23,42,.92));padding:22px 6px 8px;min-height:200px;overflow:hidden;transition:background .6s,border-color .6s,transform .2s}
+    .ex-pc .ex-carte{min-height:0}
+    .ex-carte.vaisseau{background:linear-gradient(180deg,rgba(120,53,15,.42),rgba(15,23,42,.92))}
+    .ex-carte.mort{background:linear-gradient(180deg,rgba(127,29,29,.6),rgba(15,23,42,.92));border-color:#ef4444}
+    .ex-carte.moi{box-shadow:inset 0 0 0 1px var(--c),0 0 18px color-mix(in srgb,var(--c) 35%,transparent)}
+    .ex-carte .etat{position:absolute;left:9px;top:6px;font:800 9px ui-monospace,monospace;letter-spacing:.14em;color:var(--c);white-space:nowrap}
+    .ex-carte.vaisseau .etat{color:#fdba74}.ex-carte.mort .etat{color:#fca5a5}
+    .ex-carte .obj{position:absolute;right:7px;top:4px;font-size:13px;letter-spacing:1px}
+    .ex-carte .fig{flex:1 1 auto;min-height:0;width:100%;display:block}
+    .ex-carte .repli{flex:1 1 auto;display:flex;align-items:center;justify-content:center}
+    .a3d .ex-carte .repli{display:none}.ex-carte .fig{display:none}.a3d .ex-carte .fig{display:block}
+    .ex-carte .socle{width:70%;height:12px;margin-top:-9px;border-radius:50%;background:radial-gradient(ellipse at center,var(--c),transparent 70%);opacity:.55;flex:0 0 auto}
+    .ex-carte .nom{font-weight:800;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+    .ex-carte .val{font:800 12px ui-monospace,monospace;color:#67e8f9}.ex-carte .val.c{color:#fbbf24}.ex-carte .val.x{color:#64748b}
+    .ex-carte .equip{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:6px;flex:0 0 auto}
+    .ex-carte .equip:empty{display:none}
+    .ex-tuile{position:relative;width:46px;height:46px;border-radius:10px;border:1px solid #334155;background:rgba(2,6,23,.72);padding:0;cursor:help;color:#fff}
+    .ex-tuile canvas{position:absolute;inset:0;width:100%;height:100%;display:none}
+    .a3d .ex-tuile canvas{display:block}.a3d .ex-tuile .em{display:none}
+    .ex-tuile .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px}
+    .ex-tuile small{position:absolute;right:3px;bottom:1px;font:800 9px ui-monospace,monospace;color:#e2e8f0;z-index:1}
+    .ex-tuile.actif{border-color:#22d3ee;cursor:pointer;animation:exObj 1.3s infinite}
+    .ex-tuile.arme{border-color:#f43f5e;background:#4c0519;box-shadow:0 0 12px #f43f5e;cursor:pointer}
+    .ex-tuile[aria-disabled]{cursor:help}
+    #ex-aide{position:fixed;z-index:10000;max-width:270px;padding:8px 11px;border-radius:10px;background:rgba(2,6,23,.96);border:1px solid #a78bfa;color:#e2e8f0;font:13px/1.4 system-ui,sans-serif;pointer-events:none;display:none;box-shadow:0 10px 28px rgba(0,0,0,.55)}
+    #ex-aide b{color:#fff}
+    .ex-enchere{margin-top:8px;padding:9px 11px;border-radius:12px;border:1px solid #a78bfa;background:linear-gradient(90deg,rgba(46,16,101,.55),rgba(15,23,42,.85))}
+    .ex-enchere .t{font:800 10px ui-monospace,monospace;letter-spacing:.16em;color:#c4b5fd;margin-bottom:6px}
+    .ex-enchere .ligne{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .ex-enchere .pm{width:34px;height:34px;border-radius:9px;border:1px solid #7c3aed;background:#1e1b4b;color:#fff;font-weight:900;font-size:18px;cursor:pointer}
+    .ex-enchere .n{min-width:34px;text-align:center;font:900 22px ui-monospace,monospace;color:#fde68a}
+    .ex-enchere .src{display:flex;border-radius:9px;overflow:hidden;border:1px solid #475569}
+    .ex-enchere .src button{padding:7px 10px;background:#0f172a;color:#cbd5e1;border:0;font-size:12px;font-weight:700;cursor:pointer}
+    .ex-enchere .src button.sel{background:#7c3aed;color:#fff}
+    .ex-enchere .ok{margin-left:auto;padding:8px 16px;border-radius:9px;border:1px solid #fbbf24;background:#78350f;color:#fde68a;font-weight:900;letter-spacing:.06em;cursor:pointer}
+    .ex-enchere .p{margin-top:6px;font-size:11px;color:#cbd5e1}
+    .ex-carte .choix{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font:900 13px ui-monospace,monospace;letter-spacing:.12em;padding:6px 10px;border-radius:10px;background:rgba(2,6,23,.85);border:1px solid currentColor;animation:exCarte .6s ease both;white-space:nowrap}
+    .ex-recoit{animation:exRecoit .45s ease}
+    @keyframes exRecoit{40%{transform:scale(1.05);filter:brightness(1.5)}}
+    .ex-gemme{position:fixed;z-index:9999;width:13px;height:13px;margin:-6px 0 0 -6px;background:var(--g,#22d3ee);box-shadow:0 0 14px var(--g,#22d3ee);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);pointer-events:none}
     .ex-eq{border-radius:14px;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.78);padding:7px 10px;display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
     .ex-eq .ligne{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:26px}
     .ex-eq .lt{font:800 9px ui-monospace,monospace;letter-spacing:.14em;color:#94a3b8;min-width:96px;flex:0 0 auto;white-space:nowrap}
@@ -553,17 +687,19 @@ function exConstruire(g) {
                     <div id="ex-obj3d"></div>
                     <div id="ex-voile"></div>
                 </div>
-                <div class="ex-bande"><div class="ex-couloir" id="ex-couloir"></div></div>
             </div>
             <div class="ex-droite">
-                <div class="ex-stage" id="ex-stage-cadre"><div class="ex-stage-t"><i></i>CAMÉRA DU SAS · CAM-02</div><div id="ex-stage" style="position:absolute;inset:0"></div></div>
-                <div class="ex-eq" id="ex-eq"></div>
-                <div id="ex-zone-action"></div>
-                <div class="ex-moi" id="ex-moi"></div>
+                <div class="ex-cartes" id="ex-cartes"></div>
+                <div class="ex-bande"><div class="ex-couloir" id="ex-couloir"></div></div>
+                <div class="ex-bas">
+                    <div id="ex-zone-action"></div>
+                    <div class="ex-moi" id="ex-moi"></div>
+                </div>
             </div>
         </div>
     </div>`;
     exImagesBoutons();
+    exAideInit();
     exAjuster();
     if (!exC.redim) { exC.redim = true; window.addEventListener('resize', exAjuster); }
     exMedias3D();
@@ -590,7 +726,7 @@ function exImagesBoutons() {
 }
 // ---- 3D : scène de l'équipage + vitrines (chargées à la demande, facultatives)
 function exDetruire3D() {
-    ['stage', 'vitrine', 'moi'].forEach(k => { if (exC[k]) { try { exC[k].detruire(); } catch (e) {} exC[k] = null; } });
+    ['equipe', 'vignettes', 'vitrine', 'moi'].forEach(k => { if (exC[k]) { try { exC[k].detruire(); } catch (e) {} exC[k] = null; } });
     exC.vitrineNom = ''; exC.moiNom = '';
 }
 function exMedias3D() {
@@ -598,7 +734,9 @@ function exMedias3D() {
     if (!window.EX3D) return;
     window.EX3D.charger().then(ok => {
         if (!ok || !document.getElementById('ex-root')) return;
-        const st = document.getElementById('ex-stage'); if (st && !exC.stage) exC.stage = window.EX3D.scene(st, { video: document.getElementById('ex-vid') });
+        if (!exC.equipe) exC.equipe = window.EX3D.equipe();
+        if (!exC.vignettes) exC.vignettes = window.EX3D.vignettes();
+        const root = document.getElementById('ex-root'); if (root && exC.equipe) root.classList.add('a3d');
         const d = window.currentRoom; if (d && d.exGame) exMaj(d, d.exGame, true);
     });
 }
@@ -607,12 +745,13 @@ function exMedias3D() {
 function exHash(t) { let h = 2166136261; for (const c of String(t)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return Math.abs(h); }
 function exClipSalle(g, s, catastrophe) {
     if (!s) return '';
-    if (s.k === 'h') return 'salles/danger-' + s.h + '-' + (catastrophe ? 'b' : 'a');
-    if (s.k === 'a') return 'salles/relique-' + ((s.id || 0) % 4 + 1);
-    if (s.k === 'o' && EX_SALLES_OBJETS.indexOf(s.o) >= 0) return 'salles/equipement-' + s.o;
-    return 'salles/cristaux-' + String(exHash(g.startedAt + ':' + g.expe + ':' + s.n) % 12 + 1).padStart(2, '0');
+    if (s.k === 'h') return 'danger/danger-' + s.h + '-' + (catastrophe ? 'b' : 'a');
+    if (s.k === 'a') return 'reliques/' + EX_CLIP_RELIQUE[(s.id || 0) % 4];
+    if (s.k === 'o' && EX_SALLES_OBJETS.indexOf(s.o) >= 0) return 'equipement/equipement-' + s.o;
+    return 'cristaux/cristaux-' + String(exHash(g.startedAt + ':' + g.expe + ':' + s.n) % 12 + 1).padStart(2, '0');
 }
 const EX_MODELE_RELIQUE = ['relique-statuette', 'relique-orbe', 'relique-masque', 'relique-monolithe'];
+const EX_CLIP_RELIQUE = ['relique-statue', 'relique-orbe', 'relique-mask', 'relique-monolithe'];
 function exModeleSalle(s) {
     if (!s) return '';
     if (s.k === 't') return s.v >= 13 ? 'cristaux-geode' : s.v >= 6 ? 'cristal-grappe' : 'cristal';
@@ -621,15 +760,18 @@ function exModeleSalle(s) {
     return '';
 }
 function exCouleurSalle(s) { return !s ? '#67e8f9' : s.k === 'h' ? (s.eteint ? '#94a3b8' : (EX_DANGERS[s.h] || {}).c) : s.k === 'a' ? '#fbbf24' : s.k === 'o' ? '#a78bfa' : '#67e8f9'; }
-function exPhoto(g, s) { const c = exClipSalle(g, s, false); return c ? ` photo" style="background-image:url('${EX_MEDIA}${c}.jpg')${s.k === 'h' ? ';--c:' + (EX_DANGERS[s.h] || {}).c : ''}` : ''; }
-function exSalleHTML(s, neuve, g, noir) {
+function exPhoto(g, s) { return exClipSalle(g, s, false) ? ` photo"${s.k === 'h' ? ' style="--c:' + (EX_DANGERS[s.h] || {}).c + '"' : ''}` : ''; }
+// vignette : une image tirée de la vidéo de la salle (pas de fichier en plus)
+function exVignette(g, s) { const c = exClipSalle(g, s, false); return c ? `<video class="vign" muted playsinline preload="metadata" src="${encodeURI(EX_MEDIA + c + '.mp4')}#t=4"></video>` : ''; }
+function exSalleHTML(s, neuve, g, noir) { return exSalleHTML0(s, neuve, g, noir).replace(/^(<div[^>]*>)/, '$1' + exVignette(g, s)); }
+function exSalleHTML0(s, neuve, g, noir) {
     const cl = (k) => `ex-salle ${k}${neuve ? ' neuve' : ''}${exPhoto(g, s)}`;
     if (s.k === 't') return `<div class="${cl('t')}"><span class="num">SALLE ${s.n}</span><span class="ic">💎</span><span class="val">${noir ? '?' : s.v}</span>
         <span class="nom">${noir ? 'dans le noir' : s.part ? s.part + ' chacun' : 'personne'}</span><div class="ex-sol" title="Cristaux restés au sol">${noir ? '' : '<i></i>'.repeat(Math.min(s.r || 0, 14))}</div></div>`;
     if (s.k === 'h') { const D = EX_DANGERS[s.h] || {};
-        return `<div class="${cl('h' + (s.eteint ? ' eteint' : ''))}"><span class="num">SALLE ${s.n}</span><span class="ic">${s.eteint ? '🧯' : D.i}</span><span class="nom" style="color:${D.c};font-weight:800">${exEsc(D.n)}</span><span class="nom" style="color:#cbd5e1">${s.eteint ? 'éteint' : 'danger'}</span></div>`; }
+        return `<div class="${cl('h' + (s.eteint ? ' eteint' : ''))}"><span class="num">SALLE ${s.n}</span><span class="ic">${s.eteint ? (EX_OBJETS[s.prot || 'extincteur'] || {}).i : D.i}</span><span class="nom" style="color:${D.c};font-weight:800">${exEsc(D.n)}</span><span class="nom" style="color:#cbd5e1">${s.eteint ? 'neutralisé' : 'danger'}</span></div>`; }
     if (s.k === 'o') { const O = EX_OBJETS[s.o] || {};
-        return `<div class="${cl('o')}"><span class="num">SALLE ${s.n}</span><span class="ic">${O.i}</span><span class="nom" style="color:#ddd6fe;font-weight:800">${exEsc(O.n)}</span><span class="nom" style="color:#cbd5e1">→ ${exEsc(s.qui || '?')}</span></div>`; }
+        return `<div class="${cl('o')}" data-aide="${exAideObjet(s.o)}"><span class="num">SALLE ${s.n}</span><span class="ic">${O.i}</span><span class="nom" style="color:#ddd6fe;font-weight:800">${exEsc(O.n)}</span><span class="nom" style="color:#cbd5e1">${s.qui ? '→ ' + exEsc(s.qui) : s.qui === '' ? 'abandonné' : '🔨 enchère'}</span></div>`; }
     return `<div class="${cl('a' + (s.pris ? ' pris' : ''))}"><span class="num">SALLE ${s.n}</span><span class="ic">🗿</span><span class="val">${s.v}</span><span class="nom" style="color:#fde68a">${s.pris ? 'emportée' : 'relique alien'}</span></div>`;
 }
 
@@ -655,10 +797,15 @@ function exEtatVue(g) {
             dedans = exArr(av.dedans); Object.assign(sac, av.sac || {}); Object.assign(coffre, av.coffre || {});
             const sol = exArr(av.sol); chemin = chemin.map((s, i) => sol[i] ? Object.assign({}, s, { r: sol[i][0], pris: sol[i][1] }) : s);
         }
+        const en = (g.dec || {}).enchere;
+        if (en) {
+            chemin = chemin.map((s, i) => i === chemin.length - 1 && s.k === 'o' ? Object.assign({}, s, { qui: null }) : s);
+            if (en.qui) { objets = JSON.parse(JSON.stringify(objets)); objets[en.qui][en.o] = Math.max(0, (objets[en.qui][en.o] || 1) - 1); }
+        }
     }
     const fatal = paquet.filter(c => c.k === 'h' && vus[c.h]).length;
     return { phase: phase, t: t, chemin: chemin, dedans: dedans, sac: sac, coffre: coffre, vus: vus, objets: objets, paquetN: paquet.length,
-        risque: paquet.length ? fatal / paquet.length : 0, noir: !!exEffet(g).noir, silence: !!exEffet(g).silence };
+        risque: paquet.length ? fatal / paquet.length : 0, noir: !!exEffet(g).noir && !(((g.objets || {})[exMe()] || {}).lunette > 0), silence: !!exEffet(g).silence };
 }
 
 function exMaj(data, g, force) {
@@ -716,6 +863,14 @@ function exMaj(data, g, force) {
             const ev = [];
             Object.keys(dec.rel || {}).forEach(n => ev.push(`🗿 <b>${exEsc(n)}</b> rentre seul et emporte la relique !`));
             exArr(dec.vols).forEach(v => ev.push(`🪝 <b>${exEsc(v.a)}</b> lance son grappin et vole ${v.n} 💎 à <b>${exEsc(v.de)}</b> !`));
+            if (dec.enchere) {
+                const en = dec.enchere, O = EX_OBJETS[en.o] || {};
+                const offres = exArr(en.offres).map(o => `${exEsc(o.n)} ${o.k} ${o.src === 's' ? '🎒 (vaut ' + (o.k / EX_SAC_DIVISE) + ')' : '🔒'}`).join(' · ');
+                ev.push(en.qui ? `🔨 Enchère ${O.i} ${exEsc(O.n)} : ${offres} → <b>${exEsc(en.qui)}</b> l’emporte pour ${en.k} 💎 de son ${en.src === 's' ? 'sac' : 'coffre'}${en.egalite ? ' (égalité tirée au sort)' : ''} !`
+                    : `🔨 Personne n’a misé sur ${O.i} ${exEsc(O.n)} : il reste dans l’épave.`);
+                if (en.qui) setTimeout(() => exSon('relique'), 500);
+            }
+            exArr(dec.bonus).forEach(b => ev.push(b.o === 'balise' ? `📍 <b>${exEsc(b.n)}</b> déclenche sa balise de rappel et rafle le sol !` : `⛏️ <b>${exEsc(b.n)}</b> fore ${b.k} 💎 de plus en partant.`));
             if (dec.alarme) { const D = EX_DANGERS[dec.alarme] || {}; ev.push(`<span style="color:#fca5a5">🚨 ALARME : la relique a réveillé l’épave. Un danger ${D.i} de plus rôde dans les salles suivantes !</span>`); }
             voile.className = 'ex-voile choix';
             voile.innerHTML = `<div class="ex-rev"><div><h4 style="color:#6ee7b7">🚀 CONTINUENT</h4><div class="pp">${pers(decC, '#6ee7b7')}</div></div>
@@ -723,23 +878,12 @@ function exMaj(data, g, force) {
             exSon(decR.indexOf(me) >= 0 ? 'retour' : 'continuer');
             if (Object.keys(dec.rel || {}).length) setTimeout(() => exSon('relique'), 300);
             if (exArr(dec.vols).length) exFichier('ramasse', .7, 600).catch(() => {});
-            if (dec.alarme) { exC.alarmeJusqua = Date.now() + 9000; exFichier('alarme', .8, 900).catch(() => exSonSynthese('danger')); if (exC.stage) exC.stage.alarme(); if (root) { root.classList.remove('ex-tremble'); void root.offsetWidth; root.classList.add('ex-tremble'); } }
+            if (dec.alarme) { exC.alarmeJusqua = Date.now() + 9000; exFichier('alarme', .8, 900).catch(() => exSonSynthese('danger')); if (root) { root.classList.remove('ex-tremble'); void root.offsetWidth; root.classList.add('ex-tremble'); } }
         } else { voile.className = ''; voile.innerHTML = ''; }
     }
-    // ---- équipage
+    // ---- cartes d'équipage
     const ch = g.choix || {}, objets = E.objets;
-    const dehors = joueurs.filter(n => dedans.indexOf(n) < 0);
-    const inv = n => Object.keys(EX_OBJETS).map(k => (objets[n] || {})[k] > 0 ? EX_OBJETS[k].i + (objets[n][k] > 1 ? '×' + objets[n][k] : '') : '').join('');
-    const puce = (n, ou) => {
-        let etat = '';
-        if (E.phase === 'CHOIX' && ou === 'd') etat = n === me ? (ch[n] ? (ch[n] === 'c' ? '🚀' : '🏃') : '⏳') : E.silence ? '❔' : ch[n] ? '✅' : '⏳';
-        if (E.phase === 'COMPTE' && ou === 'd') etat = '🔒';
-        if (E.phase === 'DECISION') etat = decR.indexOf(n) >= 0 ? '🏃' : decC.indexOf(n) >= 0 ? '🚀' : '';
-        const val = ou === 'd' ? `<span class="s">🎒${E.sac[n] || 0}</span>` : n === me ? `<span class="s c">🔒${E.coffre[n] || 0}</span>` : `<span class="s x">🔒?</span>`;
-        return `<span class="ex-p${n === me ? ' moi' : ''}">${exPastille(n, 22)}<b>${exEsc(n)}</b>${val}<span class="e">${etat}${inv(n)}</span></span>`;
-    };
-    exHTML(document.getElementById('ex-eq'), `<div class="ligne"><span class="lt">🛰️ À BORD · ${dedans.length}</span>${dedans.map(n => puce(n, 'd')).join('') || '<span class="ex-sous">Plus personne à bord.</span>'}</div>
-        <div class="ligne"><span class="lt">🚀 VAISSEAU · ${dehors.length}</span>${dehors.map(n => puce(n, 'h')).join('') || '<span class="ex-sous">Tout le monde explore encore.</span>'}</div>`);
+    exCartes(g, E, me, decR, decC);
     // ---- zone d'action
     const za = document.getElementById('ex-zone-action');
     if (za) {
@@ -748,7 +892,7 @@ function exMaj(data, g, force) {
             const mon = ch[me], restes = chemin.reduce((s, x) => s + (x.k === 't' ? x.r || 0 : 0), 0), rel = chemin.filter(x => x.k === 'a' && !x.pris).length;
             exHTML(za, `<div class="ex-actions">
                 <button class="ex-btn go${mon === 'c' ? ' sel' : mon ? ' off' : ''}" onclick="exChoisir('c')"><span class="ex-rayure"></span><span class="ex-led"></span>CONTINUER<small>Sac en jeu : ${E.sac[me] || 0} 💎</small></button>
-                <button class="ex-btn back${mon === 'r' ? ' sel' : mon ? ' off' : ''}" onclick="exChoisir('r')"><span class="ex-rayure"></span><span class="ex-led"></span>RENTRER<small>Au sol : ${E.noir ? '?' : restes} 💎${rel ? ` + ${rel} 🗿 (si seul)` : ''}</small></button></div>`);
+                <button class="ex-btn back${mon === 'r' ? ' sel' : mon ? ' off' : ''}" onclick="exChoisir('r')"><span class="ex-rayure"></span><span class="ex-led"></span>RENTRER<small>Au sol : ${E.noir ? '?' : restes} 💎${rel ? ` + ${rel} 🗿 (si seul)` : ''}</small></button></div>${exPanneauEnchere(g, E)}`);
         } else if (E.phase === 'CHOIX') {
             exHTML(za, `<div class="ex-info">${joueur ? '🚀 Vous êtes à l’abri. ' : '👀 '}Les explorateurs choisissent en secret…${E.silence ? ' <b>(silence radio)</b>' : ` <b>${Object.keys(ch).filter(n => dedans.indexOf(n) >= 0).length}/${dedans.length}</b> ont décidé.`}</div>`);
         } else if (E.phase === 'COMPTE') exHTML(za, `<div class="ex-info">🔒 Tous les choix sont verrouillés… révélation dans un instant !</div>`);
@@ -773,16 +917,123 @@ function exMaj(data, g, force) {
             const boutons = [
                 o.scanner > 0 ? `<button class="ex-obj${choixOk && !scan ? ' actif' : ''}" ${choixOk && !scan ? '' : 'disabled'} onclick="exScanner()" title="${EX_OBJETS.scanner.n} : ${EX_OBJETS.scanner.d}">📡<small>×${o.scanner}</small></button>` : '',
                 o.grappin > 0 ? `<button class="ex-obj${arme ? ' arme' : choixOk ? ' actif' : ''}" ${choixOk ? '' : 'disabled'} onclick="exGrappin()" title="${EX_OBJETS.grappin.n} : ${EX_OBJETS.grappin.d}${arme ? ' (ARMÉ)' : ''}">🪝<small>×${o.grappin}</small></button>` : '',
-                o.extincteur > 0 ? `<span class="ex-obj passif" title="${EX_OBJETS.extincteur.n} : ${EX_OBJETS.extincteur.d}">🧯<small>×${o.extincteur}</small></span>` : ''].join('');
-            const txt = `<b>🔒 Mon coffre : ${E.coffre[me] || 0} 💎${(g.reliques || {})[me] ? ' · 🗿×' + g.reliques[me] : ''}</b>${arme ? '<span style="color:#fda4af">🪝 Grappin armé : continuez pour voler celui qui rentre.</span>' : boutons ? 'Objets : survolez pour l’aide.' : 'Les coffres des autres restent secrets.'}${scan ? `<div class="ex-scan" style="color:${scan.ok ? '#86efac' : '#fca5a5'}">📡 ${exEsc(scan.txt)}</div>` : ''}`;
-            const h = `<div id="ex-mon-objet"></div><div class="txt">${txt}</div><div class="ex-inv">${boutons}</div>`;
+                o.balise > 0 ? `<button class="ex-obj${(g.balise || {})[me] ? ' arme' : choixOk ? ' actif' : ''}" ${choixOk ? '' : 'disabled'} onclick="exBalise()" title="${EX_OBJETS.balise.n} : ${EX_OBJETS.balise.d}${(g.balise || {})[me] ? ' (ARMÉE)' : ''}">📍<small>×${o.balise}</small></button>` : '',
+                o.drone > 0 ? `<button class="ex-obj${choixOk && !g.drone ? ' actif' : ''}" ${choixOk && !g.drone ? '' : 'disabled'} onclick="exDrone()" title="${EX_OBJETS.drone.n} : ${EX_OBJETS.drone.d}">🛸<small>×${o.drone}</small></button>` : '']
+                .concat(['extincteur', 'scellant', 'combinaison', 'leurre', 'bouclier', 'foreuse', 'lunette'].map(k => o[k] > 0 ? `<span class="ex-obj passif" title="${EX_OBJETS[k].n} : ${EX_OBJETS[k].d}">${EX_OBJETS[k].i}<small>×${o[k]}</small></span>` : '')).join('');
+            const txt = `<b>🔒 Mon coffre : ${E.coffre[me] || 0} 💎${(g.reliques || {})[me] ? ' · 🗿×' + g.reliques[me] : ''}</b>${arme ? '<span style="color:#fda4af">🪝 Grappin armé : continuez pour voler celui qui rentre.</span>' : (g.balise || {})[me] ? '<span style="color:#fda4af">📍 Balise armée : vous rentrez et raflez le sol.</span>' : boutons ? 'Vos objets sont sur votre carte : cliquez pour les utiliser, survolez pour l’aide.' : 'Les coffres des autres restent secrets.'}${scan ? `<div class="ex-scan" style="color:${scan.ok ? '#86efac' : '#fca5a5'}">📡 ${exEsc(scan.txt)}</div>` : ''}`;
+            const h = `<div id="ex-mon-objet"></div><div class="txt">${txt}</div>`;
             // le modèle 3D du sac/coffre est dans #ex-mon-objet : on ne reconstruit que le texte et les objets
             if (!document.getElementById('ex-mon-objet') || !mo.contains(document.getElementById('ex-mon-objet'))) { mo.innerHTML = h; mo._h = ''; exC.moiNom = ''; if (exC.moi) { try { exC.moi.detruire(); } catch (e) {} exC.moi = null; } }
-            const zt = mo.querySelector('.txt'), zi = mo.querySelector('.ex-inv'); exHTML(zt, txt); exHTML(zi, boutons);
+            exHTML(mo.querySelector('.txt'), txt);
         }
     }
     exMediasMaj(g, E, clePhase, nouvellePhase);
     exC.clePhase = clePhase;
+}
+// ---- aide au survol : tout élément portant data-aide (objets 3D, vitrine, salles) affiche son utilité
+function exAideObjet(o) { const O = EX_OBJETS[o] || {}; return exEsc(`<b>${O.i || ''} ${exEsc(O.n || '')}</b><br>${exEsc(O.d || '')}`); }
+function exAideInit() {
+    if (exC.aideInit) return; exC.aideInit = true;
+    const b = document.createElement('div'); b.id = 'ex-aide'; document.body.appendChild(b);
+    const cacher = () => { b.style.display = 'none'; };
+    document.addEventListener('mousemove', e => {
+        const t = e.target && e.target.closest ? e.target.closest('[data-aide]') : null;
+        if (!t || !document.getElementById('ex-root')) { cacher(); return; }
+        const h = t.getAttribute('data-aide'); if (b._h !== h) { b._h = h; b.innerHTML = h; }
+        b.style.display = 'block';
+        const w = b.offsetWidth, hh = b.offsetHeight;
+        b.style.left = Math.min(window.innerWidth - w - 8, e.clientX + 14) + 'px';
+        b.style.top = (e.clientY + 18 + hh > window.innerHeight ? e.clientY - hh - 12 : e.clientY + 18) + 'px';
+    });
+    document.addEventListener('scroll', cacher, true);
+}
+// ---- panneau de l'enchère secrète (salle d'équipement, pendant le choix)
+function exPanneauEnchere(g, E) {
+    const salle = exSalleEnVente(g); if (!salle) return '';
+    const O = EX_OBJETS[salle.o] || {}, m = exMiseLocale(g), me = exMe(), envoyee = (g.mises || {})[me];
+    const coffre = (g.coffre || {})[me] || 0, sac = (g.sac || {})[me] || 0, val = m.src === 's' ? m.n / EX_SAC_DIVISE : m.n;
+    return `<div class="ex-enchere" data-aide="${exAideObjet(salle.o)}">
+        <div class="t">🔨 ENCHÈRE SECRÈTE · ${O.i} ${exEsc(O.n).toUpperCase()}</div>
+        <div class="ligne">
+            <button class="pm" onclick="exMiseAjuste(-1)" aria-label="Moins">−</button><b class="n">${m.n}</b><button class="pm" onclick="exMiseAjuste(1)" aria-label="Plus">+</button>
+            <div class="src"><button class="${m.src === 'c' ? 'sel' : ''}" onclick="exMiseSource('c')">🔒 Coffre · ${coffre}</button><button class="${m.src === 's' ? 'sel' : ''}" onclick="exMiseSource('s')">🎒 Sac · ${sac} <small>(×½)</small></button></div>
+            <button class="ok" onclick="exMiser()">${m.n > 0 ? (envoyee ? 'Modifier' : 'Miser') : (envoyee ? 'Retirer' : 'Passer')}</button>
+        </div>
+        <div class="p">${envoyee ? `✅ Mise envoyée : ${envoyee.n} 💎 ${envoyee.src === 's' ? 'du sac' : 'du coffre'}. ` : 'Personne ne voit votre mise. '}Valeur d’enchère : <b>${val}</b>. Le sac ne vaut que la moitié (2 💎 = 1 point), mais vous videz des cristaux que vous risquez de perdre. Seul le gagnant paie.</div>
+    </div>`;
+}
+// ---- cartes d'équipage : une carte par joueur, avec son astronaute 3D animé
+function exCarteEl(n) { const r = document.getElementById('ex-cartes'); return r ? r.querySelector('.ex-carte[data-n="' + (window.CSS && CSS.escape ? CSS.escape(n) : n) + '"]') : null; }
+function exCartes(g, E, me, decR, decC) {
+    const zone = document.getElementById('ex-cartes'); if (!zone) return;
+    const joueurs = exArr(g.joueurs), dedans = E.dedans, ch = g.choix || {}, objets = E.objets, n = joueurs.length;
+    const cle = joueurs.join('|');
+    if (zone._cle !== cle) {
+        zone._cle = cle;
+        zone.style.setProperty('--nc', n <= 4 ? Math.max(2, n) : n <= 6 ? 3 : n <= 8 ? 4 : 5);
+        zone.innerHTML = joueurs.map(p => `<div class="ex-carte${p === me ? ' moi' : ''}" data-n="${exEsc(p)}" style="--c:${exCouleur(p)}">
+            <span class="etat"></span><canvas class="fig"></canvas><div class="repli">${exPastille(p, 64)}</div><div class="socle"></div>
+            <div class="nom">${exEsc(p)}</div><div class="val"></div><div class="equip"></div></div>`).join('');
+    }
+    const victimes = E.phase === 'DESASTRE' && g.desastre ? Object.keys(g.desastre.pertes || {}) : [];
+    const gains = g.gainExpe || {}, liste = [];
+    joueurs.forEach(p => {
+        const el = exCarteEl(p); if (!el) return;
+        const aBord = dedans.indexOf(p) >= 0, mort = victimes.indexOf(p) >= 0;
+        let etat = aBord ? 'À BORD' : 'AU VAISSEAU', anim = 'attente', choix = '';
+        if (mort) { etat = 'ÉVACUÉ'; anim = 'mort-' + g.desastre.h; }
+        else if (E.phase === 'DEPART') anim = 'marche';
+        else if (aBord && E.phase === 'CHOIX') etat += p === me ? (ch[p] ? (ch[p] === 'c' ? ' · 🚀' : ' · 🏃') : ' · ⏳') : E.silence ? ' · ❔' : ch[p] ? ' · ✅' : ' · ⏳';
+        else if (aBord && E.phase === 'COMPTE') etat += ' · 🔒';
+        else if (E.phase === 'DECISION' && decR.indexOf(p) >= 0) { anim = 'rentre'; choix = '<span class="choix" style="color:#fdba74">🏃 RENTRE</span>'; }
+        else if (E.phase === 'DECISION' && decC.indexOf(p) >= 0) { anim = 'marche'; choix = '<span class="choix" style="color:#6ee7b7">🚀 CONTINUE</span>'; }
+        else if (E.phase === 'BILAN' && gains[p] > 0) anim = 'joie';
+        if (aBord && E.phase === 'SALLE') { const der = E.chemin[E.chemin.length - 1]; if (der && der.k === 'h' && !der.eteint) anim = 'peur'; }
+        el.classList.toggle('vaisseau', !aBord && !mort); el.classList.toggle('mort', mort);
+        exHTML(el.querySelector('.etat'), etat);
+        exInventaire(el.querySelector('.equip'), g, E, p, me);
+        const val = el.querySelector('.val');
+        if (aBord) { val.className = 'val'; exHTML(val, '🎒 ' + (E.sac[p] || 0)); }
+        else if (p === me) { val.className = 'val c'; exHTML(val, '🔒 ' + (E.coffre[p] || 0)); }
+        else { val.className = 'val x'; exHTML(val, '🔒 coffre secret'); }
+        let bulle = el.querySelector('.choix'); if (bulle && !choix) bulle.remove();
+        if (choix && !bulle) el.insertAdjacentHTML('beforeend', choix);
+        liste.push({ n: p, c: exCouleur(p), canvas: el.querySelector('.fig'), etat: anim });
+    });
+    if (exC.equipe) exC.equipe.maj(liste);
+    if (exC.vignettes) exC.vignettes.maj(Array.from(zone.querySelectorAll('.ex-tuile canvas')).map(c => ({ canvas: c, nom: 'objet-' + c.dataset.o })));
+}
+// inventaire d'un joueur : ses objets en 3D ; sur sa propre carte, ceux qui s'utilisent sont des boutons
+const EX_OBJETS_ACTIFS = { scanner: 'exScanner', grappin: 'exGrappin', balise: 'exBalise', drone: 'exDrone' };
+function exInventaire(zone, g, E, p, me) {
+    if (!zone) return;
+    const o = (E.objets || {})[p] || {}, moi = p === me, choixOk = moi && E.phase === 'CHOIX' && E.dedans.indexOf(me) >= 0;
+    const scanFait = exC.scan && exC.scan.cle === g.expe + ':' + exArr(g.chemin).length;
+    const html = Object.keys(EX_OBJETS).filter(k => o[k] > 0).map(k => {
+        const O = EX_OBJETS[k], fn = moi && EX_OBJETS_ACTIFS[k];
+        const arme = (k === 'grappin' && (g.grappin || {})[me]) || (k === 'balise' && (g.balise || {})[me]);
+        const dispo = fn && choixOk && !(k === 'scanner' && scanFait) && !(k === 'drone' && g.drone);
+        const cl = arme ? ' arme' : dispo ? ' actif' : '';
+        const attr = (dispo || arme) ? `onclick="${fn}()"` : 'aria-disabled="true"';
+        const aide = exAideObjet(k) + (arme ? exEsc('<br><span style="color:#fda4af">● ARMÉ</span>') : dispo ? exEsc('<br><span style="color:#67e8f9">Cliquez pour l’utiliser.</span>') : '');
+        return `<button class="ex-tuile${cl}" ${attr} data-aide="${aide}"><span class="em">${O.i}</span><canvas data-o="${k}"></canvas>${o[k] > 1 ? `<small>×${o[k]}</small>` : ''}</button>`;
+    }).join('');
+    // ne reconstruit que si quelque chose change (les cases 3D gardent leur canvas)
+    if (zone._h !== html) { zone._h = html; zone.innerHTML = html; }
+}
+// cristaux qui volent en courbe d'un élément à un autre
+function exVolGemmes(de, vers, n, coul) {
+    if (!de || !vers || !n) return;
+    const a = de.getBoundingClientRect(), b = vers.getBoundingClientRect();
+    const x0 = a.left + a.width / 2, y0 = a.top + a.height * .62, x1 = b.left + b.width / 2, y1 = b.top + b.height * .55;
+    for (let i = 0; i < Math.min(n, 10); i++) {
+        const e = document.createElement('i'); e.className = 'ex-gemme'; e.style.left = x0 + 'px'; e.style.top = y0 + 'px'; if (coul) e.style.setProperty('--g', coul);
+        document.body.appendChild(e);
+        const dx = x1 - x0 + (Math.random() - .5) * 40, dy = y1 - y0, h = -110 - Math.random() * 90;
+        const an = e.animate([{ transform: 'translate(0,0) scale(.4)', opacity: 0 }, { transform: `translate(${dx * .5}px,${dy * .5 + h}px) scale(1.3) rotate(180deg)`, opacity: 1, offset: .5 },
+            { transform: `translate(${dx}px,${dy}px) scale(.6) rotate(360deg)`, opacity: .9 }], { duration: 950 + Math.random() * 300, delay: i * 85, easing: 'cubic-bezier(.3,.1,.3,1)', fill: 'both' });
+        an.onfinish = () => { e.remove(); vers.classList.remove('ex-recoit'); void vers.offsetWidth; vers.classList.add('ex-recoit'); };
+    }
 }
 // au moment où la salle est dévoilée (après l'ouverture du sas)
 function exRevelation(g, E, s, me) {
@@ -790,10 +1041,10 @@ function exRevelation(g, E, s, me) {
     const menace = Object.keys(E.vus).some(h => E.vus[h]);
     if (s.k === 't') {
         exSon('gemmes');
-        if (s.part && exC.stage) exC.stage.gemmes(dedans.map(n => ({ de: 'porte', a: n, k: s.part })));
+        if (s.part) { const vue = document.getElementById('ex-scene'); dedans.forEach((n, i) => setTimeout(() => exVolGemmes(vue, exCarteEl(n), s.part), i * 120)); }
         if (s.part && moiDedans) exFichier('ramasse', .6, 900).then(() => exFichier('sac', .7, 250)).catch(() => {});
     } else if (s.k === 'h') {
-        if (s.eteint) { exFichier('danger-feu', .6).catch(() => {}); exSonSynthese('retour'); }
+        if (s.eteint) { exFichier('danger-' + s.h, .5).catch(() => {}); exFichier('sas-fermeture', .6, 900).catch(() => exSonSynthese('retour')); }
         else if (g.phase !== 'DESASTRE') {
             exFichier('danger-' + s.h, .9).catch(() => exSonSynthese('danger'));
             const sc = document.getElementById('ex-scene'); if (sc) { sc.style.setProperty('--c', (EX_DANGERS[s.h] || {}).c); sc.classList.remove('flash'); void sc.offsetWidth; sc.classList.add('flash'); }
@@ -808,15 +1059,18 @@ function exVue(clip, large) {
     const v = document.getElementById('ex-vid'), f = document.getElementById('ex-vid-flou'), sc = document.getElementById('ex-scene');
     if (!v || !clip || exC.vue === clip) return; exC.vue = clip;
     if (sc) sc.classList.toggle('large', !!large);
-    const src = EX_MEDIA + clip + '.mp4', poster = EX_MEDIA + clip + '.jpg';
-    [v, f].forEach(el => { el.poster = poster; el.src = src; el.loop = clip === 'bonus/couloir'; el.currentTime = 0; const p = el.play(); if (p && p.catch) p.catch(() => {}); });
+    // vidéos d'origine en pleine qualité ; les salles (8-10 s) bouclent, les plans uniques non
+    const src = encodeURI(EX_MEDIA + clip + '.mp4'), boucle = /^(cristaux|reliques|equipement)\/|danger-.*-a$|transition-couloir$/.test(clip);
+    v.src = src; v.loop = boucle; v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => {});
+    // fond flou seulement pour les vidéos horizontales (épaves, transitions)
+    if (f) { if (large) { f.src = src; f.loop = boucle; const q = f.play(); if (q && q.catch) q.catch(() => {}); } else { f.removeAttribute('src'); f.load(); } }
 }
 function exVueSelonTemps(g, E) {
     const chemin = exArr(g.chemin), t = E.t, der = chemin[chemin.length - 1];
-    if (g.phase === 'DEPART') exVue(t < 3.3 ? 'epaves/' + EX_FICHIERS_EPAVES[(g.epaveId || 0) % EX_FICHIERS_EPAVES.length] : 'bonus/amarrage', true);
-    else if (E.phase === 'PORTE') exVue(t < EX_PORTE.OUVRE ? 'bonus/couloir' : exClipSalle(g, der, g.phase === 'DESASTRE'), false);
-    else if (g.phase === 'DESASTRE') exVue(t < 3.4 + EX.REVELE ? exClipSalle(g, der, true) : 'bonus/evacuation', t >= 3.4 + EX.REVELE);
-    else if (g.phase === 'BILAN') exVue('bonus/retour', true);
+    if (g.phase === 'DEPART') exVue(t < 3.3 ? 'épaves/' + EX_FICHIERS_EPAVES[(g.epaveId || 0) % EX_FICHIERS_EPAVES.length] : 'bonus/transition-amarrage', true);
+    else if (E.phase === 'PORTE') exVue(t < EX_PORTE.OUVRE ? 'bonus/transition-couloir' : exClipSalle(g, der, g.phase === 'DESASTRE'), false);
+    else if (g.phase === 'DESASTRE') exVue(t < 3.4 + EX.REVELE ? exClipSalle(g, der, true) : 'bonus/transition-evacuation', t >= 3.4 + EX.REVELE);
+    else if (g.phase === 'BILAN') exVue('bonus/transition-retour', true);
     else if (der) exVue(exClipSalle(g, der, false), false);
 }
 // porte du sas (vue + 3D), compte à rebours, chronomètre : animés par la boucle
@@ -834,7 +1088,6 @@ function exAnimer(g, E) {
     if (sc) sc.classList.toggle('noir', E.noir && ['PORTE', 'SALLE', 'CHOIX', 'COMPTE', 'DECISION'].indexOf(E.phase) >= 0);
     const der = E.chemin[E.chemin.length - 1];
     if (sc) sc.classList.toggle('eteint', !!(der && der.k === 'h' && der.eteint && ['SALLE', 'CHOIX', 'COMPTE', 'DECISION'].indexOf(E.phase) >= 0));
-    if (exC.stage) exC.stage.porte(E.phase === 'PORTE' ? E.t >= EX_PORTE.OUVRE : ['SALLE', 'CHOIX', 'COMPTE', 'DECISION', 'DESASTRE'].indexOf(E.phase) >= 0);
     // compte à rebours avant la révélation des choix
     const voile = document.getElementById('ex-voile');
     if (E.phase === 'COMPTE' && voile) {
@@ -854,10 +1107,16 @@ function exMediasMaj(g, E, clePhase, nouvellePhase) {
         if (der && ['SALLE', 'CHOIX'].indexOf(E.phase) >= 0) {
             if (der.k === 't') h = E.noir ? `<div class="t">SALLE ${der.n} · DANS LE NOIR</div><div class="g">💎 Des cristaux…</div><div class="p">Impossible de les compter à la lampe. Votre sac : ${E.sac[me] || 0} 💎</div>`
                 : `<div class="t">SALLE ${der.n}</div><div class="g">💎 ${der.v} cristaux</div><div class="p">${der.part ? der.part + ' pour chaque explorateur' : 'personne pour les ramasser'}${der.r ? ' · ' + der.r + ' restent au sol' : ''}</div>`;
-            else if (der.k === 'h' && der.eteint) h = `<div class="t">SALLE ${der.n} · DANGER MAÎTRISÉ</div><div class="g" style="color:#cbd5e1">🧯 Incendie éteint</div><div class="p">${exEsc(der.eteint)} a vidé son extincteur : ce feu ne compte pas.</div>`;
+            else if (der.k === 'h' && der.eteint) { const O = EX_OBJETS[der.prot || 'extincteur'] || {}, D = EX_DANGERS[der.h] || {}; h = `<div class="t">SALLE ${der.n} · DANGER MAÎTRISÉ</div><div class="g" style="color:#cbd5e1">${O.i} ${exEsc(D.n)} neutralisé</div><div class="p">${exEsc(der.eteint)} a utilisé son objet « ${exEsc(O.n)} » : ce danger ne compte pas.</div>`; }
             else if (der.k === 'h') { const D = EX_DANGERS[der.h] || {}; h = `<div class="t">SALLE ${der.n} · DANGER</div><div class="g" style="color:${D.c}">${D.i} ${exEsc(D.n)}</div><div class="p">${exEsc(D.d)} Encore un et c’est l’évacuation !</div>`; }
-            else if (der.k === 'o') { const O = EX_OBJETS[der.o] || {}; h = `<div class="t">SALLE ${der.n} · ÉQUIPEMENT</div><div class="g" style="color:#c4b5fd">${O.i} ${exEsc(O.n)} trouvé</div><div class="p">${exEsc(der.qui || '')} le ramasse. ${exEsc(O.d)}</div>`; }
+            else if (der.k === 'o') { const O = EX_OBJETS[der.o] || {}; h = `<div class="t">SALLE ${der.n} · ÉQUIPEMENT</div><div class="g" style="color:#c4b5fd">${O.i} ${exEsc(O.n)}</div><div class="p">${der.qui == null ? '🔨 Enchère secrète : misez pendant le choix pour l’obtenir.' : der.qui ? exEsc(der.qui) + ' l’a obtenu.' : 'Personne n’a misé : il reste dans l’épave.'} ${exEsc(O.d)}</div>`; }
             else h = `<div class="t">SALLE ${der.n}</div><div class="g" style="color:#fbbf24">🗿 Relique alien · ${der.v} pts</div><div class="p">Seul un explorateur qui rentre seul pourra l’emporter… et l’épave n’aime pas ça.</div>`;
+            // le drone a montré la salle suivante à tout le monde
+            if (g.drone && E.phase === 'CHOIX') {
+                const d = g.drone, D = EX_DANGERS[d.h] || {}, O = EX_OBJETS[d.o] || {};
+                const quoi = d.k === 'h' ? `${D.i} ${exEsc(D.n)}${(E.vus || {})[d.h] ? ' (fatal !)' : ''}` : d.k === 't' ? `💎 ${E.noir ? 'des' : d.v} cristaux` : d.k === 'a' ? '🗿 une relique' : d.k === 'o' ? `${O.i} ${exEsc(O.n)}` : 'plus rien';
+                h += `<div class="p" style="margin-top:6px;padding:5px 9px;border-radius:8px;background:rgba(2,6,23,.75);border:1px solid #a78bfa;display:inline-block">🛸 Drone de ${exEsc(d.qui)} : salle suivante = <b>${quoi}</b></div>`;
+            }
         } else if (E.phase === 'DEPART') { const Ef = exEffet(g); h = `<div class="t">EXPÉDITION ${g.expe}/${g.nb}</div><div class="g">${exEsc(g.epave)}</div><div class="p">${Ef.t ? Ef.i + ' ' + exEsc(Ef.t) + ' : ' + exEsc(Ef.d) : 'Approche et amarrage…'}</div>`; }
         exHTML(lg, h);
     }
@@ -869,6 +1128,8 @@ function exMediasMaj(g, E, clePhase, nouvellePhase) {
     // vitrine : le cristal, la relique ou l'objet de la salle
     const o3 = document.getElementById('ex-obj3d'), mod = ['SALLE', 'CHOIX', 'COMPTE', 'DECISION'].indexOf(E.phase) >= 0 ? exModeleSalle(der) : '';
     if (o3) {
+        const aide = mod && der.k === 'o' ? exAideObjet(der.o) : mod && der.k === 'a' ? exEsc(`<b>🗿 Relique alien · ${der.v} pts</b><br>Emportée seulement par un explorateur qui rentre seul. Elle déclenche l’alarme de l’épave.`) : '';
+        if (aide) { o3.setAttribute('data-aide', aide); o3.style.pointerEvents = 'auto'; } else { o3.removeAttribute('data-aide'); o3.style.pointerEvents = 'none'; }
         if (!mod && exC.vitrine) { exC.vitrine.detruire(); exC.vitrine = null; exC.vitrineNom = ''; }
         else if (mod && exC.vitrineNom !== mod) {
             exC.vitrineNom = mod;
@@ -877,18 +1138,11 @@ function exMediasMaj(g, E, clePhase, nouvellePhase) {
             if (exC.vitrine) exC.vitrine.lueur(der.k === 'a' ? 0xfbbf24 : der.k === 'o' ? 0xa78bfa : mod === 'cristaux-geode' ? 0xa855f7 : 0x67e8f9);
         }
     }
-    // scène de l'équipage
-    if (exC.stage) {
-        const gains = g.gainExpe || {}, restes = chemin.reduce((s, x) => s + (x.k === 't' ? x.r || 0 : 0), 0);
-        exC.stage.maj({ cle: clePhase, phase: E.phase,
-            dedans: dedans.map(n => ({ n: n, c: exCouleur(n), sac: E.sac[n] || 0 })), dehors: joueurs.filter(n => dedans.indexOf(n) < 0).map(n => ({ n: n, c: exCouleur(n) })),
-            rentrent: E.phase === 'DECISION' ? exArr(dec.r) : [], victimes: g.desastre ? Object.keys(g.desastre.pertes || {}) : [], gagnants: Object.keys(gains).filter(n => gains[n] > 0),
-            sol: E.noir ? 6 : restes, salle: exCouleurSalle(der), danger: g.desastre ? (EX_DANGERS[g.desastre.h] || {}).c : '', noir: E.noir, menace: Object.keys(E.vus).some(h => E.vus[h]) });
-        if (nouvellePhase && E.phase === 'DECISION') {
-            const v = []; Object.keys(dec.gains || {}).forEach(n => { if (dec.gains[n] > 0) v.push({ de: 'sol', a: n, k: dec.gains[n] }); });
-            exArr(dec.vols).forEach(x => v.push({ de: x.de, a: x.a, k: x.n }));
-            exC.stage.gemmes(v);
-        }
+    // cristaux qui volent à la révélation des choix : du couloir vers ceux qui rentrent, d'une carte à l'autre pour le grappin
+    if (nouvellePhase && E.phase === 'DECISION') {
+        const bande = document.getElementById('ex-couloir');
+        Object.keys(dec.gains || {}).forEach((n, i) => { if (dec.gains[n] > 0) setTimeout(() => exVolGemmes(bande, exCarteEl(n), dec.gains[n]), 300 + i * 150); });
+        exArr(dec.vols).forEach(x => setTimeout(() => exVolGemmes(exCarteEl(x.de), exCarteEl(x.a), x.n, '#f43f5e'), 1200));
     }
     // mon objet : sac pendant l'exploration, coffre (ouvert quand je dépose) au vaisseau
     const mo = document.getElementById('ex-mon-objet');
