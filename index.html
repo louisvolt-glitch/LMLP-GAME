@@ -1191,10 +1191,10 @@ window.rejoindreSalonFirebase = function(codeSalon, callbackMiseAJour) {
                     <div>
                         <span class="text-slate-300 text-[11px]">Nombre d’expéditions :</span>
                         <select id="setting-ex-nb" onchange="updateHostSettings()" class="w-full bg-black/50 border border-cyan-500/40 text-cyan-300 px-2 py-1 text-xs mt-0.5">
-                            <option value="3">3 expéditions (≈ 10 min)</option><option value="5" selected>5 expéditions (≈ 15 min)</option><option value="7">7 expéditions (≈ 25 min)</option>
+                            <option value="1">1 expédition (≈ 4 min)</option><option value="2">2 expéditions (≈ 7 min)</option><option value="3">3 expéditions (≈ 11 min)</option><option value="4">4 expéditions (≈ 14 min)</option><option value="5" selected>5 expéditions (≈ 18 min)</option><option value="6">6 expéditions (≈ 21 min)</option><option value="7">7 expéditions (≈ 25 min)</option><option value="8">8 expéditions (≈ 28 min)</option><option value="10">10 expéditions (≈ 35 min)</option><option value="12">12 expéditions (≈ 42 min)</option>
                         </select>
                     </div>
-                    <div class="text-[10px] text-slate-500">Le curseur ci-dessus règle le temps pour choisir « Continuer » ou « Rentrer » (8 à 30 s). Sans réponse, l’explorateur rentre au vaisseau.</div>
+                    <div class="text-[10px] text-slate-500">Le curseur ci-dessus règle le temps pour choisir « Continuer » ou « Rentrer » (5 à 90 s). Sans réponse, l’explorateur rentre au vaisseau.</div>
                 </div>
 
                 <!-- Options Magnat Galactique -->
@@ -2024,7 +2024,7 @@ if (mode === 'codenames') {
                 displayEl.innerText = s.dsMode === 'campagne' ? `Campagne : 8 charges | démineur : ${s.dsDem || 'au hasard'}` : `${nv}${s.dsMode === 'entrainement' ? ' · entraînement' : ''} | démineur : ${s.dsDem || 'au hasard'}`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'expedition') {
-                displayEl.innerText = `${s.exNb || 5} expéditions | ${timer}s pour décider`;
+                displayEl.innerText = `${s.exNb || 5} expédition${(s.exNb || 5) > 1 ? 's' : ''} | ${timer}s pour décider`;
                 if (catDisplayEl) { catDisplayEl.innerHTML = ''; catDisplayEl.classList.add('hidden'); }
             } else if (mode === 'dessin') {
                 const th = (window.DV_THEMES || {})[s.dvTheme] || '🎲 Mixte';
@@ -2862,7 +2862,7 @@ if (timerSlider) {
     bataille: { min: 10, max: 60, step: 5, value: 30 },
     missive: { min: 15, max: 120, step: 5, value: 45 },
     dessin: { min: 40, max: 150, step: 10, value: 80 },
-    expedition: { min: 8, max: 30, step: 1, value: 15 },
+    expedition: { min: 5, max: 90, step: 1, value: 20 },
     geoguessr: { min: 15, max: 300, step: 5, value: 60 },
     'default': { min: 5,  max: 60,  step: 1, value: 20 }
 };
