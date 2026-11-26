@@ -30,7 +30,7 @@ EX3D.charger = function () {
 // ---- chargement des modèles (fichier mis en cache ; chaque usage reçoit sa propre copie) ----
 const tampons = {};
 function tampon(nom) {
-    return tampons[nom] || (tampons[nom] = fetch(encodeURI(DOSSIER + fichier(nom))).then(r => { if (!r.ok) throw new Error(nom); return r.arrayBuffer(); }));
+    return tampons[nom] || (tampons[nom] = (W.exRecup ? W.exRecup(DOSSIER + fichier(nom)) : fetch(encodeURI(DOSSIER + fichier(nom)))).then(r => { if (!r.ok) throw new Error(nom); return r.arrayBuffer(); }));
 }
 function modele(nom) {
     return tampon(nom).then(buf => new Promise((ok, ko) => new W.THREE.GLTFLoader().parse(buf, DOSSIER, ok, ko)));
