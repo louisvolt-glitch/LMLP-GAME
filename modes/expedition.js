@@ -47,18 +47,25 @@ const EX_GRAPPIN = 3;                                 // cristaux volés par le 
 // effet de chaque épave (même ordre que EX_NOMS_EPAVES)
 const EX_EFFETS = [
     { i: '☢️', t: 'Réacteur éventré', d: 'Une relique de plus, mais deux fois plus de radiations.', dangers: { rad: 6 }, reliques: 1 },
-    { i: '⏱️', t: 'Courant coupé', d: 'Moins de temps pour choisir (−4 s).', choix: -4 },
+    { i: '⏱️', t: 'Courant coupé', d: 'Moins de temps pour choisir (−30 %).', choixMult: .7 },
     { i: '💎', t: 'Filon riche', d: 'Chaque salle de cristaux en contient 2 de plus.', bonus: 2 },
     { i: '👾', t: 'Nid xénomorphe', d: 'Créatures ×2, mais cristaux ×1,5.', dangers: { xeno: 6 }, mult: 1.5 },
     { i: '🧰', t: 'Soute à matériel', d: 'Deux objets de plus à trouver.', objets: 2 },
-    { i: '⚡', t: 'Orage magnétique', d: 'Courts-circuits ×2, cristaux +1 par salle.', dangers: { elec: 6 }, bonus: 1 },
-    { i: '🔇', t: 'Silence radio', d: 'Impossible de voir qui a déjà choisi.', silence: 1 },
+    { i: '⚡', t: 'Orage magnétique', d: 'Courts-circuits ×2 (aucun objet ne les arrête), mais cristaux ×1,5.', dangers: { elec: 6 }, mult: 1.5 },
+    { i: '🔇', t: 'Silence radio', d: 'Communications coupées : impossible de voir le sac des autres explorateurs et qui a déjà choisi. Qui est le plus riche ?', silence: 1 },
     { i: '💨', t: 'Coque percée', d: 'Fuites d’oxygène ×2, mais cristaux ×1,5.', dangers: { oxy: 6 }, mult: 1.5 },
     { i: '🕊️', t: 'Épave calme', d: 'Seulement 2 cartes de chaque danger.', dangers: { oxy: 2, xeno: 2, rad: 2, feu: 2, elec: 2 } },
     { i: '🌑', t: 'Dans le noir', d: 'La lampe ne montre que la moitié : quantités de cristaux et risque cachés.', noir: 1 }
 ];
-function exEffet(g) { return EX_EFFETS[(g && g.epaveId) || 0] || {}; }
-function exDuree(g) { return Math.max(5, (g.duree || EX.CHOIX_DEF) + (exEffet(g).choix || 0)); }
+function exEffetBase(g) { return EX_EFFETS[(g && g.epaveId) || 0] || {}; }
+// effet de l'épave ; le temps réduit (Courant coupé) est proportionnel au temps choisi par l'hôte
+function exEffet(g) {
+    const E = exEffetBase(g);
+    if (!E.choixMult) return E;
+    const base = (g && g.duree) || EX.CHOIX_DEF, d = exDuree(g);
+    return Object.assign({}, E, { d: d < base ? `Moins de temps pour choisir : ${d} s au lieu de ${base} s (−${Math.round((1 - E.choixMult) * 100)} %).` : `Moins de temps pour choisir (déjà au minimum : ${d} s).` });
+}
+function exDuree(g) { const E = exEffetBase(g); return Math.max(5, Math.round((g.duree || EX.CHOIX_DEF) * (E.choixMult || 1)) + (E.choix || 0)); }
 const EX_TRESORS = [1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17];
 const EX_DANGERS = {
     oxy:  { i: '💨', n: 'Fuite d’oxygène', c: '#38bdf8', d: 'Les réserves d’air se vident !' },
@@ -1183,7 +1190,7 @@ function exCartes(g, E, me, decR, decC) {
         exHTML(el.querySelector('.etat'), etat);
         exInventaire(el.querySelector('.equip'), g, E, p, me);
         const val = el.querySelector('.val');
-        if (aBord) { val.className = 'val'; exHTML(val, '🎒 ' + (E.sac[p] || 0)); }
+        if (aBord) { val.className = 'val'; exHTML(val, '🎒 ' + (E.silence && p !== me ? '?' : (E.sac[p] || 0))); }
         else if (p === me) { val.className = 'val c'; exHTML(val, '🔒 ' + (E.coffre[p] || 0)); }
         else { val.className = 'val x'; exHTML(val, '🔒 coffre secret'); }
         let bulle = el.querySelector('.choix'); if (bulle && !choix) bulle.remove();
