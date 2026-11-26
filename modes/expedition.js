@@ -19,7 +19,7 @@
 // =====================================================================
 
 // durées (s) ; REVELE : couloir + ouverture du sas avant de découvrir la salle ; COMPTE : compte à rebours avant de révéler les choix
-const EX = { SALLE: 5.6, REVELE: 2.1, DECISION: 6.4, COMPTE: 3, DESASTRE: 9.2, BILAN: 7, DEPART: 21.8, CHOIX_DEF: 15 };
+const EX = { SALLE: 5.6, REVELE: 2.1, DECISION: 6.4, COMPTE: 3, DESASTRE: 9.2, BILAN: 7, DEPART: 21.8, CHARGE_MAX: 240, CHOIX_DEF: 20 };
 // intro plein écran de chaque expédition : vidéo de l'épave (10 s) + règle spéciale, amarrage (10 s), couloir et sas.
 // La porte s'ouvre au moment où la salle 1 est révélée (fin de DEPART) et dévoile la salle en plein écran.
 const EX_INTRO = { EPAVE: 10, AMARRAGE: 20, FERME: 20.4, FONDU: 1.4 };
@@ -58,7 +58,7 @@ const EX_EFFETS = [
     { i: '🌑', t: 'Dans le noir', d: 'La lampe ne montre que la moitié : quantités de cristaux et risque cachés.', noir: 1 }
 ];
 function exEffet(g) { return EX_EFFETS[(g && g.epaveId) || 0] || {}; }
-function exDuree(g) { return Math.max(6, (g.duree || EX.CHOIX_DEF) + (exEffet(g).choix || 0)); }
+function exDuree(g) { return Math.max(5, (g.duree || EX.CHOIX_DEF) + (exEffet(g).choix || 0)); }
 const EX_TRESORS = [1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17];
 const EX_DANGERS = {
     oxy:  { i: '💨', n: 'Fuite d’oxygène', c: '#38bdf8', d: 'Les réserves d’air se vident !' },
@@ -120,7 +120,7 @@ function exFichier(nom, vol, delai) {
     if (!exSonActif()) return Promise.resolve();
     return new Promise((ok, ko) => setTimeout(() => {
         try {
-            const f = EX_SON[nom] || [], a = new Audio(exSonURL(nom)), v = vol == null ? .8 : vol; a.volume = v;
+            const f = EX_SON[nom] || [], a = new Audio(exURL(exSonURL(nom))), v = vol == null ? .8 : vol; a.volume = v;
             if (f[1]) a.currentTime = f[1];
             if (f[2]) setTimeout(() => { const t0 = Date.now(), fond = setInterval(() => { const k = 1 - (Date.now() - t0) / 250; if (k <= 0) { clearInterval(fond); a.pause(); } else a.volume = v * k; }, 30); }, f[2] * 1000);
             a.onerror = ko; const p = a.play(); if (p && p.catch) p.then(ok, ko); else ok();
@@ -132,7 +132,7 @@ function exAmbianceCible(cibles) {
     ['ambiance-epave', 'ambiance-vaisseau', 'tension', 'respiration'].forEach(n => {
         let a = exAudios[n];
         const v = exSonActif() ? (cibles[n] || 0) : 0;
-        if (!a && v > 0) { try { a = exAudios[n] = new Audio(exSonURL(n)); a.loop = true; a.volume = 0; a.cible = 0; } catch (e) { return; } }
+        if (!a && v > 0) { try { a = exAudios[n] = new Audio(exURL(exSonURL(n))); a.loop = true; a.volume = 0; a.cible = 0; } catch (e) { return; } }
         if (!a) return;
         a.cible = v;
         if (v > 0 && a.paused) { const p = a.play(); if (p && p.catch) p.catch(() => {}); }
@@ -183,11 +183,11 @@ window.startExpeditionGame = function () {
     const players = (window.state && state.players) || {};
     const noms = Object.values(players).filter(p => p && p.name && !p.isBot).map(p => p.name);
     if (noms.length < 2) { if (typeof showToast === 'function') showToast('⚠️ Il faut au moins 2 joueurs pour l’Expédition sur l’épave !'); return; }
-    const nb = [3, 5, 7].indexOf(parseInt(document.getElementById('setting-ex-nb')?.value, 10)) >= 0 ? parseInt(document.getElementById('setting-ex-nb').value, 10) : 5;
-    const duree = Math.max(8, Math.min(30, parseInt(document.getElementById('input-host-timer')?.value, 10) || EX.CHOIX_DEF));
+    const nb = Math.max(1, Math.min(12, parseInt(document.getElementById('setting-ex-nb')?.value, 10) || 5));
+    const duree = Math.max(5, Math.min(90, parseInt(document.getElementById('input-host-timer')?.value, 10) || EX.CHOIX_DEF));
     const coffre = {}; noms.forEach(n => coffre[n] = 0);
     const g = { v: 2, status: 'PLAYING', startedAt: Date.now(), nb: nb, duree: duree, joueurs: noms, coffre: coffre, retires: [], reliquesTirees: 0, expe: 0, stats: {}, objets: {} };
-    exPreparerExpedition(g);
+    g.phase = 'CHARGE'; g.t0 = Date.now(); g.charge = {};      // écran de chargement avant la 1re expédition
     const updates = { status: 'IN_GAME', selectedMode: 'expedition', exGame: g };
     Object.values(players).forEach(p => { if (p && p.name) updates[`players/${p.name}/score`] = 0; });
     window.mettreAJourSalonFirebase(code, updates);
@@ -213,6 +213,145 @@ function exPreparerExpedition(g) {
     g.vus = {}; g.choix = null; g.dec = null; g.desastre = null; g.gainExpe = {}; g.grappin = null; g.balise = null; g.drone = null;
     g.phase = 'DEPART'; g.t0 = Date.now();
 }
+
+// ------------------------------- Préchargement de tous les médias -------------------------------
+// Chaque joueur télécharge vidéos, sons, images et modèles 3D avant la 1re expédition. Ils sont rangés dans le
+// cache du navigateur (Cache Storage) le temps de la partie seulement : tout est effacé à la fin de la partie,
+// quand on quitte le mode ou la page (et au prochain chargement de la page si elle a été fermée brutalement).
+const EX_CACHE = 'expedition-medias-v1';
+const exPre = { cache: null, urls: {}, ordre: [], enCours: {}, etat: null, ecrit: 0, ecritPct: -1 };
+function exListeMedias() {
+    const v = EX_FICHIERS_EPAVES.map(f => 'épaves/' + f + '.mp4')
+        .concat(['amarrage', 'couloir', 'evacuation', 'retour'].map(f => 'bonus/transition-' + f + '.mp4'))
+        .concat([].concat(...Object.keys(EX_DANGERS).map(h => ['a', 'b'].map(x => 'danger/danger-' + h + '-' + x + '.mp4'))))
+        .concat(Array.from({ length: 12 }, (_, i) => 'cristaux/cristaux-' + String(i + 1).padStart(2, '0') + '.mp4'))
+        .concat(EX_CLIP_RELIQUE.map(f => 'reliques/' + f + '.mp4'))
+        .concat(EX_SALLES_OBJETS.map(o => 'equipement/equipement-' + o + '.mp4'))
+        .concat([...new Set(Object.keys(EX_SON).map(n => 'sound/' + EX_SON[n][0] + '.mp3'))])
+        .concat(['bouton-continuer', 'bouton-rentrer', 'bouton-continuer-actif', 'bouton-rentrer-actif'].map(n => 'interface/' + n + '.webp'))
+        .map(f => EX_MEDIA + f);
+    const modeles = ['astronaute', 'sac-ferme', 'sac-ouvert', 'coffre-ferme', 'coffre-ouvert', 'cristal', 'cristal-grappe', 'cristaux-geode']
+        .concat(EX_MODELE_RELIQUE, EX_SALLES_OBJETS.map(o => 'objet-' + o), Object.keys(EX_DANGERS).map(h => 'mort-' + h));
+    return v.concat(modeles.map(m => './expedition-web/modeles/' + m + '.glb'));
+}
+function exCacheOuvrir() {
+    if (!window.caches || !window.isSecureContext) return Promise.resolve(null);
+    return exPre.cache || (exPre.cache = caches.open(EX_CACHE).catch(() => null));
+}
+// fichier : depuis le cache s'il y est, sinon par le réseau (utilisé aussi par les modèles 3D)
+window.exRecup = function (url) {
+    const u = encodeURI(url);
+    return exCacheOuvrir().then(c => c ? c.match(u) : null).catch(() => null).then(r => r || fetch(u));
+};
+// adresse à donner à une vidéo / un son : fichier en mémoire (instantané) s'il a été préchargé
+function exObjURL(url) {
+    if (exPre.urls[url]) return Promise.resolve(exPre.urls[url]);
+    if (exPre.enCours[url]) return exPre.enCours[url];
+    return exPre.enCours[url] = exCacheOuvrir().then(c => c ? c.match(encodeURI(url)) : null).then(r => r ? r.blob() : null).then(b => {
+        delete exPre.enCours[url];
+        if (!b || !b.size) return encodeURI(url);
+        const o = exPre.urls[url] || URL.createObjectURL(b); exPre.urls[url] = o; exPre.ordre.push(url); exLiberer(); return o;
+    }).catch(() => { delete exPre.enCours[url]; return encodeURI(url); });
+}
+function exURL(url) { const o = exPre.urls[url]; if (o) return o; exObjURL(url); return encodeURI(url); }
+// on ne garde en mémoire que les 18 dernières vidéos (les sons, petits, restent)
+function exLiberer() {
+    const vids = exPre.ordre.filter(u => /\.mp4$/.test(u)); if (vids.length <= 18) return;
+    const utilises = new Set([...document.querySelectorAll('video')].map(v => (v.src || '').split('#')[0]));
+    for (const u of vids.slice(0, vids.length - 18)) {
+        const o = exPre.urls[u]; if (!o || utilises.has(o)) continue;
+        URL.revokeObjectURL(o); delete exPre.urls[u]; exPre.ordre.splice(exPre.ordre.indexOf(u), 1);
+    }
+}
+function exPrecharger(g) {
+    if (exPre.etat) return exPre.etat.promesse;
+    const L = exListeMedias(), st = exPre.etat = { n: L.length, faits: 0, total: 0, recu: 0, fini: false, cache: 0 };
+    const infos = L.map(u => ({ u: u, enc: encodeURI(u), taille: 0, ok: false, existe: true }));
+    const moteur = window.EX3D && window.EX3D.charger ? window.EX3D.charger().catch(() => false) : Promise.resolve();
+    st.promesse = exCacheOuvrir().then(cache => {
+        // 1) tailles + fichiers déjà à jour dans le cache
+        let i = 0;
+        const verif = it => (cache ? cache.match(it.enc).catch(() => null) : Promise.resolve(null)).then(r =>
+            fetch(it.enc, { method: 'HEAD', cache: 'no-store' }).then(h => {
+                it.existe = h.ok; it.taille = +h.headers.get('content-length') || 0;
+                const et = h.headers.get('etag'), lm = h.headers.get('last-modified');
+                if (r && h.ok) it.ok = et ? r.headers.get('etag') === et : lm ? r.headers.get('last-modified') === lm : true;
+            }).catch(() => { if (r) it.ok = true; }));
+        const file = (liste, n, fn) => { let k = 0; const suite = () => k < liste.length ? fn(liste[k++]).then(suite, suite) : Promise.resolve(); return Promise.all(Array.from({ length: n }, suite)); };
+        return file(infos, 8, verif).then(() => {
+            st.total = infos.reduce((s, it) => s + it.taille, 0);
+            infos.filter(it => it.ok || !it.existe).forEach(it => { st.faits++; if (it.ok) { st.recu += it.taille; st.cache++; } });
+            // 2) téléchargement des autres, 3 à la fois, avec la progression en octets
+            const telecharger = it => fetch(it.enc, { cache: 'no-store' }).then(r => {
+                if (!r.ok) throw new Error(it.u);
+                const fin = b => cache ? cache.put(it.enc, new Response(b, { headers: { 'content-type': r.headers.get('content-type') || '', 'etag': r.headers.get('etag') || '', 'last-modified': r.headers.get('last-modified') || '', 'content-length': String(b.size) } })).catch(() => {}) : null;
+                if (!r.body || !r.body.getReader) return r.blob().then(b => { st.recu += b.size; return fin(b); });
+                const rd = r.body.getReader(), morceaux = [];
+                const pompe = () => rd.read().then(x => { if (x.done) return fin(new Blob(morceaux, { type: r.headers.get('content-type') || '' })); morceaux.push(x.value); st.recu += x.value.length; return pompe(); });
+                return pompe();
+            }).catch(() => {}).then(() => { st.faits++; });
+            return file(infos.filter(it => !it.ok && it.existe), 3, telecharger);
+        });
+    }).then(() => moteur).catch(() => {}).then(() => { st.fini = true; });
+    return st.promesse;
+}
+function exViderCache() {
+    Object.values(exPre.urls).forEach(o => { try { URL.revokeObjectURL(o); } catch (e) {} });
+    exPre.urls = {}; exPre.ordre = []; exPre.enCours = {}; exPre.etat = null; exPre.cache = null; exPre.ecritPct = -1;
+    if (window.caches) caches.delete(EX_CACHE).catch(() => {});
+}
+// page fermée : on tente d'effacer ; restes d'une page fermée brutalement : effacés au chargement si aucune expédition n'est en cours
+window.addEventListener('pagehide', () => { if (window.caches) caches.delete(EX_CACHE).catch(() => {}); });
+setTimeout(() => { const d = window.currentRoom; if (!exPre.etat && !(d && d.status === 'IN_GAME' && d.selectedMode === 'expedition') && window.caches) caches.delete(EX_CACHE).catch(() => {}); }, 8000);
+function exPct() { const st = exPre.etat; if (!st) return 0; if (st.fini) return 100; return Math.min(99, Math.floor(st.total ? 100 * Math.min(st.recu, st.total) / st.total : 100 * st.faits / Math.max(1, st.n))); }
+// écran de chargement : une barre par joueur, avatar au-dessus
+function exEcranCharge(data, g) {
+    exStyle();
+    const me = exMe(), pct = exPct(), st = exPre.etat || {};
+    // j'envoie ma progression (au plus 2 fois par seconde)
+    if (exArr(g.joueurs).indexOf(me) >= 0 && ((g.charge || {})[me] || 0) < 100 && pct !== exPre.ecritPct && (pct === 100 || Date.now() - exPre.ecrit > 500)) {
+        exPre.ecrit = Date.now(); exPre.ecritPct = pct; exEcrire({ ['exGame/charge/' + me]: pct });
+    }
+    const zone = document.getElementById('generic-game-content'); if (!zone) return;
+    if (!document.getElementById('ex-charge')) {
+        if (typeof showScreen === 'function') showScreen('screen-generic-game');
+        const ecran = document.getElementById('screen-generic-game'); if (ecran) ecran.classList.add('ex-large');
+        exArreter0();
+        zone.innerHTML = `<div id="ex-charge"><div class="titre">🛰️ PRÉPARATION DE L’EXPÉDITION</div>
+            <div class="sous">Chaque explorateur charge les vidéos, les sons et les modèles 3D pour une partie sans écran noir.<br>Les fichiers sont effacés de votre appareil à la fin de la partie.</div>
+            <div class="joueurs" id="ex-ch-j"></div><div class="detail" id="ex-ch-d"></div><div id="ex-ch-b"></div></div>`;
+    }
+    const presents = new Set(exHumains(data).map(p => p.name)), ch = g.charge || {};
+    const noms = exArr(g.joueurs);
+    const zj = document.getElementById('ex-ch-j');
+    if (zj && zj._noms !== noms.join('|')) {      // cartes construites une fois (l'avatar ne clignote pas)
+        zj._noms = noms.join('|');
+        zj.innerHTML = noms.map(n => `<div class="j" data-n="${exEsc(n)}">${exPastille(n, 64)}<b>${exEsc(n)}</b><div class="barre"><i style="width:2%;background:${exCouleur(n)}"></i></div><span class="pct">0 %</span></div>`).join('');
+    }
+    if (zj) zj.querySelectorAll('.j').forEach(el => {
+        const n = el.getAttribute('data-n'), p = n === me ? pct : (ch[n] || 0), fini = p >= 100, absent = !presents.has(n);
+        el.classList.toggle('fini', fini); el.classList.toggle('absent', absent);
+        const i = el.querySelector('i'); i.style.width = Math.max(2, p) + '%'; i.style.background = fini ? '#34d399' : exCouleur(n);
+        const t = absent ? 'déconnecté' : fini ? '✅ prêt' : p + ' %', sp = el.querySelector('.pct'); if (sp.textContent !== t) sp.textContent = t;
+    });
+    const mo = x => Math.round(x / 1048576);
+    exHTML(document.getElementById('ex-ch-d'), st.fini ? '✅ Tous vos fichiers sont prêts.' : st.total ? `Vos fichiers : ${st.faits} / ${st.n} · ${mo(st.recu)} / ${mo(st.total)} Mo` : 'Vérification des fichiers…');
+    const attente = noms.filter(n => presents.has(n) && (n === me ? pct : (ch[n] || 0)) < 100);
+    exHTML(document.getElementById('ex-ch-b'), (attente.length ? `<div class="att">⏳ En attente de ${attente.map(exEsc).join(', ')}</div>` : '<div class="att">🚀 Départ…</div>')
+        + (window.isHost && attente.length && exEcoule(g) > 10 ? '<button class="ex-sans" onclick="exLancerSansAttendre()">Lancer sans attendre ⏭</button>' : ''));
+}
+function exHoteCharge(data, g) {
+    if (exH.lock === 'charge:' + g.startedAt) return;
+    const presents = new Set(exHumains(data).map(p => p.name)), ch = g.charge || {};
+    const prets = exArr(g.joueurs).filter(n => presents.has(n)).every(n => (ch[n] || 0) >= 100);
+    if ((prets && exEcoule(g) > 1.2) || exEcoule(g) > EX.CHARGE_MAX) exFinCharge(g);
+}
+function exFinCharge(g) {
+    exH.lock = 'charge:' + g.startedAt;
+    const n = exCopie(g); delete n.charge; exPreparerExpedition(n);
+    exEcrire({ exGame: exNettoyer(n) });
+}
+window.exLancerSansAttendre = function () { const g = window.currentRoom && window.currentRoom.exGame; if (window.isHost && g && g.phase === 'CHARGE') exFinCharge(g); };
 
 // ------------------------------- Hôte : enchaînement -------------------------------
 function exHote() {
@@ -580,6 +719,21 @@ function exStyle() {
     .ex-tuile.actif{border-color:#22d3ee;cursor:pointer;animation:exObj 1.3s infinite}
     .ex-tuile.arme{border-color:#f43f5e;background:#4c0519;box-shadow:0 0 12px #f43f5e;cursor:pointer}
     .ex-tuile[aria-disabled]{cursor:help}
+    #ex-charge{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px 16px;border-radius:22px;text-align:center;color:#e2e8f0;
+        background:radial-gradient(circle at 50% 20%,#0e2540 0%,#050a16 70%);border:1px solid #1e3a5f}
+    #ex-charge .titre{font:900 clamp(20px,3vw,32px) ui-monospace,monospace;letter-spacing:.2em;color:#67e8f9;text-shadow:0 0 24px rgba(103,232,249,.5)}
+    #ex-charge .sous{max-width:620px;color:#94a3b8;font-size:14px;line-height:1.5}
+    #ex-charge .joueurs{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin:10px 0;max-width:1000px}
+    #ex-charge .j{width:150px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 10px;border-radius:16px;background:rgba(15,23,42,.8);border:1px solid #1e293b;transition:border-color .3s,box-shadow .3s}
+    #ex-charge .j.fini{border-color:#34d399;box-shadow:0 0 18px rgba(52,211,153,.3)}
+    #ex-charge .j.absent{opacity:.45}
+    #ex-charge .j b{font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #ex-charge .j .pct{font:800 12px ui-monospace,monospace;color:#cbd5e1}
+    #ex-charge .barre{width:100%;height:10px;border-radius:99px;background:#0b1222;border:1px solid #334155;overflow:hidden}
+    #ex-charge .barre i{display:block;height:100%;border-radius:99px;transition:width .4s ease}
+    #ex-charge .detail{font:700 12px ui-monospace,monospace;color:#7dd3fc}
+    #ex-charge .att{color:#fde68a;font-size:14px}
+    #ex-charge .ex-sans{margin-top:10px;padding:9px 16px;border-radius:10px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);color:#fde68a;font-weight:700;cursor:pointer}
     #ex-cine{position:fixed;inset:0;z-index:10020;background:#000;overflow:hidden;transition:opacity .6s ease}
     #ex-cine.fondu,#ex-cine.fin{opacity:0;pointer-events:none}
     #ex-cine video{position:absolute;inset:0;width:100%;height:100%}
@@ -686,6 +840,8 @@ window.renderExpeditionScreen = function (data) {
     const g = data && data.exGame; if (!g) return;
     exStyle();
     if (g.status === 'FINISHED') { exFin(data, g); return; }
+    exPrecharger(g);      // continue en arrière-plan si la partie a démarré sans attendre
+    if (g.phase === 'CHARGE') { try { exEcranCharge(data, g); } catch (e) { console.error('Expédition (chargement) :', e); } if (!exC.ticker) exC.ticker = setInterval(exBoucle, 120); return; }
     try {
         if (exC.sess !== g.startedAt || !document.getElementById('ex-root')) exConstruire(g);
         exMaj(data, g);
@@ -796,7 +952,7 @@ function exModeleSalle(s) {
 function exCouleurSalle(s) { return !s ? '#67e8f9' : s.k === 'h' ? (s.eteint ? '#94a3b8' : (EX_DANGERS[s.h] || {}).c) : s.k === 'a' ? '#fbbf24' : s.k === 'o' ? '#a78bfa' : '#67e8f9'; }
 function exPhoto(g, s) { return exClipSalle(g, s, false) ? ` photo"${s.k === 'h' ? ' style="--c:' + (EX_DANGERS[s.h] || {}).c + '"' : ''}` : ''; }
 // vignette : une image tirée de la vidéo de la salle (pas de fichier en plus)
-function exVignette(g, s) { const c = exClipSalle(g, s, false); return c ? `<video class="vign" muted playsinline preload="metadata" src="${encodeURI(EX_MEDIA + c + '.mp4')}#t=4"></video>` : ''; }
+function exVignette(g, s) { const c = exClipSalle(g, s, false); return c ? `<video class="vign" muted playsinline preload="metadata" src="${exURL(EX_MEDIA + c + '.mp4')}#t=4"></video>` : ''; }
 function exSalleHTML(s, neuve, g, noir) { return exSalleHTML0(s, neuve, g, noir).replace(/^(<div[^>]*>)/, '$1' + exVignette(g, s)); }
 function exSalleHTML0(s, neuve, g, noir) {
     const cl = (k) => `ex-salle ${k}${neuve ? ' neuve' : ''}${exPhoto(g, s)}`;
@@ -1094,10 +1250,13 @@ function exVue(clip, large) {
     if (!v || !clip || exC.vue === clip) return; exC.vue = clip;
     if (sc) sc.classList.toggle('large', !!large);
     // vidéos d'origine en pleine qualité ; les salles (8-10 s) bouclent, les plans uniques non
-    const src = encodeURI(EX_MEDIA + clip + '.mp4'), boucle = /^(cristaux|reliques|equipement)\/|danger-.*-a$|transition-couloir$/.test(clip);
-    v.src = src; v.loop = boucle; v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => {});
-    // fond flou seulement pour les vidéos horizontales (épaves, transitions)
-    if (f) { if (large) { f.src = src; f.loop = boucle; const q = f.play(); if (q && q.catch) q.catch(() => {}); } else { f.removeAttribute('src'); f.load(); } }
+    const boucle = /^(cristaux|reliques|equipement)\/|danger-.*-a$|transition-couloir$/.test(clip);
+    exObjURL(EX_MEDIA + clip + '.mp4').then(src => {      // fichier préchargé (cache) si possible
+        if (exC.vue !== clip) return;
+        v.src = src; v.loop = boucle; v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => {});
+        // fond flou seulement pour les vidéos horizontales (épaves, transitions)
+        if (f) { if (large) { f.src = src; f.loop = boucle; const q = f.play(); if (q && q.catch) q.catch(() => {}); } else { f.removeAttribute('src'); f.load(); } }
+    });
 }
 function exVueSelonTemps(g, E) {
     const chemin = exArr(g.chemin), t = E.t, der = chemin[chemin.length - 1];
@@ -1132,11 +1291,14 @@ function exCinema(g, E) {
     const cle = g.expe + ':' + seg;
     if (exC.cineCle !== cle) {
         exC.cineCle = cle;
-        const src = encodeURI(EX_MEDIA + clip + '.mp4'), boucle = seg === 'couloir' || seg === 'salle', decal = Math.max(0, T - debut);
-        ov.querySelectorAll('video').forEach(v => {
-            v.src = src; v.loop = boucle;
-            const go = () => { try { if (decal > .4 && v.duration && decal < v.duration) v.currentTime = decal; } catch (e) {} const p = v.play(); if (p && p.catch) p.catch(() => {}); };
-            if (v.readyState >= 1) go(); else v.addEventListener('loadedmetadata', go, { once: true });
+        const boucle = seg === 'couloir' || seg === 'salle', t1 = Date.now();
+        exObjURL(EX_MEDIA + clip + '.mp4').then(src => { if (exC.cineCle !== cle) return;
+            const decal = Math.max(0, T - debut + (Date.now() - t1) / 1000);
+            ov.querySelectorAll('video').forEach(v => {
+                v.src = src; v.loop = boucle;
+                const go = () => { try { if (decal > .4 && v.duration && decal < v.duration) v.currentTime = decal; } catch (e) {} const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+                if (v.readyState >= 1) go(); else v.addEventListener('loadedmetadata', go, { once: true });
+            });
         });
         const Ef = exEffet(g), txt = ov.querySelector('.txt');
         if (seg === 'epave') txt.innerHTML = `<div class="haut">EXPÉDITION ${g.expe}/${g.nb}</div><div class="nom">${exEsc(g.epave)}</div>
@@ -1271,6 +1433,8 @@ function exSonde(g, t) {
 function exBoucle0() {
     const data = window.currentRoom, g = data && data.exGame;
     if (!g || data.status !== 'IN_GAME' || data.selectedMode !== 'expedition') { exArreter(); return; }
+    if (g.status === 'PLAYING' && g.phase === 'CHARGE') { if (window.isHost) exHoteCharge(data, g); exEcranCharge(data, g); return; }
+    if (g.status === 'PLAYING' && !document.getElementById('ex-root')) { window.renderExpeditionScreen(data); return; }
     if (g.status !== 'PLAYING' || !document.getElementById('ex-root')) return;
     if (window.isHost) exHote();
     exAjuster();
@@ -1286,7 +1450,9 @@ function exBoucle0() {
     const ch = document.getElementById('ex-chrono'); if (ch) { const txt = g.phase === 'CHOIX' ? reste + 's' : ''; if (ch.textContent !== txt) ch.textContent = txt; }
     if (g.phase === 'CHOIX' && (g.dedans || {})[exMe()] && !(g.choix || {})[exMe()] && reste <= 5 && reste > 0 && exC.tic !== reste) { exC.tic = reste; exSon('tic'); }
 }
+function exArreter0() { exAmbianceStop(); exDetruire3D(); exC.vue = ''; const ci = document.getElementById('ex-cine'); if (ci) ci.remove(); exC.cineCle = ''; }
 function exArreter() {
+    exViderCache();      // fin de partie ou départ du mode : plus aucun fichier gardé sur l'appareil
     if (exC.ticker) { clearInterval(exC.ticker); exC.ticker = null; }
     exAmbianceStop(); exDetruire3D(); exC.vue = ''; const ci = document.getElementById('ex-cine'); if (ci) ci.remove(); exC.cineCle = '';
     const ecran = document.getElementById('screen-generic-game'); if (ecran) ecran.classList.remove('ex-large');
